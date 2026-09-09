@@ -320,81 +320,35 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               </div>
             </div>
 
-            <!-- Medication Rhythm & Care Team -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <!-- Left 2 Cols: Today's Medication Schedule -->
-              <div class="lg:col-span-2 card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h3 class="text-xl font-extrabold text-[#032109]">Medication Schedule & Vitals</h3>
-                    <p class="text-xs sm:text-sm text-[#40493d]">Real-time synchronization with smart pillbox and elder tablet</p>
-                  </div>
-                  <button class="text-xs font-bold text-[#0d631b] hover:underline flex items-center gap-1 cursor-pointer" id="caregiver-manage-meds-btn">
-                    <span class="material-symbols-outlined text-base">edit</span> Open Schedule
-                  </button>
+            <!-- Medication Schedule & Vitals -->
+            <div class="w-full card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-xl font-extrabold text-[#032109]">Medication Schedule & Vitals</h3>
+                  <p class="text-xs sm:text-sm text-[#40493d]">Real-time synchronization with smart pillbox and elder tablet</p>
                 </div>
-
-                <div class="space-y-3 pt-2">
-                  ${medicines.map(med => `
-                    <div class="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex items-center justify-between gap-3">
-                      <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-[#ffdad6] text-[#93000a]'} flex items-center justify-center font-bold">
-                          <span class="material-symbols-outlined">${med.taken ? 'check' : 'medication'}</span>
-                        </div>
-                        <div>
-                          <p class="text-sm sm:text-base font-bold text-[#032109]">${med.title}</p>
-                          <p class="text-xs text-[#40493d]">${med.detail} • ${med.scheduledTime}</p>
-                        </div>
-                      </div>
-                      <span class="px-3 py-1 rounded-full text-xs font-bold ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'}">
-                        ${med.taken ? 'Completed (' + (med.takenAt || 'Taken') + ')' : 'Pending Due'}
-                      </span>
-                    </div>
-                  `).join('')}
-                </div>
+                <button class="text-xs font-bold text-[#0d631b] hover:underline flex items-center gap-1 cursor-pointer" id="caregiver-manage-meds-btn">
+                  <span class="material-symbols-outlined text-base">edit</span> Open Schedule
+                </button>
               </div>
 
-              <!-- Right Col: Guwahati Care Team & Emergency Dispatch -->
-              <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4 flex flex-col justify-between">
-                <div>
-                  <h3 class="text-xl font-extrabold text-[#032109]">${patient.city || 'Local'} Care Team</h3>
-                  <p class="text-xs sm:text-sm text-[#40493d] mb-4">Direct hotlines on standby</p>
-
-                  <div class="space-y-3">
-                    ${contacts.slice(0, 2).map(c => `
-                      <div class="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
-                        <div>
-                          <p class="text-sm font-bold text-[#032109]">${c.name} ${c.relation ? `(${c.relation})` : ''}</p>
-                          <p class="text-xs text-[#40493d]">${c.phone || c.location || 'Direct Line'}</p>
-                        </div>
-                        <a href="tel:${c.phone || '108'}" class="p-2 bg-white text-[#0d631b] rounded-full shadow-sm hover:bg-[#ebffe7]">
-                          <span class="material-symbols-outlined text-lg">call</span>
-                        </a>
+              <div class="space-y-3 pt-2">
+                ${medicines.map(med => `
+                  <div class="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-xl ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-[#ffdad6] text-[#93000a]'} flex items-center justify-center font-bold">
+                        <span class="material-symbols-outlined">${med.taken ? 'check' : 'medication'}</span>
                       </div>
-                    `).join('')}
-
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-200">
                       <div>
-                        <p class="text-sm font-bold text-red-900">${patient.city || 'Local'} 108 Ambulance</p>
-                        <p class="text-xs text-red-700">Emergency Medical Service</p>
+                        <p class="text-sm sm:text-base font-bold text-[#032109]">${med.title}</p>
+                        <p class="text-xs text-[#40493d]">${med.detail} • ${med.scheduledTime}</p>
                       </div>
-                      <a href="tel:108" class="p-2 bg-red-600 text-white rounded-full shadow-sm hover:bg-red-700">
-                        <span class="material-symbols-outlined text-lg">emergency</span>
-                      </a>
                     </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'}">
+                      ${med.taken ? 'Completed (' + (med.takenAt || 'Taken') + ')' : 'Pending Due'}
+                    </span>
                   </div>
-                </div>
-
-                <div class="pt-4 border-t border-[#cdf2cb]">
-                  <button 
-                    class="btn-tactile btn-primary w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer" 
-                    id="caregiver-contacts-page-btn" 
-                    type="button"
-                  >
-                    <span class="material-symbols-outlined text-lg">family_restroom</span>
-                    <span>View All Loved Ones & Contacts</span>
-                  </button>
-                </div>
+                `).join('')}
               </div>
             </div>
           ` : ''}

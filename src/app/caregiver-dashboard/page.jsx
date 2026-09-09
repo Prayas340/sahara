@@ -1088,120 +1088,59 @@ export default function CaregiverDashboardPage() {
                 </div>
               </div>
 
-              {/* Medication Schedule & Care Team */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-extrabold text-[#032109]">{t.medScheduleTitle || 'Medication Schedule & Vitals'}</h3>
-                      <p className="text-xs sm:text-sm text-[#40493d]">
-                        {t.medScheduleSubtitle || 'Real-time synchronization with smart pillbox and elder tablet'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleSelectTab('routine')}
-                      className="text-xs font-bold text-[#0d631b] hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-base">edit</span> {t.openSchedule || 'Open Schedule'}
-                    </button>
+              {/* Medication Schedule & Vitals */}
+              <div className="w-full card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-extrabold text-[#032109]">{t.medScheduleTitle || 'Medication Schedule & Vitals'}</h3>
+                    <p className="text-xs sm:text-sm text-[#40493d]">
+                      {t.medScheduleSubtitle || 'Real-time synchronization with smart pillbox and elder tablet'}
+                    </p>
                   </div>
-
-                  <div className="space-y-3 pt-2">
-                    {medicines.length === 0 ? (
-                      <div className="p-6 text-center rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] text-sm text-[#40493d]">
-                        No scheduled routines found for today.
-                      </div>
-                    ) : (
-                      medicines.map((med, idx) => (
-                        <div
-                          key={med.id || idx}
-                          className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex items-center justify-between gap-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-10 h-10 rounded-xl ${
-                                med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-[#ffdad6] text-[#93000a]'
-                              } flex items-center justify-center font-bold`}
-                            >
-                              <span className="material-symbols-outlined">{med.taken ? 'check' : 'medication'}</span>
-                            </div>
-                            <div>
-                              <p className="text-sm sm:text-base font-bold text-[#032109]">{med.title || med.name}</p>
-                              <p className="text-xs text-[#40493d]">
-                                {med.detail || 'Daily routine'} • {med.scheduledTime}
-                              </p>
-                            </div>
-                          </div>
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'
-                            }`}
-                          >
-                            {med.taken ? 'Completed (' + (med.takenAt || 'Taken') + ')' : 'Pending Due'}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                  <button
+                    onClick={() => handleSelectTab('routine')}
+                    className="text-xs font-bold text-[#0d631b] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-base">edit</span> {t.openSchedule || 'Open Schedule'}
+                  </button>
                 </div>
 
-                <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-xl font-extrabold text-[#032109]">{patient?.city || 'Kolkata'} Care Team</h3>
-                    <p className="text-xs sm:text-sm text-[#40493d] mb-4">Direct hotlines on standby</p>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
-                        <div>
-                          <p className="text-sm font-bold text-[#032109]">Dr. B. Das</p>
-                          <p className="text-xs text-[#40493d]">Family Physician · Primary Clinic</p>
-                        </div>
-                        <a
-                          href="tel:+919864099887"
-                          className="p-2 bg-white text-[#0d631b] rounded-full shadow-sm hover:bg-[#ebffe7]"
-                        >
-                          <span className="material-symbols-outlined text-lg">call</span>
-                        </a>
-                      </div>
-
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
-                        <div>
-                          <p className="text-sm font-bold text-[#032109]">Anil Borah (Family)</p>
-                          <p className="text-xs text-[#40493d]">Emergency Contact · +91 98640 54321</p>
-                        </div>
-                        <a
-                          href="tel:+919864054321"
-                          className="p-2 bg-white text-[#0d631b] rounded-full shadow-sm hover:bg-[#ebffe7]"
-                        >
-                          <span className="material-symbols-outlined text-lg">call</span>
-                        </a>
-                      </div>
-
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-200">
-                        <div>
-                          <p className="text-sm font-bold text-red-900">{patient?.city || 'Local'} 108 Ambulance</p>
-                          <p className="text-xs text-red-700">Emergency Medical Service</p>
-                        </div>
-                        <a
-                          href="tel:108"
-                          className="p-2 bg-red-600 text-white rounded-full shadow-sm hover:bg-red-700"
-                        >
-                          <span className="material-symbols-outlined text-lg">emergency</span>
-                        </a>
-                      </div>
+                <div className="space-y-3 pt-2">
+                  {medicines.length === 0 ? (
+                    <div className="p-6 text-center rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] text-sm text-[#40493d]">
+                      No scheduled routines found for today.
                     </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-[#cdf2cb]">
-                    <button
-                      onClick={() => handleSelectTab('contacts')}
-                      type="button"
-                      className="btn-tactile btn-primary w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-lg">family_restroom</span>
-                      <span>{t.openContactsButton || 'View All Loved Ones & Contacts'}</span>
-                    </button>
-                  </div>
+                  ) : (
+                    medicines.map((med, idx) => (
+                      <div
+                        key={med.id || idx}
+                        className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-10 h-10 rounded-xl ${
+                              med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-[#ffdad6] text-[#93000a]'
+                            } flex items-center justify-center font-bold`}
+                          >
+                            <span className="material-symbols-outlined">{med.taken ? 'check' : 'medication'}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm sm:text-base font-bold text-[#032109]">{med.title || med.name}</p>
+                            <p className="text-xs text-[#40493d]">
+                              {med.detail || 'Daily routine'} • {med.scheduledTime}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'
+                          }`}
+                        >
+                          {med.taken ? 'Completed (' + (med.takenAt || 'Taken') + ')' : 'Pending Due'}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
