@@ -524,7 +524,7 @@ export default function CaregiverDashboardPage() {
                       <div className="flex items-center gap-3 text-[#40493d] text-xs font-semibold flex-wrap">
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-[#0d631b] text-base">wifi_tethering</span>
-                          {t.deviceConnected || 'Device Connected'} ({patient?.tabletBattery || 94}%)
+                          {t.deviceConnected || 'Device Connected'}
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
