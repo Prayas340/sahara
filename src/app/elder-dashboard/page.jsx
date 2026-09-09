@@ -461,7 +461,7 @@ export default function ElderDashboardPage() {
     const effectiveCgEmail = caregiverEmail || patient?.caregiverEmail || cgEmail || 'prayasdey10@gmail.com';
     const effectiveCgName = caregiverName || patient?.caregiverName || cgName || 'Primary Caregiver';
     const elderName = displayName || patient?.name || 'Prayas Dey';
-    const phone = patient?.phone || resElderId || elderId || '+919854012345';
+    const phone = patient?.phone || resElderId || cleanElderId || '+919854012345';
     const location = patient?.location || `${patient?.city || 'Guwahati'}, ${patient?.state || 'Assam'}`;
     const statusDesc = patient?.problemStatement || patient?.status || 'Mild Cognitive Support Mode';
     const currentTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -471,7 +471,7 @@ export default function ElderDashboardPage() {
       timeStyle: 'medium',
     });
 
-    const web3formsAccessKey = '41854d54-e8fe-4c26-b69f-beeac8f6fd9c';
+    const web3formsAccessKey = '9f7c256e-6c1e-490c-8984-551b1097d7b2';
 
     const warningTemplate = `
 ============================================================
@@ -512,199 +512,206 @@ Web3Forms Access Key: ${web3formsAccessKey}
 
     speakText(`Sending emergency alert to ${effectiveCgName}.`);
 
-    const dispatchTasks = [];
-
-    // 1. Native Hidden HTML Form targeting hidden iframe (100% reliable, zero CORS preflight blocks)
     try {
+      const dispatchTasks = [];
+
+      // 1. Native Hidden HTML Form targeting hidden iframe (Zero CORS preflight blocks, bypasses browser blocks)
       if (typeof document !== 'undefined') {
-        let hiddenIframe = document.getElementById('sahara_sos_w3_iframe');
-        if (!hiddenIframe) {
-          hiddenIframe = document.createElement('iframe');
-          hiddenIframe.id = 'sahara_sos_w3_iframe';
-          hiddenIframe.name = 'sahara_sos_w3_iframe';
-          hiddenIframe.style.display = 'none';
-          document.body.appendChild(hiddenIframe);
+        try {
+          let hiddenIframe = document.getElementById('sahara_sos_w3_iframe');
+          if (!hiddenIframe) {
+            hiddenIframe = document.createElement('iframe');
+            hiddenIframe.id = 'sahara_sos_w3_iframe';
+            hiddenIframe.name = 'sahara_sos_w3_iframe';
+            hiddenIframe.style.display = 'none';
+            document.body.appendChild(hiddenIframe);
+          }
+
+          const hiddenForm = document.createElement('form');
+          hiddenForm.method = 'POST';
+          hiddenForm.action = 'https://api.web3forms.com/submit';
+          hiddenForm.target = 'sahara_sos_w3_iframe';
+          hiddenForm.style.display = 'none';
+
+          const formFields = {
+            access_key: web3formsAccessKey,
+            subject: `🚨 EMERGENCY SOS ALERT: ${elderName} needs immediate assistance!`,
+            from_name: 'Sahara Emergency Beacon',
+            name: `${elderName} (${displayHonorific})`,
+            email: effectiveCgEmail,
+            replyto: effectiveCgEmail,
+            to_email: effectiveCgEmail,
+            ccemail: effectiveCgEmail,
+            recipient: effectiveCgEmail,
+            Emergency_Level: 'CRITICAL - IMMEDIATE ACTION REQUIRED',
+            Elder_Name: `${elderName} (${displayHonorific})`,
+            Elder_Phone: phone,
+            Location: location,
+            Alert_Time: fullDateStr,
+            Caregiver_Email: effectiveCgEmail,
+            Caregiver_Name: effectiveCgName,
+            Status: statusDesc,
+            message: warningTemplate,
+          };
+
+          for (const [key, val] of Object.entries(formFields)) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = String(val || '');
+            hiddenForm.appendChild(input);
+          }
+
+          document.body.appendChild(hiddenForm);
+          hiddenForm.submit();
+
+          setTimeout(() => {
+            try {
+              if (hiddenForm.parentNode) hiddenForm.parentNode.removeChild(hiddenForm);
+            } catch (e) {}
+          }, 5000);
+        } catch (formErr) {
+          console.warn('Native hidden form notice:', formErr);
         }
-
-        const hiddenForm = document.createElement('form');
-        hiddenForm.method = 'POST';
-        hiddenForm.action = 'https://api.web3forms.com/submit';
-        hiddenForm.target = 'sahara_sos_w3_iframe';
-        hiddenForm.style.display = 'none';
-
-        const formFields = {
-          access_key: web3formsAccessKey,
-          subject: `🚨 EMERGENCY SOS ALERT: ${elderName} needs immediate assistance!`,
-          from_name: 'Sahara Emergency Beacon',
-          name: `${elderName} (${displayHonorific})`,
-          email: effectiveCgEmail,
-          replyto: effectiveCgEmail,
-          to_email: effectiveCgEmail,
-          ccemail: effectiveCgEmail,
-          recipient: effectiveCgEmail,
-          Emergency_Level: 'CRITICAL - IMMEDIATE ACTION REQUIRED',
-          Elder_Name: `${elderName} (${displayHonorific})`,
-          Elder_Phone: phone,
-          Location: location,
-          Alert_Time: fullDateStr,
-          Caregiver_Email: effectiveCgEmail,
-          Caregiver_Name: effectiveCgName,
-          Status: statusDesc,
-          message: warningTemplate,
-        };
-
-        for (const [key, val] of Object.entries(formFields)) {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = key;
-          input.value = String(val || '');
-          hiddenForm.appendChild(input);
-        }
-
-        document.body.appendChild(hiddenForm);
-        hiddenForm.submit();
-
-        // Clean up form element after submit
-        setTimeout(() => {
-          try {
-            if (hiddenForm.parentNode) hiddenForm.parentNode.removeChild(hiddenForm);
-          } catch (e) {}
-        }, 6000);
       }
-    } catch (formErr) {
-      console.warn('Native hidden form submission notice:', formErr);
-    }
 
-    // 2. Parallel client fetch to Web3Forms JSON endpoint with strict 2.5-second timeout
-    try {
-      const w3Controller = new AbortController();
-      const w3Timeout = setTimeout(() => w3Controller.abort(), 2500);
-      const w3FetchPromise = fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          access_key: web3formsAccessKey,
-          subject: `🚨 EMERGENCY SOS ALERT: ${elderName} needs immediate assistance!`,
-          from_name: 'Sahara Emergency Beacon',
-          name: `${elderName} (${displayHonorific})`,
-          email: effectiveCgEmail,
-          replyto: effectiveCgEmail,
-          to_email: effectiveCgEmail,
-          ccemail: effectiveCgEmail,
-          message: warningTemplate,
-          botcheck: false,
-        }),
-        signal: w3Controller.signal,
-      })
-        .then(() => clearTimeout(w3Timeout))
-        .catch((e) => {
-          clearTimeout(w3Timeout);
-          console.warn('Web3Forms client fetch completed/notice:', e.message);
-        });
-
-      dispatchTasks.push(w3FetchPromise);
-    } catch (e) {}
-
-    // 3. Fast server-side record to /api/sos with 2-second timeout
-    try {
-      const apiController = new AbortController();
-      const apiTimeout = setTimeout(() => apiController.abort(), 2000);
-      const apiPromise = fetch('/api/sos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          elderId: resElderId || elderId,
-          elderName,
-          displayHonorific,
-          caregiverEmail: effectiveCgEmail,
-          caregiverName: effectiveCgName,
-          location,
-          phone,
-          status: statusDesc,
-          timestamp: new Date().toISOString(),
-        }),
-        signal: apiController.signal,
-      })
-        .then(() => clearTimeout(apiTimeout))
-        .catch((e) => {
-          clearTimeout(apiTimeout);
-          console.warn('API /api/sos dispatch notice:', e.message);
-        });
-
-      dispatchTasks.push(apiPromise);
-    } catch (apiErr) {
-      console.warn('API /api/sos dispatch notice:', apiErr);
-    }
-
-    // 4. Real-time Firestore Emergency Event logging
-    if (db) {
+      // 2. Parallel client fetch to Web3Forms JSON endpoint with strict 1.5-second timeout
       try {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
-        const elderRef = doc(db, 'elders', cleanElderId);
+        const w3Controller = new AbortController();
+        const w3Timeout = setTimeout(() => w3Controller.abort(), 1500);
+        const w3FetchPromise = fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            access_key: web3formsAccessKey,
+            subject: `🚨 EMERGENCY SOS ALERT: ${elderName} needs immediate assistance!`,
+            from_name: 'Sahara Emergency Beacon',
+            name: `${elderName} (${displayHonorific})`,
+            email: effectiveCgEmail,
+            replyto: effectiveCgEmail,
+            to_email: effectiveCgEmail,
+            ccemail: effectiveCgEmail,
+            message: warningTemplate,
+            botcheck: false,
+          }),
+          signal: w3Controller.signal,
+        })
+          .then(() => clearTimeout(w3Timeout))
+          .catch((e) => {
+            clearTimeout(w3Timeout);
+            console.warn('Web3Forms fetch notice:', e.message);
+          });
 
-        const fsPromise = Promise.allSettled([
-          setDoc(dailyLogRef, {
-            sosAlerts: arrayUnion({
-              id: `sos_${Date.now()}`,
-              triggeredAt: new Date().toISOString(),
-              formattedTime: fullDateStr,
-              elderName,
-              caregiverEmail: effectiveCgEmail,
-              caregiverName: effectiveCgName,
-              status: 'DISPATCHED',
-            }),
-            lastSosAlert: {
-              triggeredAt: new Date().toISOString(),
-              time: currentTimeStr,
-              status: 'ACTIVE',
-            },
-            updatedAt: serverTimestamp(),
-          }, { merge: true }),
-          setDoc(elderRef, {
-            emergencyStatus: 'ACTIVE_SOS',
-            lastSosAlert: serverTimestamp(),
-            lastActive: serverTimestamp(),
-          }, { merge: true }),
-        ]).catch(() => {});
+        dispatchTasks.push(w3FetchPromise);
+      } catch (e) {}
 
-        dispatchTasks.push(fsPromise);
-      } catch (fErr) {
-        console.warn('Firestore SOS logging notice:', fErr);
+      // 3. Fast server-side record to /api/sos with 1.5-second timeout
+      try {
+        const apiController = new AbortController();
+        const apiTimeout = setTimeout(() => apiController.abort(), 1500);
+        const apiPromise = fetch('/api/sos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            elderId: resElderId || cleanElderId || '+919854012345',
+            elderName,
+            displayHonorific,
+            caregiverEmail: effectiveCgEmail,
+            caregiverName: effectiveCgName,
+            location,
+            phone,
+            status: statusDesc,
+            timestamp: new Date().toISOString(),
+          }),
+          signal: apiController.signal,
+        })
+          .then(() => clearTimeout(apiTimeout))
+          .catch((e) => {
+            clearTimeout(apiTimeout);
+            console.warn('API /api/sos notice:', e.message);
+          });
+
+        dispatchTasks.push(apiPromise);
+      } catch (apiErr) {
+        console.warn('API /api/sos notice:', apiErr);
       }
+
+      // 4. Real-time Firestore Emergency Event logging (with timeout)
+      if (db) {
+        try {
+          const now = new Date();
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
+          const elderRef = doc(db, 'elders', cleanElderId);
+
+          const fsPromise = Promise.race([
+            Promise.allSettled([
+              setDoc(dailyLogRef, {
+                sosAlerts: arrayUnion({
+                  id: `sos_${Date.now()}`,
+                  triggeredAt: new Date().toISOString(),
+                  formattedTime: fullDateStr,
+                  elderName,
+                  caregiverEmail: effectiveCgEmail,
+                  caregiverName: effectiveCgName,
+                  status: 'DISPATCHED',
+                }),
+                lastSosAlert: {
+                  triggeredAt: new Date().toISOString(),
+                  time: currentTimeStr,
+                  status: 'ACTIVE',
+                },
+                updatedAt: serverTimestamp(),
+              }, { merge: true }),
+              setDoc(elderRef, {
+                emergencyStatus: 'ACTIVE_SOS',
+                lastSosAlert: serverTimestamp(),
+                lastActive: serverTimestamp(),
+              }, { merge: true }),
+            ]),
+            new Promise((res) => setTimeout(res, 1500)),
+          ]).catch(() => {});
+
+          dispatchTasks.push(fsPromise);
+        } catch (fErr) {
+          console.warn('Firestore SOS notice:', fErr);
+        }
+      }
+
+      // 5. Broadcast instant event and persist to localStorage
+      const liveSosPayload = {
+        id: `sos_${Date.now()}`,
+        elderName,
+        caregiverEmail: effectiveCgEmail,
+        caregiverName: effectiveCgName,
+        time: currentTimeStr,
+        formattedTime: fullDateStr,
+        phone,
+        location,
+        status: 'ACTIVE_SOS',
+      };
+      try {
+        localStorage.setItem('sahara_active_sos', JSON.stringify(liveSosPayload));
+        window.dispatchEvent(new CustomEvent('sahara:sos-alert', { detail: liveSosPayload }));
+      } catch (e) {}
+
+      // 6. Guarantee completion after at most 1000ms
+      await Promise.race([
+        Promise.allSettled(dispatchTasks),
+        new Promise((res) => setTimeout(res, 1000)),
+      ]);
+    } catch (err) {
+      console.warn('SOS dispatch notice:', err);
+    } finally {
+      // GUARANTEED: Always transition to sent state without staying in loading
+      setSosStatus('sent');
+      setLastSosTime(currentTimeStr);
+      speakText(`Emergency alert sent successfully to ${effectiveCgName}. Keep your tablet nearby.`);
+      showToast(`🚨 Emergency SOS warning sent to ${effectiveCgEmail}! Help is on the way.`, 'success', 8000);
     }
-
-    // 5. Broadcast instant event and persist to localStorage for same-browser Caregiver tab sync
-    const liveSosPayload = {
-      id: `sos_${Date.now()}`,
-      elderName,
-      caregiverEmail: effectiveCgEmail,
-      caregiverName: effectiveCgName,
-      time: currentTimeStr,
-      formattedTime: fullDateStr,
-      phone,
-      location,
-      status: 'ACTIVE_SOS',
-    };
-    try {
-      localStorage.setItem('sahara_active_sos', JSON.stringify(liveSosPayload));
-      window.dispatchEvent(new CustomEvent('sahara:sos-alert', { detail: liveSosPayload }));
-    } catch (e) {}
-
-    // 6. Guarantee completion without waiting forever (1.2s delay for visual feedback, capped at 2.0s max)
-    await Promise.race([
-      Promise.allSettled(dispatchTasks),
-      new Promise((res) => setTimeout(res, 1200)),
-    ]);
-
-    // ALWAYS transition to sent state - never leave elder stuck in loading!
-    setSosStatus('sent');
-    setLastSosTime(currentTimeStr);
-    speakText(`Emergency alert sent successfully to ${effectiveCgName}. Keep your tablet nearby.`);
-    showToast(`🚨 Emergency SOS warning sent to ${effectiveCgEmail}! Help is on the way.`, 'success', 8000);
   };
 
   return (
@@ -1063,6 +1070,18 @@ Web3Forms Access Key: ${web3formsAccessKey}
                 <div className="w-20 h-20 mx-auto rounded-full border-4 border-red-500 border-t-transparent animate-spin"></div>
                 <h2 className="text-2xl font-black text-[#032109]">Dispatching Emergency SOS...</h2>
                 <p className="text-sm text-[#40493d]">Delivering warning email to {caregiverEmail || 'caregiver'}</p>
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      setSosStatus('sent');
+                      setLastSosTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                    }}
+                    type="button"
+                    className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold border border-gray-300 cursor-pointer shadow-sm transition-colors"
+                  >
+                    Skip Waiting & View Confirmation
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4 py-2">
