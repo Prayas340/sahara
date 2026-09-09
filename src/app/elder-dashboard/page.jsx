@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar.jsx';
 import { dataStore } from '../../services/dataStore.js';
+import { authService } from '../../services/authService.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
 
@@ -15,11 +16,15 @@ export default function ElderDashboardPage() {
 
   useEffect(() => {
     const syncData = () => {
-      const u = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
-      setActiveUser(u);
-      const p = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state.patient || {});
-      setPatient(p || {});
-      setMedicines([...(dataStore.state?.medicines || [])]);
+      try {
+        const u = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
+        setActiveUser(u);
+        const p = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {});
+        setPatient(p || {});
+        setMedicines([...(dataStore.state?.medicines || [])]);
+      } catch (err) {
+        console.warn('Error reading local user state:', err);
+      }
     };
 
     syncData();
@@ -27,14 +32,18 @@ export default function ElderDashboardPage() {
     window.addEventListener('sahara:auth-change', syncData);
 
     // Multi-Device Cloud Sync for Elder
-    const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
-    const identifier = u?.phone || u?.email || u?.id;
-    if (identifier) {
-      authService.syncElderData(identifier).then((res) => {
-        if (res?.elder) {
-          syncData();
-        }
-      });
+    try {
+      const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
+      const identifier = u?.phone || u?.email || u?.id;
+      if (identifier && authService.syncElderData) {
+        authService.syncElderData(identifier).then((res) => {
+          if (res?.elder) {
+            syncData();
+          }
+        }).catch((err) => console.warn('Elder sync error:', err));
+      }
+    } catch (err) {
+      console.warn('Elder cloud sync skipped:', err);
     }
 
     return () => {
@@ -232,7 +241,7 @@ export default function ElderDashboardPage() {
                   Your Loved Ones & Family
                 </h3>
                 <p className="text-xs sm:text-sm text-[#40493d] mt-1">
-                  Tap to call daughter Riya, son Anil, or doctor with 1 gentle tap.
+                  Tap to call {caregiverName} or family with 1 gentle tap.
                 </p>
               </div>
             </div>
