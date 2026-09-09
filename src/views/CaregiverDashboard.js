@@ -275,14 +275,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                     <span class="material-symbols-outlined text-xl">photo_library</span>
                     <span>Memories Deck</span>
                   </button>
-                  <button 
-                    class="btn-tactile btn-sos flex items-center gap-1.5 h-11 px-4 rounded-full text-xs sm:text-sm font-bold cursor-pointer" 
-                    id="caregiver-dispatch-btn" 
-                    type="button"
-                  >
-                    <span class="material-symbols-outlined text-xl">emergency</span>
-                    <span>Dispatch</span>
-                  </button>
                 </div>
               </div>
             </div>
@@ -446,120 +438,122 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               </div>
 
               <!-- 4 KPI Stat Cards -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                      <span class="w-10 h-10 rounded-xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center font-bold">
-                        <span class="material-symbols-outlined text-2xl">today</span>
-                      </span>
-                      <span class="text-xs font-bold text-[#40493d]">Today's Score</span>
-                    </div>
-                    <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-[#cdf2cb] text-[#006e1c]">
-                      ${dataStore.state.gamesPlayedCount || 1} Sessions
-                    </span>
-                  </div>
-                  <div>
-                    <div class="flex items-baseline gap-1.5">
-                      <span class="text-3xl font-extrabold text-[#032109]">280</span>
-                      <span class="text-sm font-bold text-[#0d631b]">pts</span>
-                    </div>
-                    <p class="text-xs text-[#40493d] mt-1">Earned in today's memory matches</p>
-                  </div>
-                </div>
-
-                <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                      <span class="w-10 h-10 rounded-xl bg-[#cdf2cb] text-[#006e1c] flex items-center justify-center font-bold">
-                        <span class="material-symbols-outlined text-2xl">date_range</span>
-                      </span>
-                      <span class="text-xs font-bold text-[#40493d]">Weekly Total</span>
-                    </div>
-                    <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      7-Day Total
-                    </span>
-                  </div>
-                  <div>
-                    <div class="flex items-baseline gap-1.5">
-                      <span class="text-3xl font-extrabold text-[#032109]">1,640</span>
-                      <span class="text-sm font-bold text-[#0d631b]">pts</span>
-                    </div>
-                    <p class="text-xs text-[#40493d] mt-1">Rolling 7-day cumulative points</p>
-                  </div>
-                </div>
-
-                <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                      <span class="w-10 h-10 rounded-xl bg-[#ffdeaa] text-[#724f00] flex items-center justify-center font-bold">
-                        <span class="material-symbols-outlined text-2xl">psychology</span>
-                      </span>
-                      <span class="text-xs font-bold text-[#40493d]">Cognitive Stability</span>
-                    </div>
-                    <span class="material-symbols-outlined text-emerald-600 text-lg">verified</span>
-                  </div>
-                  <div>
-                    <span class="text-lg font-extrabold text-[#032109] block leading-tight">
-                      High Recall (96%)
-                    </span>
-                    <p class="text-xs text-[#40493d] mt-1">Pattern retention & stability</p>
-                  </div>
-                </div>
-
-                <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                      <span class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
-                        <span class="material-symbols-outlined text-2xl">query_stats</span>
-                      </span>
-                      <span class="text-xs font-bold text-[#40493d]">Accuracy</span>
-                    </div>
-                    <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">
-                      Steady
-                    </span>
-                  </div>
-                  <div>
-                    <div class="flex items-baseline gap-1.5">
-                      <span class="text-3xl font-extrabold text-[#032109]">94%</span>
-                    </div>
-                    <p class="text-xs text-[#40493d] mt-1">Average familiar cards precision</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 7-Day Performance Chart & Logs -->
-              <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-6">
-                <div class="flex items-center justify-between flex-wrap gap-2">
-                  <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-2xl text-[#0d631b]">bar_chart</span>
-                    <div>
-                      <h2 class="text-xl font-extrabold text-[#032109]">7-Day Cognitive Performance Analytics</h2>
-                      <p class="text-xs sm:text-sm text-[#40493d]">Daily scores tracking cognitive engagement and consistency.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-7 gap-2 sm:gap-4 items-end min-h-[200px] bg-[#ebffe7] p-4 sm:p-6 rounded-2xl border border-[#cdf2cb]">
-                  ${[
-                    { day: 'Mon', score: 260 },
-                    { day: 'Tue', score: 280 },
-                    { day: 'Wed', score: 240 },
-                    { day: 'Thu', score: 300 },
-                    { day: 'Fri', score: 280 },
-                    { day: 'Sat', score: 280 },
-                    { day: 'Today', score: 280 },
-                  ].map((d, i) => `
-                    <div class="flex flex-col items-center gap-2 h-full justify-end">
-                      <span class="text-[10px] sm:text-xs font-extrabold px-1.5 py-0.5 rounded-md ${i === 6 ? 'bg-[#006e1c] text-white shadow-sm' : 'bg-white text-[#0d631b] border border-[#cdf2cb]'}">${d.score}p</span>
-                      <div class="w-full max-w-[48px] bg-white rounded-t-xl overflow-hidden flex flex-col justify-end p-0.5 h-32 border border-[#cdf2cb]">
-                        <div style="height: ${(d.score / 350) * 100}%;" class="w-full rounded-t-lg ${i === 6 ? 'bg-gradient-to-t from-[#006e1c] to-[#2e7d32]' : 'bg-gradient-to-t from-[#0d631b] to-[#43a047]'}"></div>
+              ${(() => {
+                const ga = dataStore.getGameAnalytics ? dataStore.getGameAnalytics() : { todayScore: 0, weeklyScore: 0, todaySessions: 0, avgAccuracy: 0, cognitiveStability: 'Awaiting First Game', last7Days: [] };
+                const hasScores = (ga.recentScores && ga.recentScores.length > 0) || (ga.weeklyScore > 0) || (ga.todayScore > 0);
+                return `
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-2">
+                        <span class="w-10 h-10 rounded-xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center font-bold">
+                          <span class="material-symbols-outlined text-2xl">today</span>
+                        </span>
+                        <span class="text-xs font-bold text-[#40493d]">Today's Score</span>
                       </div>
-                      <span class="text-xs font-bold ${i === 6 ? 'text-[#006e1c]' : 'text-[#032109]'}">${d.day}</span>
+                      <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-[#cdf2cb] text-[#006e1c]">
+                        ${ga.todaySessions || 0} Sessions
+                      </span>
                     </div>
-                  `).join('')}
+                    <div>
+                      <div class="flex items-baseline gap-1.5">
+                        <span class="text-3xl font-extrabold text-[#032109]">${ga.todayScore || 0}</span>
+                        <span class="text-sm font-bold text-[#0d631b]">pts</span>
+                      </div>
+                      <p class="text-xs text-[#40493d] mt-1">Earned in today's memory matches</p>
+                    </div>
+                  </div>
+
+                  <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-2">
+                        <span class="w-10 h-10 rounded-xl bg-[#cdf2cb] text-[#006e1c] flex items-center justify-center font-bold">
+                          <span class="material-symbols-outlined text-2xl">date_range</span>
+                        </span>
+                        <span class="text-xs font-bold text-[#40493d]">Weekly Total</span>
+                      </div>
+                      <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        7-Day Total
+                      </span>
+                    </div>
+                    <div>
+                      <div class="flex items-baseline gap-1.5">
+                        <span class="text-3xl font-extrabold text-[#032109]">${ga.weeklyScore || 0}</span>
+                        <span class="text-sm font-bold text-[#0d631b]">pts</span>
+                      </div>
+                      <p class="text-xs text-[#40493d] mt-1">Rolling 7-day cumulative points</p>
+                    </div>
+                  </div>
+
+                  <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-2">
+                        <span class="w-10 h-10 rounded-xl bg-[#ffdeaa] text-[#724f00] flex items-center justify-center font-bold">
+                          <span class="material-symbols-outlined text-2xl">psychology</span>
+                        </span>
+                        <span class="text-xs font-bold text-[#40493d]">Cognitive Stability</span>
+                      </div>
+                      <span class="material-symbols-outlined text-emerald-600 text-lg">verified</span>
+                    </div>
+                    <div>
+                      <span class="text-lg font-extrabold text-[#032109] block leading-tight">
+                        ${ga.cognitiveStability || 'Awaiting First Game'}
+                      </span>
+                      <p class="text-xs text-[#40493d] mt-1">Pattern retention & stability</p>
+                    </div>
+                  </div>
+
+                  <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-2">
+                        <span class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
+                          <span class="material-symbols-outlined text-2xl">query_stats</span>
+                        </span>
+                        <span class="text-xs font-bold text-[#40493d]">Accuracy</span>
+                      </div>
+                      <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">
+                        ${hasScores ? 'Active' : 'Awaiting'}
+                      </span>
+                    </div>
+                    <div>
+                      <div class="flex items-baseline gap-1.5">
+                        <span class="text-3xl font-extrabold text-[#032109]">${ga.avgAccuracy || 0}%</span>
+                      </div>
+                      <p class="text-xs text-[#40493d] mt-1">Average familiar cards precision</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+
+                <!-- 7-Day Performance Chart & Logs -->
+                <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-6 mt-6">
+                  <div class="flex items-center justify-between flex-wrap gap-2">
+                    <div class="flex items-center gap-2">
+                      <span class="material-symbols-outlined text-2xl text-[#0d631b]">bar_chart</span>
+                      <div>
+                        <h2 class="text-xl font-extrabold text-[#032109]">7-Day Cognitive Performance Analytics</h2>
+                        <p class="text-xs sm:text-sm text-[#40493d]">Daily scores tracking cognitive engagement and consistency.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-7 gap-2 sm:gap-4 items-end min-h-[200px] bg-[#ebffe7] p-4 sm:p-6 rounded-2xl border border-[#cdf2cb]">
+                    ${(ga.last7Days && ga.last7Days.length > 0 ? ga.last7Days : []).map((d, i) => {
+                      const score = d.score || 0;
+                      const heightPercent = score > 0 ? Math.max(16, Math.min(100, Math.round((score / 350) * 100))) : 8;
+                      const isToday = d.isToday || i === 6 || d.day === 'Today';
+                      return `
+                      <div class="flex flex-col items-center gap-2 h-full justify-end">
+                        <span class="text-[10px] sm:text-xs font-extrabold px-1.5 py-0.5 rounded-md ${isToday && score > 0 ? 'bg-[#006e1c] text-white shadow-sm' : score > 0 ? 'bg-white text-[#0d631b] border border-[#cdf2cb]' : 'text-gray-400'}">${score}p</span>
+                        <div class="w-full max-w-[48px] bg-white rounded-t-xl overflow-hidden flex flex-col justify-end p-0.5 h-32 border border-[#cdf2cb]">
+                          <div style="height: ${heightPercent}%;" class="w-full rounded-t-lg ${score >= 260 ? 'bg-gradient-to-t from-[#0d631b] to-[#43a047]' : score > 0 ? 'bg-gradient-to-t from-[#81c784] to-[#a3f69c]' : 'bg-emerald-50/50'}"></div>
+                        </div>
+                        <span class="text-xs font-bold ${isToday ? 'text-[#006e1c]' : 'text-[#032109]'}">${d.day}</span>
+                      </div>
+                    `}).join('')}
+                  </div>
+                </div>
+                `;
+              })()}
 
               <!-- Curated Family Memories Album -->
               <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
@@ -882,9 +876,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
     // Emergency Alerts
     document.getElementById('side-emergency-alert')?.addEventListener('click', () => {
       showToast('🚨 Emergency alert sent to Dr. B. Das and primary family contacts!', 'error', 6000);
-    });
-    document.getElementById('caregiver-dispatch-btn')?.addEventListener('click', () => {
-      showToast('🚨 Dispatching emergency response team to Garden Terrace Wing, Guwahati...', 'error', 6000);
     });
     document.getElementById('caregiver-call-asha-btn')?.addEventListener('click', () => {
       showToast(`Calling ${patient.honorific || patient.name}'s room intercom (+91 98540 12345)...`, 'heart');

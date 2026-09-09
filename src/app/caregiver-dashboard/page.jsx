@@ -78,16 +78,17 @@ export default function CaregiverDashboardPage() {
     e.target.value = '';
   };
 
-  // Patient Game Score & Analytics State
+  // Patient Game Score & Analytics State (Real scores fetched directly from elder view portal)
   const [gameAnalytics, setGameAnalytics] = useState(() => (
     dataStore.getGameAnalytics ? dataStore.getGameAnalytics() : {
-      todayScore: 280,
-      weeklyScore: 1640,
-      todaySessions: 1,
+      todayScore: 0,
+      weeklyScore: 0,
+      todaySessions: 0,
+      weeklySessions: 0,
       weeklyTrend: [],
       sessions: [],
-      averageAccuracy: 94,
-      stabilityRating: 'High Recall Stability (96%)',
+      averageAccuracy: 0,
+      stabilityRating: 'Awaiting First Game',
     }
   ));
 
@@ -502,17 +503,6 @@ export default function CaregiverDashboardPage() {
                       <span className="material-symbols-outlined text-xl">photo_library</span>
                       <span>{t.tabMemories || 'Memories Deck'}</span>
                     </button>
-                    <button
-                      onClick={() => {
-                        const emergencyLoc = patient?.location || (patient?.city ? `${patient.city}, ${patient.state || ''}` : 'residence sanctuary');
-                        showToast(`🚨 Dispatching emergency response to ${emergencyLoc}...`, 'error', 6000);
-                      }}
-                      type="button"
-                      className="btn-tactile btn-sos flex items-center gap-1.5 h-11 px-4 rounded-full text-xs sm:text-sm font-bold cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-xl">emergency</span>
-                      <span>{t.dispatchTeam || 'Dispatch'}</span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -861,23 +851,26 @@ export default function CaregiverDashboardPage() {
                 {/* Vertical Bar Visualizer */}
                 <div className="pt-4 pb-2">
                   <div className="grid grid-cols-7 gap-2 sm:gap-4 items-end min-h-[220px] bg-[#ebffe7] p-4 sm:p-6 rounded-2xl border border-[#cdf2cb]">
-                    {(gameAnalytics.weeklyTrend && gameAnalytics.weeklyTrend.length > 0 ? gameAnalytics.weeklyTrend : [
-                      { day: 'Mon', dateStr: '09/03', score: 260, sessions: 1 },
-                      { day: 'Tue', dateStr: '09/04', score: 280, sessions: 1 },
-                      { day: 'Wed', dateStr: '09/05', score: 240, sessions: 1 },
-                      { day: 'Thu', dateStr: '09/06', score: 300, sessions: 2 },
-                      { day: 'Fri', dateStr: '09/07', score: 280, sessions: 1 },
-                      { day: 'Sat', dateStr: '09/08', score: 280, sessions: 1 },
-                      { day: 'Today', dateStr: '09/09', score: gameAnalytics.todayScore || 280, sessions: gameAnalytics.todaySessions || 1 },
-                    ]).map((dayData, idx) => {
+                    {(gameAnalytics.weeklyTrend && gameAnalytics.weeklyTrend.length > 0 ? gameAnalytics.weeklyTrend : (() => {
+                      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                      const days = [];
+                      for (let i = 6; i >= 0; i--) {
+                        const d = new Date();
+                        d.setDate(d.getDate() - i);
+                        const dayLabel = i === 0 ? 'Today' : dayNames[d.getDay()];
+                        const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+                        days.push({ day: dayLabel, dateStr, score: 0, sessions: 0 });
+                      }
+                      return days;
+                    })()).map((dayData, idx) => {
                       const score = dayData.score || 0;
-                      const heightPercent = Math.max(12, Math.min(100, Math.round((score / 350) * 100)));
+                      const heightPercent = score > 0 ? Math.max(16, Math.min(100, Math.round((score / 350) * 100))) : 8;
                       const isToday = idx === 6 || dayData.day === 'Today';
                       return (
                         <div key={idx} className="flex flex-col items-center gap-2 group h-full justify-end">
                           {/* Score Pill */}
                           <span className={`text-[10px] sm:text-xs font-extrabold px-1.5 py-0.5 rounded-md transition-all ${
-                            isToday ? 'bg-[#006e1c] text-white shadow-sm' : score > 0 ? 'bg-white text-[#0d631b] border border-[#cdf2cb]' : 'text-gray-400'
+                            isToday && score > 0 ? 'bg-[#006e1c] text-white shadow-sm' : score > 0 ? 'bg-white text-[#0d631b] border border-[#cdf2cb]' : 'text-gray-400'
                           }`}>
                             {score > 0 ? `${score}p` : '0p'}
                           </span>
@@ -887,13 +880,11 @@ export default function CaregiverDashboardPage() {
                             <div
                               style={{ height: `${heightPercent}%` }}
                               className={`w-full rounded-t-lg transition-all duration-500 ${
-                                isToday
-                                  ? 'bg-gradient-to-t from-[#006e1c] to-[#2e7d32] shadow-sm'
-                                  : score >= 260
+                                score >= 260
                                   ? 'bg-gradient-to-t from-[#0d631b] to-[#43a047]'
                                   : score > 0
                                   ? 'bg-gradient-to-t from-[#81c784] to-[#a3f69c]'
-                                  : 'bg-gray-100'
+                                  : 'bg-emerald-50/50'
                               }`}
                             ></div>
                           </div>
@@ -927,35 +918,33 @@ export default function CaregiverDashboardPage() {
                     </div>
                   </div>
                   <span className="text-xs font-bold text-[#0d631b] bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
-                    {(gameAnalytics.sessions && gameAnalytics.sessions.length > 0 ? gameAnalytics.sessions.length : 1)} Total Records
+                    {(gameAnalytics.sessions && Array.isArray(gameAnalytics.sessions) ? gameAnalytics.sessions.length : (gameAnalytics.recentScores ? gameAnalytics.recentScores.length : 0))} Total Records
                   </span>
                 </div>
 
                 <div className="overflow-x-auto pt-2">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-[#cdf2cb] text-xs font-bold text-[#40493d]">
-                        <th className="pb-3 px-3">Date & Time</th>
-                        <th className="pb-3 px-3">Game Mode</th>
-                        <th className="pb-3 px-3 text-center">{t.movesLabel || 'Moves'}</th>
-                        <th className="pb-3 px-3 text-center">{t.averageAccuracy || 'Accuracy'}</th>
-                        <th className="pb-3 px-3 text-right">{t.scoreEarned || 'Score Earned'}</th>
-                        <th className="pb-3 px-3 text-right">{t.recallStatus || 'Recall Status'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#ebffe7] text-sm font-medium text-[#032109]">
-                      {(gameAnalytics.sessions && gameAnalytics.sessions.length > 0 ? gameAnalytics.sessions : [
-                        {
-                          id: 'sample-1',
-                          timestamp: new Date().toISOString(),
-                          gameName: 'Familiar Treasures Match',
-                          score: 280,
-                          moves: 4,
-                          accuracy: 94,
-                          durationSeconds: 28,
-                          status: 'Recall Verified ✓',
-                        }
-                      ]).map((sess, sIdx) => {
+                  {(!gameAnalytics.sessions || gameAnalytics.sessions.length === 0) && (!gameAnalytics.recentScores || gameAnalytics.recentScores.length === 0) ? (
+                    <div className="text-center py-10 px-4 bg-[#ebffe7]/40 rounded-2xl border border-dashed border-[#cdf2cb]">
+                      <span className="material-symbols-outlined text-4xl text-[#0d631b] mb-2">sports_esports</span>
+                      <h4 className="text-base font-bold text-[#032109]">No Game Sessions Recorded Yet</h4>
+                      <p className="text-xs text-[#40493d] mt-1 max-w-sm mx-auto">
+                        Scores and memory recall accuracy will appear here in real-time as {patient?.name ? patient.name.split(' ')[0] : 'the elder'} plays memory games in their portal.
+                      </p>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-[#cdf2cb] text-xs font-bold text-[#40493d]">
+                          <th className="pb-3 px-3">Date & Time</th>
+                          <th className="pb-3 px-3">Game Mode</th>
+                          <th className="pb-3 px-3 text-center">{t.movesLabel || 'Moves'}</th>
+                          <th className="pb-3 px-3 text-center">{t.averageAccuracy || 'Accuracy'}</th>
+                          <th className="pb-3 px-3 text-right">{t.scoreEarned || 'Score Earned'}</th>
+                          <th className="pb-3 px-3 text-right">{t.recallStatus || 'Recall Status'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#ebffe7] text-sm font-medium text-[#032109]">
+                        {(gameAnalytics.sessions && gameAnalytics.sessions.length > 0 ? gameAnalytics.sessions : (gameAnalytics.recentScores || [])).map((sess, sIdx) => {
                         const dateFormatted = sess.timestamp
                           ? new Date(sess.timestamp).toLocaleDateString('en-IN', {
                               month: 'short',
@@ -1000,6 +989,7 @@ export default function CaregiverDashboardPage() {
                       })}
                     </tbody>
                   </table>
+                  )}
                 </div>
               </div>
 

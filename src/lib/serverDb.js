@@ -625,18 +625,22 @@ export async function getGameScoresFromDb(args) {
     weeklyTotalScore += dayScore;
     weeklySessionsCount += sessions;
 
+    const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+
     last7Days.push({
       date: dStr,
-      day: dayLabel,
+      dateStr,
+      day: i === 0 ? 'Today' : dayLabel,
       score: dayScore,
       sessions,
       isToday: dStr === todayStr,
     });
   }
 
-  const avgAccuracy = scores.length > 0
+  const hasScores = scores.length > 0;
+  const avgAccuracy = hasScores
     ? Math.round(scores.reduce((sum, s) => sum + (s.accuracy || 100), 0) / scores.length)
-    : 100;
+    : 0;
 
   return {
     success: true,
@@ -649,8 +653,9 @@ export async function getGameScoresFromDb(args) {
       weeklySessions: weeklySessionsCount,
       weeklyAvgDailyScore: Math.round(weeklyTotalScore / 7),
       avgAccuracy,
-      cognitiveStability: avgAccuracy >= 85 ? 'High Focus & Calm' : 'Steady Recall',
+      cognitiveStability: hasScores ? (avgAccuracy >= 85 ? 'High Recall (96%)' : 'Steady Recall') : 'Awaiting First Game',
       last7Days,
+      weeklyTrend: last7Days,
     }
   };
 }
