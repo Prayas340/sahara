@@ -16,6 +16,8 @@ export default function ElderDashboardPage() {
   const [medicines, setMedicines] = useState([]);
 
   useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
     const syncData = () => {
       try {
         const u = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
@@ -26,6 +28,30 @@ export default function ElderDashboardPage() {
       } catch (err) {
         console.warn('Error reading local user state:', err);
       }
+    };
+
+    const resetIfNewDay = (meds) => {
+      // If any medicine was taken on a previous day, reset all taken statuses
+      const hasStaleEntry = meds.some(m => m.taken && m.takenDate && m.takenDate !== todayStr);
+      if (hasStaleEntry) {
+        const reset = meds.map(m => ({ ...m, taken: false, takenAt: null, takenDate: null }));
+        dataStore.saveMedicines(reset);
+        // Persist the reset to server DB
+        try {
+          const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
+          const elderId = u?.phone || u?.email || u?.id;
+          const caregiverEmail = dataStore.state?.caregiver?.email || dataStore.state?.patient?.caregiverEmail;
+          if (elderId) {
+            fetch('/api/reminders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'save', elderId, caregiverEmail, medicines: reset }),
+            }).catch(() => {});
+          }
+        } catch (e) {}
+        return reset;
+      }
+      return meds;
     };
 
     syncData();
@@ -49,8 +75,9 @@ export default function ElderDashboardPage() {
           .then(r => r.json())
           .then(rData => {
             if (rData?.success && rData?.medicines) {
-              dataStore.saveMedicines(rData.medicines);
-              setMedicines([...rData.medicines]);
+              const meds = rData.medicines;
+              const resolvedMeds = resetIfNewDay(meds);
+              setMedicines([...resolvedMeds]);
             }
           })
           .catch(() => {});
@@ -90,10 +117,42 @@ export default function ElderDashboardPage() {
   };
 
   const handleMarkCurrentMedTaken = () => {
-    if (!currentMed) return;
+    if (!currentMed || currentMed.taken) return;
     const medId = currentMed.id;
-    dataStore.toggleMedicineStatus(medId);
-    
+    const todayStr = new Date().toISOString().split('T')[0];
+    const takenAtTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Update locally with takenDate so midnight reset can compare
+    const updatedMeds = (dataStore.getMedicines ? dataStore.getMedicines() : []).map(m => {
+      if (m.id === medId) {
+        return { ...m, taken: true, takenAt: takenAtTime, takenDate: todayStr };
+      }
+      return m;
+    });
+    dataStore.saveMedicines(updatedMeds);
+
+    // Persist to server DB (tied to elder's account)
+    try {
+      const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
+      const elderId = u?.phone || u?.email || u?.id || dataStore.state?.patient?.id || dataStore.state?.patient?.phone;
+      const caregiverEmail = dataStore.state?.caregiver?.email || dataStore.state?.patient?.caregiverEmail;
+      if (elderId) {
+        fetch('/api/reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'toggle',
+            elderId,
+            caregiverEmail,
+            reminderId: medId,
+            taken: true,
+            takenAt: takenAtTime,
+            takenDate: todayStr,
+          }),
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
     const remainingAfterThis = pendingMeds.filter(m => m.id !== medId);
     if (remainingAfterThis.length === 0) {
       showToast(`🎉 Wonderful, ${displayHonorific}! All routines completed for today!`, 'success', 5000);

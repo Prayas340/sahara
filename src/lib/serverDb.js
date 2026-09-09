@@ -826,19 +826,20 @@ export async function deleteReminderFromDb({ elderId, caregiverEmail, reminderId
 /**
  * Toggle or set taken status for a reminder
  */
-export async function toggleReminderStatusInDb({ elderId, caregiverEmail, reminderId, taken, takenAt }) {
+export async function toggleReminderStatusInDb({ elderId, caregiverEmail, reminderId, taken, takenAt, takenDate }) {
   const existing = await getRemindersFromDb({ elderId, caregiverEmail });
   const list = (existing.medicines || []).map(m => {
     if (m.id === reminderId) {
       const isTaken = taken !== undefined ? Boolean(taken) : !m.taken;
+      const todayStr = takenDate || new Date().toISOString().split('T')[0];
       return {
         ...m,
         taken: isTaken,
         takenAt: isTaken ? (takenAt || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })) : null,
+        takenDate: isTaken ? todayStr : null,
       };
     }
     return m;
   });
   return saveRemindersToDb({ elderId, caregiverEmail, medicines: list });
 }
-

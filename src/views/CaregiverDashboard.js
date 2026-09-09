@@ -654,13 +654,11 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                       </div>
 
                       <div class="flex items-center gap-2 self-end sm:self-center">
-                        <button 
-                          class="toggle-med-btn px-4 py-2 rounded-full text-xs font-bold transition-colors cursor-pointer ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521] hover:bg-[#cdf2cb]' : 'bg-[#006e1c] text-white hover:bg-[#0d631b]'}"
-                          data-id="${med.id || idx}"
-                          type="button"
-                        >
-                          ${med.taken ? '✓ Taken (' + (med.takenAt || 'Logged') + ')' : 'Mark as Taken'}
-                        </button>
+                        <!-- Read-only status — elder marks from their device -->
+                        <span class="px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'}">
+                          <span class="material-symbols-outlined text-sm">${med.taken ? 'check_circle' : 'pending'}</span>
+                          ${med.taken ? '✓ Taken' + (med.takenAt ? ' (' + med.takenAt + ')' : '') : 'Pending (Elder marks)'}
+                        </span>
                         <button
                           class="delete-med-btn p-2 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer"
                           data-id="${med.id || idx}"

@@ -254,16 +254,6 @@ export default function CaregiverDashboardPage() {
     window.history.replaceState(null, '', `/caregiver-dashboard?tab=${tab}`);
   };
 
-  const toggleMedStatus = (identifier) => {
-    dataStore.toggleMedicineStatus(identifier);
-    const updated = dataStore.getMedicines ? dataStore.getMedicines() : [];
-    setMedicines([...updated]);
-    const target = updated.find((m, i) => m.id === identifier || i === identifier);
-    if (target) {
-      showToast(target.taken ? `✓ "${target.title}" marked as taken` : `Pending: "${target.title}"`, 'info');
-    }
-  };
-
   const handleDeleteReminder = (reminderId, reminderTitle) => {
     dataStore.deleteReminder(reminderId);
     const updated = dataStore.getMedicines ? dataStore.getMedicines() : [];
@@ -1145,17 +1135,21 @@ export default function CaregiverDashboardPage() {
                       </div>
 
                       <div className="flex items-center gap-2 self-end sm:self-center">
-                        <button
-                          onClick={() => toggleMedStatus(med.id || idx)}
-                          type="button"
-                          className={`px-4 py-2 rounded-full text-xs font-bold transition-colors cursor-pointer ${
+                        {/* Status badge — read only, elder marks from their device */}
+                        <span
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 ${
                             med.taken
-                              ? 'bg-[#d9fdd6] text-[#0c7521] hover:bg-[#cdf2cb]'
-                              : 'bg-[#006e1c] text-white hover:bg-[#0d631b]'
+                              ? 'bg-[#d9fdd6] text-[#0c7521]'
+                              : 'bg-amber-100 text-amber-900'
                           }`}
                         >
-                          {med.taken ? '✓ Taken (' + (med.takenAt || 'Logged') + ')' : 'Mark as Taken'}
-                        </button>
+                          <span className="material-symbols-outlined text-sm">
+                            {med.taken ? 'check_circle' : 'pending'}
+                          </span>
+                          {med.taken
+                            ? `✓ Taken${med.takenAt ? ' (' + med.takenAt + ')' : ''}`
+                            : 'Pending (Elder marks)'}
+                        </span>
 
                         <button
                           onClick={() => handleDeleteReminder(med.id, med.title)}
