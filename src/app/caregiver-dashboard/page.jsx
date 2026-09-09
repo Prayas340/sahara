@@ -107,6 +107,138 @@ export default function CaregiverDashboardPage() {
       return;
     }
 
+    // References for data listeners and timers
+    let _elderId = curUser?.linkedElder?.id || curUser?.linkedElder?.phone || curUser?.linkedElder?.email || null;
+    let _caregiverEmail = curUser?.email || null;
+    const todayDate = new Date().toISOString().split('T')[0];
+    let unsubDailyLog = null;
+    let unsubElderDoc = null;
+
+    // Real-time Firestore Live Listener for cross-device synchronization
+    const setupFirestoreLiveListeners = (targetElderId) => {
+      try {
+        if (!db || !targetElderId) return;
+        const cleanElderId = normalizeElderId(targetElderId);
+
+        if (unsubDailyLog) {
+          unsubDailyLog();
+          unsubDailyLog = null;
+        }
+        if (unsubElderDoc) {
+          unsubElderDoc();
+          unsubElderDoc = null;
+        }
+
+        // 1. Subscribe to today's daily log: elders/{elderId}/dailyLogs/{todayDate}
+        const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
+        unsubDailyLog = onSnapshot(dailyLogRef, (docSnap) => {
+          try {
+            if (docSnap.exists()) {
+              const data = docSnap.data() || {};
+              setTodayGameSessions(typeof data.gameSessions === 'number' ? data.gameSessions : 0);
+              setTodayGameScore(typeof data.gameScore === 'number' ? data.gameScore : 0);
+
+              const list = data.medications || data.routines;
+              if (Array.isArray(list) && list.length > 0) {
+                const liveMeds = list.map((m, idx) => ({
+                  id: m.id || `med_${idx}`,
+                  title: m.title || m.name || `Routine ${idx + 1}`,
+                  name: m.name || m.title || `Routine ${idx + 1}`,
+                  detail: m.detail || m.title || 'Scheduled routine',
+                  scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+                  taken: Boolean(m.taken || m.completed),
+                  takenAt: m.completedAt || m.takenAt || null,
+                  takenDate: m.takenDate || todayDate,
+                }));
+                setMedicines(liveMeds);
+                if (dataStore?.state) dataStore.state.medicines = liveMeds;
+              }
+            } else {
+              setTodayGameSessions(0);
+              setTodayGameScore(0);
+            }
+          } catch (snapErr) {
+            console.warn('[CaregiverDashboard] dailyLog snapshot parsing error:', snapErr);
+          }
+        }, (err) => {
+          console.warn('[CaregiverDashboard] Firestore dailyLog onSnapshot notice:', err.message);
+        });
+
+        // 2. Subscribe to elder profile doc: elders/{elderId}
+        const elderDocRef = doc(db, 'elders', cleanElderId);
+        unsubElderDoc = onSnapshot(elderDocRef, (docSnap) => {
+          try {
+            if (docSnap.exists()) {
+              const elderData = docSnap.data() || {};
+              if (elderData.name) {
+                setPatient(prev => ({ ...prev, ...elderData }));
+              }
+            }
+          } catch (elderSnapErr) {
+            console.warn('[CaregiverDashboard] elder doc snapshot error:', elderSnapErr);
+          }
+        }, (err) => {
+          console.warn('[CaregiverDashboard] Firestore elder doc onSnapshot notice:', err.message);
+        });
+      } catch (e) {
+        console.warn('[CaregiverDashboard] setupFirestoreLiveListeners error:', e);
+      }
+    };
+
+    const syncData = () => {
+      try {
+        const activeUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
+        if (activeUser?.linkedElder && activeUser.linkedElder.name) {
+          setPatient(activeUser.linkedElder);
+        }
+        if (activeUser?.role === 'caregiver') {
+          setCaregiver(activeUser);
+        }
+        setMedicines([...(dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state?.medicines || []))]);
+        const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
+        setContacts([...loadedContacts]);
+        if (dataStore.getGameAnalytics) {
+          setGameAnalytics(dataStore.getGameAnalytics());
+        }
+      } catch (err) {
+        console.warn('syncData error:', err);
+      }
+    };
+
+    // Fetch fresh scores from server DB and update analytics
+    const fetchServerScores = (elderId, caregiverEmail) => {
+      if (!elderId && !caregiverEmail) return;
+      fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}`)
+        .then(r => r.json())
+        .then(sData => {
+          if (sData?.success && sData?.scores) {
+            dataStore.saveGameScores?.(sData.scores);
+            if (sData.analytics) setGameAnalytics(sData.analytics);
+          } else if (dataStore.getGameAnalytics) {
+            setGameAnalytics(dataStore.getGameAnalytics());
+          }
+        })
+        .catch(() => {
+          if (dataStore.getGameAnalytics) setGameAnalytics(dataStore.getGameAnalytics());
+        });
+    };
+
+    // Fetch fresh reminders and routines from server DB
+    const fetchServerReminders = (elderId, caregiverEmail) => {
+      if (!elderId && !caregiverEmail) return;
+      fetch(`/api/reminders?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}`)
+        .then(r => r.json())
+        .then(rData => {
+          if (rData?.success && rData?.medicines) {
+            dataStore.state.medicines = rData.medicines;
+            dataStore.saveState();
+            setMedicines([...rData.medicines]);
+          }
+        })
+        .catch(() => {});
+    };
+
+    // 1. Initial State Setup
     setCaregiver(curUser);
     if (curUser.linkedElder && curUser.linkedElder.name) {
       setPatient(curUser.linkedElder);
@@ -186,128 +318,6 @@ export default function CaregiverDashboardPage() {
       setIsSyncing(false);
     }
 
-    const syncData = () => {
-      const activeUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
-      if (activeUser?.linkedElder && activeUser.linkedElder.name) {
-        setPatient(activeUser.linkedElder);
-      }
-      if (activeUser?.role === 'caregiver') {
-        setCaregiver(activeUser);
-      }
-      setMedicines([...(dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state?.medicines || []))]);
-      const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
-      setContacts([...loadedContacts]);
-      if (dataStore.getGameAnalytics) {
-        setGameAnalytics(dataStore.getGameAnalytics());
-      }
-    };
-
-    // Store elderId/email for score and reminder refreshes
-    let _elderId = curUser?.linkedElder?.id || curUser?.linkedElder?.phone || curUser?.linkedElder?.email || null;
-    let _caregiverEmail = curUser?.email || null;
-
-    // Real-time Firestore Live Listener for cross-device synchronization
-    const todayDate = new Date().toISOString().split('T')[0];
-    let unsubDailyLog = null;
-    let unsubElderDoc = null;
-
-    const setupFirestoreLiveListeners = (targetElderId) => {
-      if (!db || !targetElderId) return;
-      const cleanElderId = normalizeElderId(targetElderId);
-
-      if (unsubDailyLog) {
-        unsubDailyLog();
-        unsubDailyLog = null;
-      }
-      if (unsubElderDoc) {
-        unsubElderDoc();
-        unsubElderDoc = null;
-      }
-
-      // 1. Subscribe to today's daily log: elders/{elderId}/dailyLogs/{todayDate}
-      const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
-      unsubDailyLog = onSnapshot(dailyLogRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          // Update mind games count & score
-          setTodayGameSessions(typeof data.gameSessions === 'number' ? data.gameSessions : 0);
-          setTodayGameScore(typeof data.gameScore === 'number' ? data.gameScore : 0);
-
-          // Update completed medicines count and checklist
-          const list = data.medications || data.routines;
-          if (Array.isArray(list) && list.length > 0) {
-            const liveMeds = list.map((m, idx) => ({
-              id: m.id || `med_${idx}`,
-              title: m.title || m.name || `Routine ${idx + 1}`,
-              name: m.name || m.title || `Routine ${idx + 1}`,
-              detail: m.detail || m.title || 'Scheduled routine',
-              scheduledTime: m.scheduledTime || m.time || '08:00 AM',
-              taken: Boolean(m.taken || m.completed),
-              takenAt: m.completedAt || m.takenAt || null,
-              takenDate: m.takenDate || todayDate,
-            }));
-            setMedicines(liveMeds);
-            dataStore.state.medicines = liveMeds;
-          }
-        } else {
-          setTodayGameSessions(0);
-          setTodayGameScore(0);
-        }
-      }, (err) => {
-        console.warn('[CaregiverDashboard] Firestore dailyLog onSnapshot notice:', err.message);
-      });
-
-      // 2. Subscribe to elder profile doc: elders/{elderId}
-      const elderDocRef = doc(db, 'elders', cleanElderId);
-      unsubElderDoc = onSnapshot(elderDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const elderData = docSnap.data();
-          if (elderData.name) {
-            setPatient(prev => ({ ...prev, ...elderData }));
-          }
-        }
-      }, (err) => {
-        console.warn('[CaregiverDashboard] Firestore elder doc onSnapshot notice:', err.message);
-      });
-    };
-
-    // Initialize Firestore live listener
-    if (_elderId) {
-      setupFirestoreLiveListeners(_elderId);
-    }
-
-    // Fetch fresh scores from server DB and update analytics
-    const fetchServerScores = (elderId, caregiverEmail) => {
-      if (!elderId && !caregiverEmail) return;
-      fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}`)
-        .then(r => r.json())
-        .then(sData => {
-          if (sData?.success && sData?.scores) {
-            dataStore.saveGameScores?.(sData.scores);
-            if (sData.analytics) setGameAnalytics(sData.analytics);
-          } else if (dataStore.getGameAnalytics) {
-            setGameAnalytics(dataStore.getGameAnalytics());
-          }
-        })
-        .catch(() => {
-          if (dataStore.getGameAnalytics) setGameAnalytics(dataStore.getGameAnalytics());
-        });
-    };
-
-    // Fetch fresh reminders and routines from server DB
-    const fetchServerReminders = (elderId, caregiverEmail) => {
-      if (!elderId && !caregiverEmail) return;
-      fetch(`/api/reminders?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}`)
-        .then(r => r.json())
-        .then(rData => {
-          if (rData?.success && rData?.medicines) {
-            dataStore.state.medicines = rData.medicines;
-            dataStore.saveState();
-            setMedicines([...rData.medicines]);
-          }
-        })
-        .catch(() => {});
-    };
 
     // On game score change, re-fetch from server for real data
     const onGameScoreChange = () => {
