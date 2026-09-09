@@ -1,6 +1,5 @@
 import { authService } from '../services/authService.js';
 import { dataStore } from '../services/dataStore.js';
-import { openSupabaseConfigModal } from './SupabaseConfigModal.js';
 import { showToast } from '../utils/toast.js';
 
 export function renderNavbar(activeView, onNavigate) {
@@ -42,19 +41,8 @@ export function renderNavbar(activeView, onNavigate) {
           </div>
         `}
 
-        <!-- Right Controls (Supabase indicator, Language, Emergency SOS, Avatar) -->
+        <!-- Right Controls (Language, Avatar) -->
         <div class="flex items-center gap-2 sm:gap-3">
-          <!-- Supabase Connection Badge -->
-          <button 
-            id="nav-supabase-btn" 
-            type="button" 
-            title="Manage Supabase Connection"
-            class="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#cdf2cb] text-xs font-bold text-[#0d631b] hover:bg-[#d9fdd6] transition-all shadow-sm"
-          >
-            <span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-            <span>Supabase: sahara</span>
-          </button>
-
           <!-- Language Dropdown -->
           <div class="relative flex items-center bg-white px-2 py-1 rounded-full shadow-sm border border-[#cdf2cb]">
             <span class="material-symbols-outlined text-[#0d631b] text-base mr-1">translate</span>
@@ -66,17 +54,6 @@ export function renderNavbar(activeView, onNavigate) {
               <option value="মৈতৈলোন্" ${dataStore.getLanguage() === 'মৈতৈলোন্' ? 'selected' : ''}>ꯃꯤꯇꯩꯂꯣꯟ (Manipuri)</option>
             </select>
           </div>
-
-          <!-- SOS Emergency Button -->
-          <button 
-            id="nav-sos-btn"
-            type="button" 
-            class="btn-tactile btn-sos flex items-center justify-center h-9 sm:h-10 px-3 sm:px-4 rounded-full text-xs sm:text-sm font-bold gap-1" 
-            title="Immediate Emergency Assistance Hotkey"
-          >
-            <span class="material-symbols-outlined text-lg sm:text-xl">emergency</span>
-            <span>SOS</span>
-          </button>
 
           <!-- Avatar & Menu -->
           <div class="relative">
@@ -102,10 +79,6 @@ export function renderNavbar(activeView, onNavigate) {
                 <span class="material-symbols-outlined text-lg">family_restroom</span>
                 Family Contacts
               </button>
-              <button id="menu-config-btn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ebffe7] text-gray-700 font-medium flex items-center gap-2">
-                <span class="material-symbols-outlined text-lg">settings</span>
-                Supabase Settings
-              </button>
               <button id="menu-signout-btn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 font-medium flex items-center gap-2">
                 <span class="material-symbols-outlined text-lg">logout</span>
                 Sign Out
@@ -115,28 +88,6 @@ export function renderNavbar(activeView, onNavigate) {
         </div>
       </div>
     </header>
-
-    <!-- Emergency SOS Modal -->
-    <div id="sos-modal" class="fixed inset-0 z-[110] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div class="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border-2 border-red-200 text-center space-y-4">
-        <div class="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-          <span class="material-symbols-outlined text-4xl">emergency</span>
-        </div>
-        <h2 class="text-2xl font-extrabold text-red-800">Emergency SOS Alert</h2>
-        <p class="text-sm text-gray-600">
-          This will immediately dial and notify daughter <strong>Riya Borah (+91 98540 12345)</strong> and send urgent location coordinates to <strong>Dr. B. Das</strong>.
-        </p>
-        <div class="flex flex-col gap-2 pt-2">
-          <button id="sos-confirm-btn" type="button" class="btn-tactile btn-sos w-full py-3.5 rounded-2xl text-lg font-extrabold flex items-center justify-center gap-2">
-            <span class="material-symbols-outlined">call</span>
-            Call Riya Immediately
-          </button>
-          <button id="sos-cancel-btn" type="button" class="w-full py-2.5 rounded-2xl text-sm font-semibold text-gray-600 hover:bg-gray-100">
-            Cancel (False Alarm)
-          </button>
-        </div>
-      </div>
-    </div>
   `;
 
   // Attach event handlers
@@ -144,7 +95,6 @@ export function renderNavbar(activeView, onNavigate) {
     document.getElementById('nav-brand-btn')?.addEventListener('click', () => {
       onNavigate(isCaregiver ? 'caregiver-dashboard' : 'elder-dashboard');
     });
-    document.getElementById('nav-supabase-btn')?.addEventListener('click', () => openSupabaseConfigModal());
 
     const avatarBtn = document.getElementById('nav-avatar-btn');
     const userMenu = document.getElementById('nav-user-menu');
@@ -161,11 +111,6 @@ export function renderNavbar(activeView, onNavigate) {
     document.getElementById('menu-contacts-btn')?.addEventListener('click', () => {
       userMenu?.classList.add('hidden');
       onNavigate('contacts');
-    });
-
-    document.getElementById('menu-config-btn')?.addEventListener('click', () => {
-      userMenu?.classList.add('hidden');
-      openSupabaseConfigModal();
     });
 
     document.getElementById('menu-signout-btn')?.addEventListener('click', async () => {
@@ -186,25 +131,6 @@ export function renderNavbar(activeView, onNavigate) {
       dataStore.setLanguage(selectedLang);
       showToast(`Language set to ${selectedLang}`, 'info');
       onNavigate(activeView);
-    });
-
-    // SOS Modal
-    const sosModal = document.getElementById('sos-modal');
-    document.getElementById('nav-sos-btn')?.addEventListener('click', () => {
-      sosModal?.classList.remove('hidden');
-      sosModal?.classList.add('flex');
-    });
-
-    document.getElementById('sos-cancel-btn')?.addEventListener('click', () => {
-      sosModal?.classList.add('hidden');
-      sosModal?.classList.remove('flex');
-    });
-
-    document.getElementById('sos-confirm-btn')?.addEventListener('click', () => {
-      sosModal?.classList.add('hidden');
-      sosModal?.classList.remove('flex');
-      showToast('🚨 SOS Dispatched! Connecting direct emergency call to Riya...', 'error', 6000);
-      window.open('tel:+919854012345');
     });
   }, 0);
 

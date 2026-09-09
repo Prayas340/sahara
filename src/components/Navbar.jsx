@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '../services/authService.js';
 import { dataStore } from '../services/dataStore.js';
-import SupabaseConfigModal from './SupabaseConfigModal.jsx';
 import { showToast } from './Toast.jsx';
 
 export default function Navbar({ activeView = 'elder' }) {
@@ -13,8 +12,6 @@ export default function Navbar({ activeView = 'elder' }) {
   const [patient, setPatient] = useState({});
   const [caregiver, setCaregiver] = useState({});
   const [currentLang, setCurrentLang] = useState('English');
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
-  const [isSosModalOpen, setIsSosModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -36,8 +33,8 @@ export default function Navbar({ activeView = 'elder' }) {
   }, []);
 
   const isCaregiver = activeView === 'caregiver' || user?.role === 'caregiver';
-  const effectiveName = user?.name || patient?.name || '';
-  const elderDisplayName = user?.honorific || patient?.honorific || (effectiveName ? `${effectiveName.split(' ')[0]} ji` : 'Sanctuary');
+  const effectiveName = isCaregiver ? (user?.name || 'Caregiver') : (patient?.name || user?.name || '');
+  const elderDisplayName = !isCaregiver && patient?.honorific ? patient.honorific : (patient?.name ? `${patient.name.split(' ')[0]} ji` : (user?.honorific || (effectiveName ? `${effectiveName.split(' ')[0]} ji` : 'Sanctuary')));
 
   const handleLanguageChange = (e) => {
     const newLang = e.target.value;
@@ -67,16 +64,6 @@ export default function Navbar({ activeView = 'elder' }) {
     } else {
       window.location.href = '/';
     }
-  };
-
-  const handleSosTrigger = () => {
-    setIsSosModalOpen(true);
-  };
-
-  const handleSosConfirm = () => {
-    showToast('🚨 Calling Riya Borah (+91 98540 12345) & alerting Dr. B. Das...', 'error', 6000);
-    setIsSosModalOpen(false);
-    window.open('tel:+919854012345');
   };
 
   return (
@@ -117,17 +104,6 @@ export default function Navbar({ activeView = 'elder' }) {
 
           {/* Right Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Supabase Connection Button */}
-            <button
-              onClick={() => setIsSupabaseModalOpen(true)}
-              type="button"
-              title="Manage Supabase Cloud Sync"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#cdf2cb] text-xs font-bold text-[#0d631b] hover:bg-[#d9fdd6] transition-all shadow-sm cursor-pointer"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-              <span>Supabase: sahara</span>
-            </button>
-
             {/* Language Selector */}
             <div className="relative flex items-center bg-white px-2 py-1 rounded-full shadow-sm border border-[#cdf2cb]">
               <span className="material-symbols-outlined text-[#0d631b] text-base mr-1">translate</span>
@@ -143,17 +119,6 @@ export default function Navbar({ activeView = 'elder' }) {
                 <option value="মৈতৈলোন্">ꯃꯤꯇꯩꯂꯣꯟ (Manipuri)</option>
               </select>
             </div>
-
-            {/* Emergency SOS Hotkey */}
-            <button
-              onClick={handleSosTrigger}
-              type="button"
-              className="btn-tactile btn-sos flex items-center justify-center h-9 sm:h-10 px-3 sm:px-4 rounded-full text-xs sm:text-sm font-bold gap-1 cursor-pointer"
-              title="Immediate Emergency Assistance"
-            >
-              <span className="material-symbols-outlined text-lg sm:text-xl">emergency</span>
-              <span>SOS</span>
-            </button>
 
             {/* Avatar & User Dropdown */}
             <div className="relative">
@@ -172,7 +137,7 @@ export default function Navbar({ activeView = 'elder' }) {
               {isUserMenuOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 text-sm">
                   <div className="p-2 border-b border-gray-100">
-                    <p className="font-bold text-gray-800">{user?.name || patient?.name || 'Sahara Member'}</p>
+                    <p className="font-bold text-gray-800">{isCaregiver ? (user?.name || 'Caregiver') : (patient?.name || user?.name || 'Sahara Member')}</p>
                     <p className="text-xs text-gray-500">
                       {isCaregiver ? 'Caregiver Companion' : 'Mild Cognitive Support'}
                     </p>
@@ -192,16 +157,6 @@ export default function Navbar({ activeView = 'elder' }) {
                     Family Contacts
                   </button>
                   <button
-                    onClick={() => {
-                      setIsUserMenuOpen(false);
-                      setIsSupabaseModalOpen(true);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ebffe7] text-gray-700 font-medium flex items-center gap-2 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-lg">settings</span>
-                    Supabase Settings
-                  </button>
-                  <button
                     onClick={handleSignOut}
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 font-medium flex items-center gap-2 cursor-pointer"
                   >
@@ -214,44 +169,6 @@ export default function Navbar({ activeView = 'elder' }) {
           </div>
         </div>
       </header>
-
-      {/* Supabase Settings Modal */}
-      <SupabaseConfigModal
-        isOpen={isSupabaseModalOpen}
-        onClose={() => setIsSupabaseModalOpen(false)}
-      />
-
-      {/* Emergency SOS Modal */}
-      {isSosModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border-2 border-red-200 text-center space-y-4 animate-scale-up">
-            <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-              <span className="material-symbols-outlined text-4xl">emergency</span>
-            </div>
-            <h2 className="text-2xl font-extrabold text-red-800">Emergency SOS Alert</h2>
-            <p className="text-sm text-gray-600">
-              This will immediately dial daughter <strong>Riya Borah (+91 98540 12345)</strong> and send urgent location coordinates to <strong>Dr. B. Das</strong>.
-            </p>
-            <div className="flex flex-col gap-2 pt-2">
-              <button
-                onClick={handleSosConfirm}
-                type="button"
-                className="btn-tactile btn-sos w-full py-3.5 rounded-2xl text-lg font-extrabold flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined">call</span>
-                Call Riya Immediately
-              </button>
-              <button
-                onClick={() => setIsSosModalOpen(false)}
-                type="button"
-                className="w-full py-2.5 rounded-2xl text-sm font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
-              >
-                Cancel (False Alarm)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

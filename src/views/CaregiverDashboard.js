@@ -1,13 +1,15 @@
 import { renderNavbar } from '../components/Navbar.js';
 import { dataStore } from '../services/dataStore.js';
+import { authService } from '../services/authService.js';
 import { openAddReminderModal } from './AddReminderModal.js';
 import { showToast } from '../utils/toast.js';
 import { speakText } from '../utils/speech.js';
 
 export function renderCaregiverDashboard(onNavigate, params = {}) {
   const activeTab = params?.tab || 'overview'; // 'overview' | 'memories' | 'routine' | 'contacts'
-  const patient = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state.patient || {});
-  const caregiver = dataStore.getCaregiver ? dataStore.getCaregiver() : (dataStore.state.caregiver || {});
+  const activeUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
+  const patient = activeUser?.linkedElder || (dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {}));
+  const caregiver = (activeUser?.role === 'caregiver' ? activeUser : null) || (dataStore.getCaregiver ? dataStore.getCaregiver() : (dataStore.state?.caregiver || {}));
   const medicines = dataStore.state.medicines || [];
   const contacts = dataStore.state.contacts || [];
   const takenCount = medicines.filter(m => m.taken).length;
@@ -104,13 +106,13 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                 <span class="w-3 h-3 rounded-full bg-[#006e1c] absolute -bottom-0.5 -right-0.5 border-2 border-white"></span>
               </div>
               <div class="overflow-hidden">
-                <p class="text-sm font-bold text-[#032109] truncate">${patient.name || 'Asha Devi Borah'}</p>
-                <p class="text-[11px] text-[#40493d] truncate">Mild Cognitive Support</p>
+                <p class="text-sm font-bold text-[#032109] truncate">${patient.name || 'Sahara Member'}</p>
+                <p class="text-[11px] text-[#40493d] truncate">${patient.status || patient.problemStatement || 'Mild Cognitive Support Mode'}</p>
               </div>
             </div>
             <div class="mt-2.5 pt-2 border-t border-[#ebffe7] flex items-center justify-between text-[11px] text-[#40493d]">
               <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[#006e1c]"></span>Live Connected</span>
-              <span class="font-bold text-[#0d631b]">${patient.city || 'Guwahati'}</span>
+              <span class="font-bold text-[#0d631b]">${patient.city || 'Kolkata'}</span>
             </div>
           </div>
 
@@ -159,8 +161,8 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                   <span class="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
                   <span class="text-xs font-bold text-[#0d631b] uppercase tracking-wider">Live Synchronized Caregiver Portal</span>
                 </div>
-                <h1 class="text-2xl sm:text-3xl font-extrabold text-[#032109]">Hello, ${caregiver.name || 'Riya'}</h1>
-                <p class="text-sm text-[#40493d]">Here is ${patient.honorific || patient.name}'s day at a glance · ${patient.city || 'Guwahati'}, ${patient.state || 'Assam'}</p>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-[#032109]">Hello, ${caregiver.name ? caregiver.name.split(' ')[0] : 'Caregiver'}</h1>
+                <p class="text-sm text-[#40493d]">Here is ${patient.honorific || patient.name}'s day at a glance · ${patient.city || 'Kolkata'}, ${patient.state || 'West Bengal'}</p>
               </div>
 
               <div class="flex items-center gap-3 flex-wrap">
@@ -200,13 +202,11 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                         Active today · Last active ${patient.lastActive}
                       </span>
                     </div>
-                    <p class="text-xs sm:text-sm text-[#40493d] mb-2">${patient.status} · ${patient.wing}</p>
+                    <p class="text-xs sm:text-sm text-[#40493d] mb-2">${patient.status || patient.problemStatement || 'Mild Cognitive Support Mode'} · ${patient.wing || patient.location || 'Garden Terrace Wing'}</p>
                     <div class="flex items-center gap-3 text-[#40493d] text-xs font-semibold flex-wrap">
                       <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[#0d631b] text-base">wifi_tethering</span>Device Connected</span>
                       <span>•</span>
-                      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[#006e1c] text-base">battery_charging_90</span>Tablet ${patient.tabletBattery}%</span>
-                      <span>•</span>
-                      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[#724f00] text-base">home_pin</span>${patient.location}</span>
+                      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[#724f00] text-base">home_pin</span>${patient.location || `${patient.city || 'Kolkata'}, ${patient.state || 'West Bengal'}`}</span>
                     </div>
                   </div>
                 </div>
@@ -346,14 +346,14 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               <!-- Right Col: Guwahati Care Team & Emergency Dispatch -->
               <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4 flex flex-col justify-between">
                 <div>
-                  <h3 class="text-xl font-extrabold text-[#032109]">Guwahati Care Team</h3>
+                  <h3 class="text-xl font-extrabold text-[#032109]">${patient.city || 'Kolkata'} Care Team</h3>
                   <p class="text-xs sm:text-sm text-[#40493d] mb-4">Direct hotlines on standby</p>
 
                   <div class="space-y-3">
                     <div class="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
                       <div>
                         <p class="text-sm font-bold text-[#032109]">Dr. B. Das</p>
-                        <p class="text-xs text-[#40493d]">Family Physician · Dispur</p>
+                        <p class="text-xs text-[#40493d]">Family Physician · Primary Clinic</p>
                       </div>
                       <a href="tel:+919864099887" class="p-2 bg-white text-[#0d631b] rounded-full shadow-sm hover:bg-[#ebffe7]">
                         <span class="material-symbols-outlined text-lg">call</span>
@@ -362,8 +362,8 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
 
                     <div class="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
                       <div>
-                        <p class="text-sm font-bold text-[#032109]">Anil Borah (Son)</p>
-                        <p class="text-xs text-[#40493d]">Bangalore · +91 98640 54321</p>
+                        <p class="text-sm font-bold text-[#032109]">Anil Borah (Family)</p>
+                        <p class="text-xs text-[#40493d]">Emergency Contact · +91 98640 54321</p>
                       </div>
                       <a href="tel:+919864054321" class="p-2 bg-white text-[#0d631b] rounded-full shadow-sm hover:bg-[#ebffe7]">
                         <span class="material-symbols-outlined text-lg">call</span>
@@ -372,7 +372,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
 
                     <div class="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-200">
                       <div>
-                        <p class="text-sm font-bold text-red-900">Guwahati 108 Ambulance</p>
+                        <p class="text-sm font-bold text-red-900">${patient.city || 'Local'} 108 Ambulance</p>
                         <p class="text-xs text-red-700">Emergency Medical Service</p>
                       </div>
                       <a href="tel:108" class="p-2 bg-red-600 text-white rounded-full shadow-sm hover:bg-red-700">

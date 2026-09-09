@@ -203,10 +203,10 @@ export default function CaregiverDashboardPage() {
                     </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109]">
-                    Hello, {caregiver?.name?.split(' ')[0] || 'Riya'}
+                    Hello, {caregiver?.name?.split(' ')[0] || 'Caregiver'}
                   </h1>
                   <p className="text-sm text-[#40493d]">
-                    Here is {patient?.honorific || patient?.name}&apos;s day at a glance · {patient?.city || 'Guwahati'}, {patient?.state || 'Assam'}
+                    Here is {patient?.honorific || patient?.name}&apos;s day at a glance · {patient?.city || 'Kolkata'}, {patient?.state || 'West Bengal'}
                   </p>
                 </div>
 
@@ -250,17 +250,12 @@ export default function CaregiverDashboardPage() {
                         </span>
                       </div>
                       <p className="text-xs sm:text-sm text-[#40493d] mb-2">
-                        {patient?.status} · {patient?.wing}
+                        {(patient?.status || patient?.problemStatement || 'Mild Cognitive Support Mode')} · {(patient?.wing || patient?.location || 'Garden Terrace Wing')}
                       </p>
                       <div className="flex items-center gap-3 text-[#40493d] text-xs font-semibold flex-wrap">
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-[#0d631b] text-base">wifi_tethering</span>
                           Device Connected
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[#006e1c] text-base">battery_charging_90</span>
-                          Tablet {patient?.tabletBattery}%
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
@@ -445,14 +440,14 @@ export default function CaregiverDashboardPage() {
 
                 <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4 flex flex-col justify-between">
                   <div>
-                    <h3 className="text-xl font-extrabold text-[#032109]">Guwahati Care Team</h3>
+                    <h3 className="text-xl font-extrabold text-[#032109]">{patient?.city || 'Kolkata'} Care Team</h3>
                     <p className="text-xs sm:text-sm text-[#40493d] mb-4">Direct hotlines on standby</p>
 
                     <div className="space-y-3">
                       <div className="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
                         <div>
                           <p className="text-sm font-bold text-[#032109]">Dr. B. Das</p>
-                          <p className="text-xs text-[#40493d]">Family Physician · Dispur</p>
+                          <p className="text-xs text-[#40493d]">Family Physician · Primary Clinic</p>
                         </div>
                         <a
                           href="tel:+919864099887"
@@ -464,8 +459,8 @@ export default function CaregiverDashboardPage() {
 
                       <div className="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
                         <div>
-                          <p className="text-sm font-bold text-[#032109]">Anil Borah (Son)</p>
-                          <p className="text-xs text-[#40493d]">Bangalore · +91 98640 54321</p>
+                          <p className="text-sm font-bold text-[#032109]">Anil Borah (Family)</p>
+                          <p className="text-xs text-[#40493d]">Emergency Contact · +91 98640 54321</p>
                         </div>
                         <a
                           href="tel:+919864054321"
@@ -477,7 +472,7 @@ export default function CaregiverDashboardPage() {
 
                       <div className="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-200">
                         <div>
-                          <p className="text-sm font-bold text-red-900">Guwahati 108 Ambulance</p>
+                          <p className="text-sm font-bold text-red-900">{patient?.city || 'Local'} 108 Ambulance</p>
                           <p className="text-xs text-red-700">Emergency Medical Service</p>
                         </div>
                         <a
