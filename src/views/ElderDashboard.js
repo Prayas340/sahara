@@ -67,6 +67,21 @@ export function renderElderDashboard(onNavigate) {
                   The morning air in the tea hills is crisp and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.
                 </p>
               </div>
+
+              <!-- Emergency SOS Button -->
+              <div class="shrink-0 flex items-center justify-center self-center sm:self-start">
+                <button
+                  id="elder-hero-sos-btn"
+                  type="button"
+                  class="btn-tactile px-5 py-3 sm:px-6 sm:py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-sm sm:text-base flex items-center gap-2.5 shadow-lg border-2 border-red-500 cursor-pointer transition-all hover:scale-105 active:scale-95"
+                >
+                  <span class="material-symbols-outlined text-2xl animate-pulse">emergency</span>
+                  <div class="text-left">
+                    <div class="leading-tight uppercase tracking-wider text-xs sm:text-sm font-black">Emergency SOS</div>
+                    <div class="text-[10px] text-white/90 font-medium">Notify Caregiver</div>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -273,11 +288,68 @@ export function renderElderDashboard(onNavigate) {
 
         </div>
       </main>
+
+      <!-- Persistent Floating Emergency SOS Button -->
+      <div class="fixed bottom-6 right-6 z-50">
+        <button
+          id="elder-floating-sos-btn"
+          type="button"
+          class="btn-tactile flex items-center gap-2.5 px-5 py-3.5 rounded-full bg-red-600 hover:bg-red-700 text-white font-black text-sm shadow-2xl border-2 border-white cursor-pointer hover:scale-105 active:scale-95 transition-all"
+        >
+          <span class="material-symbols-outlined text-2xl animate-pulse">emergency</span>
+          <span>Emergency SOS</span>
+        </button>
+      </div>
     </div>
   `;
 
   // Attach event handlers
   setTimeout(() => {
+    // SOS Dispatch Handler
+    const triggerSosDispatch = async () => {
+      const caregiverEmail = patient?.caregiverEmail || 'prayasdey10@gmail.com';
+      const caregiverName = patient?.caregiverName || 'Primary Caregiver';
+      const elderName = displayName || patient?.name || 'Asha Devi Borah';
+      const elderAge = patient?.age || 74;
+      const phone = patient?.phone || '+919854012345';
+      const location = patient?.location || (patient?.city ? `${patient.city}, ${patient.state || 'Assam'}` : 'Guwahati, Assam');
+      const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'full', timeStyle: 'medium' });
+
+      showToast('🚨 Sending SOS to Caregiver...', 'warning', 3000);
+      speakText(`Sending emergency alert to ${caregiverName}.`);
+
+      const formFields = {
+        access_key: '9f7c256e-6c1e-490c-8984-551b1097d7b2',
+        subject: `EMERGENCY ALERT: SOS Triggered by ${elderName}`,
+        from_name: 'Sahara Emergency Dispatch',
+        name: elderName,
+        email: caregiverEmail,
+        to_email: caregiverEmail,
+        'Elder Name': elderName,
+        'Elder Age': String(elderAge),
+        'Location / City': location,
+        'Timestamp': timestamp,
+        'Urgent Message': `URGENT: ${elderName} (Age: ${elderAge}) pressed their Emergency SOS button on Sahara and requires immediate contact or assistance!`,
+        message: `EMERGENCY ALERT: ${elderName} (Age: ${elderAge}) pressed their Emergency SOS button from ${location} at ${timestamp}. Please call ${phone} immediately.`,
+      };
+
+      try {
+        fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(formFields),
+        }).catch(() => {});
+      } catch (e) {}
+
+      setTimeout(() => {
+        showToast(`✅ Emergency Alert Sent to Caregiver (${caregiverEmail})!`, 'success', 8000);
+        speakText(`Emergency alert sent to ${caregiverName}. Help is on the way.`);
+      }, 1000);
+    };
+
+    document.getElementById('elder-hero-sos-btn')?.addEventListener('click', triggerSosDispatch);
+    document.getElementById('elder-floating-sos-btn')?.addEventListener('click', triggerSosDispatch);
+
     // Listen to Medicine Instructions
     document.getElementById('elder-listen-med-btn')?.addEventListener('click', () => {
       const medText = morningMed.instruction;

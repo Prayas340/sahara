@@ -70,6 +70,7 @@ export default function ElderDashboardPage() {
   // Emergency SOS State
   const [sosStatus, setSosStatus] = useState('idle'); // 'idle' | 'countdown' | 'sending' | 'sent' | 'error'
   const [sosCountdown, setSosCountdown] = useState(3);
+  const [sosErrorMsg, setSosErrorMsg] = useState('');
   const [isSosModalOpen, setIsSosModalOpen] = useState(false);
   const [lastSosTime, setLastSosTime] = useState(null);
   const countdownIntervalRef = useRef(null);
@@ -419,69 +420,72 @@ export default function ElderDashboardPage() {
   };
 
   // SOS Emergency Handlers
-  const handleOpenSosModal = () => {
-    const { caregiverName: cgName, caregiverEmail: cgEmail } = resolveElderAndCaregiver();
-    const effectiveCgEmail = cgEmail || patient?.caregiverEmail || 'prayasdey10@gmail.com';
-    const effectiveCgName = cgName || patient?.caregiverName || 'Caregiver';
-
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-
+  const handleTriggerSos = () => {
     setIsSosModalOpen(true);
-    setSosStatus('countdown');
+    setSosStatus('sending');
+    triggerSosDispatch();
+  };
 
-    speakText(`Emergency SOS alert. Tap Send SOS Immediately to notify ${effectiveCgName}.`);
+  const handleOpenSosModal = () => {
+    handleTriggerSos();
   };
 
   const handleCancelSos = () => {
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
     setIsSosModalOpen(false);
     setSosStatus('idle');
-    setSosCountdown(3);
+    setSosErrorMsg('');
     speakText('Emergency alert cancelled. You are safe.');
-    showToast('✓ Emergency alert cancelled. No email was sent.', 'info', 3000);
+    showToast('✓ Emergency alert cancelled.', 'info', 3000);
   };
 
   const triggerSosDispatch = async () => {
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-
     setSosStatus('sending');
+    setSosErrorMsg('');
 
     const { cleanElderId, caregiverEmail: cgEmail, caregiverName: cgName, elderId: resElderId } = resolveElderAndCaregiver();
-    const effectiveCgEmail = caregiverEmail || patient?.caregiverEmail || cgEmail || 'prayasdey10@gmail.com';
+    const effectiveCgEmail = caregiverEmail || patient?.caregiverEmail || cgEmail;
+
+    // Edge case handling: verify caregiver email is linked
+    if (!effectiveCgEmail || !effectiveCgEmail.includes('@')) {
+      setSosStatus('error');
+      const errText = 'No caregiver email address is linked to this elder profile. Please connect a caregiver in settings or call emergency services (112) immediately.';
+      setSosErrorMsg(errText);
+      speakText('No caregiver email is linked. Please call emergency services.');
+      showToast('⚠️ No caregiver email linked to this account!', 'error', 6000);
+      return;
+    }
+
     const effectiveCgName = caregiverName || patient?.caregiverName || cgName || 'Primary Caregiver';
-    const elderName = displayName || patient?.name || 'Prayas Dey';
+    const elderName = displayName || patient?.name || activeUser?.name || 'Asha Devi Borah';
+    const elderAge = patient?.age || activeUser?.age || 74;
     const phone = patient?.phone || resElderId || cleanElderId || '+919854012345';
-    const location = patient?.location || `${patient?.city || 'Guwahati'}, ${patient?.state || 'Assam'}`;
-    const statusDesc = patient?.problemStatement || patient?.status || 'Mild Cognitive Support Mode';
-    const currentTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const fullDateStr = new Date().toLocaleString('en-IN', {
+    const location = patient?.location || (patient?.city ? `${patient.city}, ${patient.state || 'Assam'}` : 'Guwahati, Assam');
+    const statusDesc = patient?.problemStatement || patient?.status || 'Active Memory Care Mode';
+
+    const exactTimestamp = new Date();
+    const currentTimeStr = exactTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const fullDateStr = exactTimestamp.toLocaleString('en-IN', {
       timeZone: 'Asia/Kolkata',
       dateStyle: 'full',
       timeStyle: 'medium',
     });
 
     const web3formsAccessKey = '9f7c256e-6c1e-490c-8984-551b1097d7b2';
+    const subjectLine = `EMERGENCY ALERT: SOS Triggered by ${elderName}`;
+    const urgentMessageBody = `URGENT: ${elderName} (Age: ${elderAge}) pressed their Emergency SOS button on Sahara and requires immediate contact or assistance!`;
 
     const warningTemplate = `
 ============================================================
-🚨 CRITICAL EMERGENCY SOS ALERT - SAHARA COGNITIVE COMPANION
+🚨 EMERGENCY ALERT: SOS TRIGGERED BY ${elderName.toUpperCase()}
 ============================================================
 
-An emergency SOS beacon was triggered by your loved one from their Sahara Elder Companion Tablet.
+${urgentMessageBody}
 
 ------------------------------------------------------------
 PATIENT / ELDER DETAILS:
 ------------------------------------------------------------
 • Elder Name:       ${elderName} (${displayHonorific})
+• Elder Age:        ${elderAge} years
 • Contact Phone:    ${phone}
 • Current Location: ${location}
 • Status Mode:      ${statusDesc}
@@ -504,7 +508,6 @@ CAREGIVER NOTIFIED:
 
 ------------------------------------------------------------
 Automated High-Priority Emergency Beacon generated by Sahara.
-Web3Forms Access Key: ${web3formsAccessKey}
 ============================================================
 `.trim();
 
@@ -513,7 +516,24 @@ Web3Forms Access Key: ${web3formsAccessKey}
     try {
       const dispatchTasks = [];
 
-      // 1. Native Hidden HTML Form targeting hidden iframe (Zero CORS preflight blocks, bypasses browser blocks)
+      const formFields = {
+        access_key: web3formsAccessKey,
+        subject: subjectLine,
+        from_name: 'Sahara Emergency Dispatch',
+        name: `${elderName} (${displayHonorific})`,
+        email: effectiveCgEmail,
+        replyto: effectiveCgEmail,
+        to_email: effectiveCgEmail,
+        recipient: effectiveCgEmail,
+        'Elder Name': elderName,
+        'Elder Age': String(elderAge),
+        'Location / City': location,
+        'Timestamp': fullDateStr,
+        'Urgent Message': urgentMessageBody,
+        message: warningTemplate,
+      };
+
+      // 1. Native Hidden HTML Form targeting hidden iframe (Guarantees browser dispatch without CORS preflight block)
       if (typeof document !== 'undefined') {
         try {
           let hiddenIframe = document.getElementById('sahara_sos_w3_iframe');
@@ -531,27 +551,6 @@ Web3Forms Access Key: ${web3formsAccessKey}
           hiddenForm.target = 'sahara_sos_w3_iframe';
           hiddenForm.style.display = 'none';
 
-          const formFields = {
-            access_key: web3formsAccessKey,
-            subject: `🚨 EMERGENCY SOS ALERT: ${elderName} needs immediate assistance!`,
-            from_name: 'Sahara Emergency Beacon',
-            name: `${elderName} (${displayHonorific})`,
-            email: effectiveCgEmail,
-            replyto: effectiveCgEmail,
-            to_email: effectiveCgEmail,
-            ccemail: effectiveCgEmail,
-            recipient: effectiveCgEmail,
-            Emergency_Level: 'CRITICAL - IMMEDIATE ACTION REQUIRED',
-            Elder_Name: `${elderName} (${displayHonorific})`,
-            Elder_Phone: phone,
-            Location: location,
-            Alert_Time: fullDateStr,
-            Caregiver_Email: effectiveCgEmail,
-            Caregiver_Name: effectiveCgName,
-            Status: statusDesc,
-            message: warningTemplate,
-          };
-
           for (const [key, val] of Object.entries(formFields)) {
             const input = document.createElement('input');
             input.type = 'hidden';
@@ -567,62 +566,52 @@ Web3Forms Access Key: ${web3formsAccessKey}
             try {
               if (hiddenForm.parentNode) hiddenForm.parentNode.removeChild(hiddenForm);
             } catch (e) {}
-          }, 5000);
+          }, 4000);
         } catch (formErr) {
           console.warn('Native hidden form notice:', formErr);
         }
       }
 
-      // 2. Parallel client fetch to Web3Forms JSON endpoint with strict 1.5-second timeout
+      // 2. Parallel client fetch to Web3Forms JSON endpoint with timeout
       try {
         const w3Controller = new AbortController();
-        const w3Timeout = setTimeout(() => w3Controller.abort(), 1500);
+        const w3Timeout = setTimeout(() => w3Controller.abort(), 2500);
         const w3FetchPromise = fetch('https://api.web3forms.com/submit', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
-          body: JSON.stringify({
-            access_key: web3formsAccessKey,
-            subject: `🚨 EMERGENCY SOS ALERT: ${elderName} needs immediate assistance!`,
-            from_name: 'Sahara Emergency Beacon',
-            name: `${elderName} (${displayHonorific})`,
-            email: effectiveCgEmail,
-            replyto: effectiveCgEmail,
-            to_email: effectiveCgEmail,
-            ccemail: effectiveCgEmail,
-            message: warningTemplate,
-            botcheck: false,
-          }),
+          body: JSON.stringify(formFields),
           signal: w3Controller.signal,
         })
           .then(() => clearTimeout(w3Timeout))
           .catch((e) => {
             clearTimeout(w3Timeout);
-            console.warn('Web3Forms fetch notice:', e.message);
+            console.warn('Web3Forms dispatch notice:', e.message);
           });
 
         dispatchTasks.push(w3FetchPromise);
       } catch (e) {}
 
-      // 3. Fast server-side record to /api/sos with 1.5-second timeout
+      // 3. Fast server-side record to /api/sos
       try {
         const apiController = new AbortController();
-        const apiTimeout = setTimeout(() => apiController.abort(), 1500);
+        const apiTimeout = setTimeout(() => apiController.abort(), 2000);
         const apiPromise = fetch('/api/sos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             elderId: resElderId || cleanElderId || '+919854012345',
             elderName,
+            elderAge,
             displayHonorific,
             caregiverEmail: effectiveCgEmail,
             caregiverName: effectiveCgName,
             location,
             phone,
             status: statusDesc,
-            timestamp: new Date().toISOString(),
+            timestamp: exactTimestamp.toISOString(),
           }),
           signal: apiController.signal,
         })
@@ -637,40 +626,61 @@ Web3Forms Access Key: ${web3formsAccessKey}
         console.warn('API /api/sos notice:', apiErr);
       }
 
-      // 4. Real-time Firestore Emergency Event logging (with timeout)
-      if (db) {
+      // 4. Real-time Firestore Emergency Event logging (Audit Log)
+      if (db && cleanElderId) {
         try {
-          const now = new Date();
-          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          const todayStr = getTodayDateString();
+          const isoDate = exactTimestamp.toISOString().split('T')[0];
+          const alertId = `sos_${Date.now()}`;
+          const alertData = {
+            id: alertId,
+            type: 'EMERGENCY_SOS',
+            elderName,
+            elderAge: Number(elderAge) || 74,
+            location,
+            phone,
+            caregiverEmail: effectiveCgEmail,
+            caregiverName: effectiveCgName,
+            time: currentTimeStr,
+            formattedTime: fullDateStr,
+            timestamp: exactTimestamp.toISOString(),
+            status: 'DISPATCHED',
+          };
+
           const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
           const elderRef = doc(db, 'elders', cleanElderId);
+          const alertDocRef = doc(db, 'elders', cleanElderId, 'alerts', alertId);
 
           const fsPromise = Promise.race([
             Promise.allSettled([
               setDoc(dailyLogRef, {
-                sosAlerts: arrayUnion({
-                  id: `sos_${Date.now()}`,
-                  triggeredAt: new Date().toISOString(),
-                  formattedTime: fullDateStr,
-                  elderName,
-                  caregiverEmail: effectiveCgEmail,
-                  caregiverName: effectiveCgName,
-                  status: 'DISPATCHED',
-                }),
+                sosAlerts: arrayUnion(alertData),
                 lastSosAlert: {
-                  triggeredAt: new Date().toISOString(),
-                  time: currentTimeStr,
-                  status: 'ACTIVE',
+                  ...alertData,
+                  updatedAt: serverTimestamp(),
                 },
                 updatedAt: serverTimestamp(),
+              }, { merge: true }),
+              setDoc(alertDocRef, {
+                ...alertData,
+                createdAt: serverTimestamp(),
               }, { merge: true }),
               setDoc(elderRef, {
                 emergencyStatus: 'ACTIVE_SOS',
                 lastSosAlert: serverTimestamp(),
                 lastActive: serverTimestamp(),
+                updatedAt: serverTimestamp(),
               }, { merge: true }),
+              isoDate !== todayStr ? setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', isoDate), {
+                sosAlerts: arrayUnion(alertData),
+                lastSosAlert: {
+                  ...alertData,
+                  updatedAt: serverTimestamp(),
+                },
+                updatedAt: serverTimestamp(),
+              }, { merge: true }) : Promise.resolve(),
             ]),
-            new Promise((res) => setTimeout(res, 1500)),
+            new Promise((res) => setTimeout(res, 2000)),
           ]).catch(() => {});
 
           dispatchTasks.push(fsPromise);
@@ -683,6 +693,7 @@ Web3Forms Access Key: ${web3formsAccessKey}
       const liveSosPayload = {
         id: `sos_${Date.now()}`,
         elderName,
+        elderAge,
         caregiverEmail: effectiveCgEmail,
         caregiverName: effectiveCgName,
         time: currentTimeStr,
@@ -696,19 +707,19 @@ Web3Forms Access Key: ${web3formsAccessKey}
         window.dispatchEvent(new CustomEvent('sahara:sos-alert', { detail: liveSosPayload }));
       } catch (e) {}
 
-      // 6. Guarantee completion after at most 1000ms
+      // 6. Guarantee completion after at most 1200ms
       await Promise.race([
         Promise.allSettled(dispatchTasks),
-        new Promise((res) => setTimeout(res, 1000)),
+        new Promise((res) => setTimeout(res, 1200)),
       ]);
     } catch (err) {
       console.warn('SOS dispatch notice:', err);
     } finally {
-      // GUARANTEED: Always transition to sent state without staying in loading
+      // Transition to clear confirmation state
       setSosStatus('sent');
       setLastSosTime(currentTimeStr);
-      speakText(`Emergency alert sent successfully to ${effectiveCgName}. Keep your tablet nearby.`);
-      showToast(`🚨 Emergency SOS warning sent to ${effectiveCgEmail}! Help is on the way.`, 'success', 8000);
+      speakText(`Emergency alert sent to ${effectiveCgName}. Help is on the way.`);
+      showToast(`🚨 Emergency alert sent to ${effectiveCgEmail}!`, 'success', 8000);
     }
   };
 
@@ -777,6 +788,36 @@ Web3Forms Access Key: ${web3formsAccessKey}
                   <p className="text-sm sm:text-base text-[#40493d] max-w-2xl">
                     {t.elderGreetingDesc || `The morning air in ${patient?.city || 'your area'} is calm and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.`}
                   </p>
+                </div>
+
+                {/* Prominent Emergency SOS Button */}
+                <div className="shrink-0 flex flex-col items-center sm:items-end justify-center self-center sm:self-start mt-3 sm:mt-0">
+                  <button
+                    onClick={handleTriggerSos}
+                    id="hero-emergency-sos-button"
+                    type="button"
+                    disabled={sosStatus === 'sending'}
+                    className={`btn-tactile px-5 py-3.5 sm:px-6 sm:py-4 rounded-2xl font-black text-sm sm:text-base flex items-center gap-3 transition-all cursor-pointer shadow-xl border-2 ${
+                      sosStatus === 'sending'
+                        ? 'bg-amber-500 border-amber-400 text-white animate-pulse'
+                        : sosStatus === 'sent'
+                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30'
+                        : 'bg-red-600 hover:bg-red-700 active:bg-red-800 border-red-500 text-white shadow-red-600/40 hover:scale-105 active:scale-95'
+                    }`}
+                    aria-label="Emergency SOS Alert"
+                  >
+                    <span className="material-symbols-outlined text-2xl sm:text-3xl animate-pulse">
+                      {sosStatus === 'sending' ? 'hourglass_top' : sosStatus === 'sent' ? 'check_circle' : 'emergency'}
+                    </span>
+                    <div className="text-left">
+                      <div className="leading-tight uppercase tracking-wider text-xs sm:text-sm font-black">
+                        {sosStatus === 'sending' ? 'Sending SOS...' : sosStatus === 'sent' ? 'SOS Sent to Caregiver' : 'Emergency SOS'}
+                      </div>
+                      <div className="text-[10px] text-white/90 font-medium">
+                        {sosStatus === 'sending' ? 'Dispatching alert...' : sosStatus === 'sent' ? 'Caregiver Notified' : 'Tap for Urgent Help'}
+                      </div>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -951,116 +992,167 @@ Web3Forms Access Key: ${web3formsAccessKey}
 
       {/* Emergency SOS Dispatch Modal */}
       {isSosModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
           <div className="w-full max-w-md sm:max-w-lg bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border-4 border-red-500 space-y-5 text-center animate-scale-up">
-            {sosStatus === 'countdown' ? (
-              <>
-                <div className="relative mx-auto w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-red-100 flex items-center justify-center text-red-600 border-4 border-red-500 shadow-xl">
-                  <span className="animate-ping absolute inset-0 rounded-full bg-red-400 opacity-50"></span>
-                  <span className="material-symbols-outlined text-5xl sm:text-6xl font-black">emergency</span>
+            {sosStatus === 'sending' ? (
+              <div className="py-6 space-y-5">
+                <div className="relative mx-auto w-24 h-24 rounded-full bg-amber-100 border-4 border-amber-500 flex items-center justify-center text-amber-600 shadow-xl">
+                  <div className="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
+                  <span className="material-symbols-outlined text-5xl font-black animate-pulse">emergency</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-black uppercase tracking-widest inline-block shadow-sm">
+                    Emergency Alert in Progress
+                  </span>
+                  <h2 className="text-3xl font-black text-[#032109]">Sending SOS...</h2>
+                  <p className="text-sm font-semibold text-[#40493d]">
+                    Dispatching urgent alert to <strong className="text-amber-900 font-bold">{caregiverEmail || patient?.caregiverEmail || 'linked caregiver'}</strong>
+                  </p>
+                </div>
+                <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 text-left space-y-2">
+                  <div className="flex justify-between text-xs text-amber-950 font-bold">
+                    <span>Elder:</span>
+                    <span>{displayName || patient?.name || 'Asha Devi Borah'} ({patient?.age || 74} yrs)</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-amber-950 font-bold">
+                    <span>Location / City:</span>
+                    <span>{patient?.location || (patient?.city ? `${patient.city}, ${patient.state || 'Assam'}` : 'Guwahati, Assam')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-amber-950 font-bold">
+                    <span>Notification Channel:</span>
+                    <span className="text-emerald-700">Immediate Caregiver Email</span>
+                  </div>
+                </div>
+              </div>
+            ) : sosStatus === 'sent' ? (
+              <div className="space-y-5 py-2">
+                <div className="w-24 h-24 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center border-4 border-emerald-500 shadow-xl">
+                  <span className="material-symbols-outlined text-6xl font-black">check_circle</span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <span className="px-3 py-1 rounded-full bg-red-600 text-white text-xs font-black uppercase tracking-widest inline-block shadow-xs">
-                    Emergency SOS Alert
-                  </span>
-                  <h2 className="text-2xl sm:text-3xl font-black text-[#032109] tracking-tight">
-                    Sending Emergency Warning
-                  </h2>
-                </div>
-
-                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-left space-y-1.5 shadow-inner">
-                  <div className="text-xs text-red-800 font-bold">
-                    <span>RECIPIENT CAREGIVER:</span>
-                  </div>
-                  <p className="text-base font-black text-red-950">
-                    {caregiverName || 'Primary Caregiver'}
-                  </p>
-                  <p className="text-xs sm:text-sm text-red-800 flex items-center gap-1.5 font-medium">
-                    <span className="material-symbols-outlined text-base">mail</span>
-                    <span className="font-bold">{caregiverEmail || patient?.caregiverEmail || 'prayasdey10@gmail.com'}</span>
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3 pt-2">
-                  <button
-                    onClick={triggerSosDispatch}
-                    type="button"
-                    className="btn-tactile w-full py-3.5 sm:py-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-base sm:text-lg shadow-[0_6px_0_#8b0000] active:translate-y-1 active:shadow-none cursor-pointer flex items-center justify-center gap-2 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-2xl">send</span>
-                    <span>SEND SOS IMMEDIATELY</span>
-                  </button>
-
-                  <button
-                    onClick={handleCancelSos}
-                    type="button"
-                    className="btn-tactile w-full py-3 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-sm sm:text-base cursor-pointer border border-gray-300 transition-colors"
-                  >
-                    Cancel Alert (I am safe)
-                  </button>
-                </div>
-              </>
-            ) : sosStatus === 'sending' ? (
-              <div className="py-8 space-y-4">
-                <div className="w-20 h-20 mx-auto rounded-full border-4 border-red-500 border-t-transparent animate-spin"></div>
-                <h2 className="text-2xl font-black text-[#032109]">Dispatching Emergency SOS...</h2>
-                <p className="text-sm text-[#40493d]">Delivering warning email to {caregiverEmail || 'caregiver'}</p>
-                <div className="pt-2">
-                  <button
-                    onClick={() => {
-                      setSosStatus('sent');
-                      setLastSosTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-                    }}
-                    type="button"
-                    className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold border border-gray-300 cursor-pointer shadow-sm transition-colors"
-                  >
-                    Skip Waiting & View Confirmation
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 py-2">
-                <div className="w-20 h-20 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center border-4 border-emerald-500 shadow-xl">
-                  <span className="material-symbols-outlined text-5xl font-black">check_circle</span>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="px-3 py-1 rounded-full bg-emerald-700 text-white text-xs font-black uppercase tracking-wider inline-block">
-                    Dispatched
+                  <span className="px-3.5 py-1 rounded-full bg-emerald-700 text-white text-xs font-black uppercase tracking-wider inline-block shadow-xs">
+                    Beacon Dispatched
                   </span>
                   <h2 className="text-2xl sm:text-3xl font-black text-[#032109]">
-                    Emergency Alert Sent!
+                    Emergency Alert Sent to Caregiver
                   </h2>
                   <p className="text-sm text-[#40493d]">
-                    Warning email delivered to <strong className="text-emerald-800">{caregiverEmail || patient?.caregiverEmail || 'caregiver'}</strong>.
+                    Emergency alert delivered to <strong className="text-emerald-800 font-extrabold">{caregiverEmail || patient?.caregiverEmail || 'Caregiver'}</strong>.
                   </p>
                 </div>
 
-                <div className="bg-[#ebffe7] border border-[#cdf2cb] rounded-2xl p-4 text-sm text-[#032109] text-left space-y-1.5 shadow-inner">
-                  <p className="font-bold flex items-center gap-1.5 text-emerald-800">
-                    <span className="material-symbols-outlined text-base">verified</span>
-                    Beacon logged at {lastSosTime || 'just now'} (IST)
-                  </p>
-                  <p className="text-xs text-[#40493d]">
-                    Please sit comfortably and breathe gently. Your caregiver has received your emergency alert and location.
-                  </p>
+                <div className="bg-[#ebffe7] border-2 border-[#cdf2cb] rounded-2xl p-4 text-left space-y-2 text-sm text-[#032109] shadow-inner">
+                  <div className="flex justify-between border-b border-[#cdf2cb] pb-1.5">
+                    <span className="text-xs font-bold text-[#40493d]">Elder Name & Age:</span>
+                    <span className="font-extrabold">{displayName || patient?.name || 'Asha Devi Borah'} ({patient?.age || 74} yrs)</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#cdf2cb] pb-1.5">
+                    <span className="text-xs font-bold text-[#40493d]">Location / City:</span>
+                    <span className="font-extrabold">{patient?.location || (patient?.city ? `${patient.city}, ${patient.state || 'Assam'}` : 'Guwahati, Assam')}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#cdf2cb] pb-1.5">
+                    <span className="text-xs font-bold text-[#40493d]">Time of Alert:</span>
+                    <span className="font-extrabold text-emerald-800">{lastSosTime || 'Just now'} (IST)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs font-bold text-[#40493d]">Caregiver Status:</span>
+                    <span className="font-extrabold text-emerald-700">Notified via Direct Email & Portal</span>
+                  </div>
                 </div>
 
                 <div className="pt-2 flex flex-col gap-2.5">
                   <a
                     href={`tel:${patient?.phone || '+919854012345'}`}
-                    className="btn-tactile w-full py-3.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer text-base"
+                    className="btn-tactile w-full py-3.5 sm:py-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold flex items-center justify-center gap-2 shadow-lg cursor-pointer text-base transition-transform active:scale-95"
                   >
-                    <span className="material-symbols-outlined">call</span>
+                    <span className="material-symbols-outlined text-2xl">call</span>
                     <span>Direct Call Primary Contact</span>
                   </a>
                   <button
-                    onClick={() => setIsSosModalOpen(false)}
+                    onClick={() => {
+                      setIsSosModalOpen(false);
+                      setSosStatus('idle');
+                    }}
                     type="button"
-                    className="w-full py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm cursor-pointer border border-gray-300"
+                    className="w-full py-3 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm cursor-pointer border border-gray-300 transition-colors"
                   >
                     Close Window
+                  </button>
+                </div>
+              </div>
+            ) : sosStatus === 'error' ? (
+              <div className="space-y-5 py-2">
+                <div className="w-24 h-24 mx-auto rounded-full bg-red-100 text-red-700 flex items-center justify-center border-4 border-red-500 shadow-xl">
+                  <span className="material-symbols-outlined text-6xl font-black">error</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="px-3.5 py-1 rounded-full bg-red-600 text-white text-xs font-black uppercase tracking-wider inline-block shadow-xs">
+                    Alert Error
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-black text-red-950">
+                    Caregiver Email Not Found
+                  </h2>
+                  <p className="text-sm text-red-800 font-medium leading-relaxed">
+                    {sosErrorMsg || 'No linked caregiver email address is associated with this elder account.'}
+                  </p>
+                </div>
+
+                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 text-left text-xs text-red-900 space-y-1">
+                  <p className="font-bold">Next Steps:</p>
+                  <p>1. Call emergency services at 112 immediately if this is an urgent crisis.</p>
+                  <p>2. Ask your caregiver or family to link their email in the Caregiver Portal.</p>
+                </div>
+
+                <div className="pt-2 flex flex-col gap-2.5">
+                  <a
+                    href="tel:112"
+                    className="btn-tactile w-full py-3.5 sm:py-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-extrabold flex items-center justify-center gap-2 shadow-lg cursor-pointer text-base"
+                  >
+                    <span className="material-symbols-outlined text-2xl">call</span>
+                    <span>Call Emergency Services (112)</span>
+                  </a>
+                  <button
+                    onClick={() => {
+                      setIsSosModalOpen(false);
+                      setSosStatus('idle');
+                    }}
+                    type="button"
+                    className="w-full py-3 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm cursor-pointer border border-gray-300"
+                  >
+                    Close Window
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5 py-2">
+                <div className="relative mx-auto w-24 h-24 rounded-full bg-red-100 flex items-center justify-center text-red-600 border-4 border-red-500 shadow-xl">
+                  <span className="material-symbols-outlined text-6xl font-black">emergency</span>
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-2xl sm:text-3xl font-black text-[#032109]">
+                    Emergency SOS Alert
+                  </h2>
+                  <p className="text-sm text-[#40493d]">
+                    Tap below to immediately notify your caregiver <strong className="text-red-900">{caregiverEmail || patient?.caregiverEmail || 'linked caregiver'}</strong>.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 pt-2">
+                  <button
+                    onClick={triggerSosDispatch}
+                    type="button"
+                    className="btn-tactile w-full py-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-lg shadow-[0_6px_0_#8b0000] active:translate-y-1 active:shadow-none cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-2xl">send</span>
+                    <span>SEND SOS IMMEDIATELY</span>
+                  </button>
+                  <button
+                    onClick={handleCancelSos}
+                    type="button"
+                    className="w-full py-3 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-sm cursor-pointer border border-gray-300 transition-colors"
+                  >
+                    Cancel (I am safe)
                   </button>
                 </div>
               </div>
@@ -1068,6 +1160,31 @@ Web3Forms Access Key: ${web3formsAccessKey}
           </div>
         </div>
       )}
+
+      {/* Persistent Floating Emergency SOS Button */}
+      <div className="fixed bottom-6 right-6 z-[100]">
+        <button
+          onClick={handleTriggerSos}
+          id="floating-emergency-sos-button"
+          type="button"
+          disabled={sosStatus === 'sending'}
+          className={`btn-tactile flex items-center gap-2.5 px-5 py-3.5 sm:px-6 sm:py-4 rounded-full font-black text-sm sm:text-base shadow-[0_8px_30px_rgba(220,38,38,0.5)] transition-all cursor-pointer border-2 border-white hover:scale-105 active:scale-95 ${
+            sosStatus === 'sending'
+              ? 'bg-amber-500 text-white animate-pulse'
+              : sosStatus === 'sent'
+              ? 'bg-emerald-600 text-white'
+              : 'bg-red-600 hover:bg-red-700 text-white'
+          }`}
+          aria-label="Floating Emergency SOS"
+        >
+          <span className="material-symbols-outlined text-2xl sm:text-3xl animate-pulse">
+            {sosStatus === 'sending' ? 'hourglass_top' : sosStatus === 'sent' ? 'check_circle' : 'emergency'}
+          </span>
+          <span className="tracking-wide">
+            {sosStatus === 'sending' ? 'Sending SOS...' : sosStatus === 'sent' ? 'SOS Sent to Caregiver' : 'Emergency SOS'}
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
