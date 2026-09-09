@@ -543,47 +543,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                 `;
               })()}
 
-              <!-- Curated Family Memories Album -->
-              <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
-                <div class="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <h3 class="text-xl font-extrabold text-[#032109]">${patient.name ? patient.name.split(' ')[0] : 'Elder'}'s Memory Anchor Album</h3>
-                    <p class="text-xs sm:text-sm text-[#40493d]">Personal photographs tied to voice narrations that help evoke comfort and orientation.</p>
-                  </div>
-                  <button class="btn-tactile btn-primary px-4 py-2 rounded-full text-xs font-bold cursor-pointer" id="cg-album-add-btn">
-                    <span class="material-symbols-outlined text-sm mr-1">cloud_upload</span> Upload Story
-                  </button>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                  <div class="p-3.5 bg-[#ebffe7] rounded-2xl border border-[#cdf2cb] flex items-center gap-3">
-                    <img class="w-16 h-16 rounded-xl object-cover shrink-0 border border-[#cdf2cb]" src="https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=200&auto=format&fit=crop" alt="Cat memory" />
-                    <div>
-                      <h4 class="text-sm font-bold text-[#032109]">Gentle Cat "Mimi"</h4>
-                      <p class="text-xs text-[#40493d]">Sunlit veranda nap in Dispur</p>
-                      <span class="text-[11px] font-bold text-[#0d631b] flex items-center gap-1 mt-1"><span class="material-symbols-outlined text-sm">record_voice_over</span>Voice audio linked</span>
-                    </div>
-                  </div>
-
-                  <div class="p-3.5 bg-[#ebffe7] rounded-2xl border border-[#cdf2cb] flex items-center gap-3">
-                    <img class="w-16 h-16 rounded-xl object-cover shrink-0 border border-[#cdf2cb]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDauqRUl7YpuJSBa4kuyqJidfQJRaCYT-3Oo4ZsHNJ-in8bGK4pPiMMwFwYXfcbFm8bjhHjTdbTvCJCXeBeip_UP8N5E3SY6mspaZ_RJ96mymlOszjhLt6jkZv4bdFun-_i-V8jOzhenh_NupZeRE9_b7FTmWMFA7LGfVW5mICyVvp8a9Yl8jyP7w4U6gL2IiKQJrqw79kBvqVVgteQ_5Z_bsLTMPu9-kKoaukZGOL7wLaXdCvZ_8WK5Q" alt="Tea garden" />
-                    <div>
-                      <h4 class="text-sm font-bold text-[#032109]">Jorhat Tea Estate</h4>
-                      <p class="text-xs text-[#40493d]">Childhood vacations 1968</p>
-                      <span class="text-[11px] font-bold text-[#0d631b] flex items-center gap-1 mt-1"><span class="material-symbols-outlined text-sm">record_voice_over</span>Assamese story linked</span>
-                    </div>
-                  </div>
-
-                  <div class="p-3.5 bg-[#ebffe7] rounded-2xl border border-[#cdf2cb] flex items-center gap-3">
-                    <img class="w-16 h-16 rounded-xl object-cover shrink-0 border border-[#cdf2cb]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfb2Ilw0SLdOuUlOFLSzgAfBI-Gfu3AZuBqTInkesBiLBm6G2Be1pJ4TK9BY-Kh7Fs4oRCnQU5npntF9UZSiZKSoSrOkBgfIuaC67UF1QmjicWtikoUoag5AARfFvVxlZUBcNh0Usr1iI-fdom5Yok0COkHQwTVc4WLzYwOLywZ1ShZieBFZqd8vQOyjvOAqMJQotxgHn3DzFeSXIVXEaodQMgfHV_QNfPHER-HdxfMZdEicRJiGfmFA" alt="Chai" />
-                    <div>
-                      <h4 class="text-sm font-bold text-[#032109]">Morning Assam Chai</h4>
-                      <p class="text-xs text-[#40493d]">Traditional earthen bhar cup</p>
-                      <span class="text-[11px] font-bold text-[#0d631b] flex items-center gap-1 mt-1"><span class="material-symbols-outlined text-sm">check_circle</span>Active memory trigger</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           ` : ''}
 
