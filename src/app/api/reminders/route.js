@@ -31,6 +31,8 @@ export async function POST(request) {
       result = await addReminderToDb({ elderId, caregiverEmail, reminder });
     } else if (action === 'delete' && reminderId) {
       result = await deleteReminderFromDb({ elderId, caregiverEmail, reminderId });
+    } else if ((action === 'save' || !action) && medicines && Array.isArray(medicines)) {
+      result = await saveRemindersToDb({ elderId, caregiverEmail, medicines });
     } else if (action === 'toggle' && reminderId) {
       result = await toggleReminderStatusInDb({ elderId, caregiverEmail, reminderId, taken, takenAt, takenDate });
     } else if (medicines && Array.isArray(medicines)) {

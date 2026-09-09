@@ -78,15 +78,40 @@ export default function ElderDashboardPage() {
   useEffect(() => {
     const todayStr = new Date().toISOString().split('T')[0];
 
+    const mergeWithTakenPreserved = (freshMeds, existingMeds) => {
+      if (!Array.isArray(freshMeds)) return [];
+      const current = existingMeds || [];
+      return freshMeds.map(fm => {
+        const prev = current.find(p => (
+          (p.id !== undefined && p.id !== null && (p.id === fm.id || String(p.id) === String(fm.id))) ||
+          (p.title && fm.title && p.title === fm.title) ||
+          (p.name && fm.name && p.name === fm.name)
+        ));
+        if (prev?.taken && prev?.takenDate === todayStr && !fm.taken) {
+          return { ...fm, taken: true, takenAt: prev.takenAt, takenDate: todayStr };
+        }
+        return fm;
+      });
+    };
+
     const syncData = () => {
       try {
         const u = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
         setActiveUser(u);
         const p = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {});
         setPatient(p || {});
-        setMedicines([...(dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state?.medicines || []))]);
+        const storeMeds = dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state?.medicines || []);
+        setMedicines(prev => mergeWithTakenPreserved(storeMeds, prev));
       } catch (err) {
         console.warn('Error reading local user state:', err);
+      }
+    };
+
+    const onMedicinesChange = (e) => {
+      if (e?.detail?.medicines && Array.isArray(e.detail.medicines)) {
+        setMedicines(prev => mergeWithTakenPreserved(e.detail.medicines, prev));
+      } else {
+        syncData();
       }
     };
 
@@ -115,7 +140,7 @@ export default function ElderDashboardPage() {
     syncData();
     window.addEventListener('sahara:datastore-change', syncData);
     window.addEventListener('sahara:auth-change', syncData);
-    window.addEventListener('sahara:medicines-change', syncData);
+    window.addEventListener('sahara:medicines-change', onMedicinesChange);
 
     // Multi-Device Cloud Sync for Elder
     let unsubFirestore = null;
@@ -140,8 +165,11 @@ export default function ElderDashboardPage() {
                 takenAt: m.completedAt || m.takenAt || null,
                 takenDate: m.takenDate || todayStr,
               }));
-              setMedicines(liveMeds);
-              dataStore.state.medicines = liveMeds;
+              setMedicines(prev => {
+                const merged = mergeWithTakenPreserved(liveMeds, prev);
+                dataStore.state.medicines = merged;
+                return merged;
+              });
             }
           }
         }, (err) => console.warn('[ElderDashboard] onSnapshot notice:', err.message));
@@ -161,7 +189,7 @@ export default function ElderDashboardPage() {
             if (rData?.success && rData?.medicines) {
               const meds = rData.medicines;
               const resolvedMeds = resetIfNewDay(meds);
-              setMedicines([...resolvedMeds]);
+              setMedicines(prev => mergeWithTakenPreserved(resolvedMeds, prev));
             }
           })
           .catch(() => {});
@@ -174,7 +202,7 @@ export default function ElderDashboardPage() {
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       window.removeEventListener('sahara:datastore-change', syncData);
       window.removeEventListener('sahara:auth-change', syncData);
-      window.removeEventListener('sahara:medicines-change', syncData);
+      window.removeEventListener('sahara:medicines-change', onMedicinesChange);
       if (unsubFirestore) unsubFirestore();
     };
   }, []);
@@ -211,9 +239,18 @@ export default function ElderDashboardPage() {
 
     // Update locally with takenDate so midnight reset can compare
     const baseList = (medicines && medicines.length > 0) ? medicines : (dataStore.getMedicines ? dataStore.getMedicines() : []);
-    const updatedMeds = baseList.map(m => {
-      if (m.id === medId || String(m.id) === String(medId) || m.title === currentMed.title) {
-        return { ...m, taken: true, takenAt: takenAtTime, takenDate: todayStr };
+    let matched = false;
+    const updatedMeds = baseList.map((m, idx) => {
+      const isTarget = (
+        (medId !== undefined && medId !== null && (m.id === medId || String(m.id) === String(medId))) ||
+        (currentMed.title && (m.title === currentMed.title || m.name === currentMed.title)) ||
+        (currentMed.name && (m.title === currentMed.name || m.name === currentMed.name)) ||
+        (baseList.length === 1) ||
+        (idx === 0 && !m.taken)
+      );
+      if (isTarget && !matched) {
+        matched = true;
+        return { ...m, taken: true, isDue: false, takenAt: takenAtTime, takenDate: todayStr };
       }
       return m;
     });
@@ -221,10 +258,16 @@ export default function ElderDashboardPage() {
     // Resolve elder and caregiver identities reliably
     const { elderId, caregiverEmail, cleanElderId } = resolveElderAndCaregiver();
 
-    // Save locally (also persists to server via saveMedicines)
-    dataStore.state.medicines = updatedMeds;
-    dataStore.saveState();
+    // 1. Immediately update React state so the UI reflects "All Completed" on this single click!
     setMedicines([...updatedMeds]);
+
+    // 2. Persist to dataStore AND localStorage under all storage keys
+    if (dataStore.saveMedicines) {
+      dataStore.saveMedicines(updatedMeds);
+    } else {
+      dataStore.state.medicines = updatedMeds;
+      dataStore.saveState();
+    }
 
     // Format medications and routines for Firestore
     const formattedMeds = updatedMeds.map(m => ({
@@ -247,7 +290,7 @@ export default function ElderDashboardPage() {
     }));
 
     // Real-time Firestore Mutation
-    if (db) {
+    if (db && cleanElderId) {
       const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
       const elderRef = doc(db, 'elders', cleanElderId);
 
@@ -255,8 +298,8 @@ export default function ElderDashboardPage() {
         medications: formattedMeds,
         routines: formattedRoutines,
         lastCompletedItem: {
-          id: medId,
-          name: currentMed.title,
+          id: medId || 'routine_item',
+          name: currentMed.title || currentMed.name || 'Daily Routine',
           completedAt: takenAtTime,
         },
         updatedAt: serverTimestamp(),
@@ -269,44 +312,51 @@ export default function ElderDashboardPage() {
       }, { merge: true }).catch(() => {});
     }
 
-    // Persist directly to server DB via toggle action
+    // Persist directly to server DB with action: 'save'
     if (elderId) {
       fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'toggle',
+          action: 'save',
           elderId,
           caregiverEmail,
+          medicines: updatedMeds,
           reminderId: medId,
           taken: true,
           takenAt: takenAtTime,
           takenDate: todayStr,
         }),
       }).then(r => r.json()).then(res => {
-        // After server confirms, sync the full updated list locally
-        if (res?.success && res?.medicines) {
-          dataStore.state.medicines = res.medicines;
-          dataStore.saveState();
-          setMedicines([...res.medicines]);
+        if (res?.success && Array.isArray(res?.medicines)) {
+          const anyTaken = res.medicines.some(m => m.taken);
+          if (anyTaken) {
+            setMedicines(prev => {
+              const current = prev || [];
+              return res.medicines.map(rm => {
+                const prevItem = current.find(p => p.id === rm.id || p.title === rm.title || p.name === rm.name);
+                if (prevItem?.taken && prevItem?.takenDate === todayStr && !rm.taken) {
+                  return { ...rm, taken: true, takenAt: prevItem.takenAt, takenDate: todayStr };
+                }
+                return rm;
+              });
+            });
+            if (dataStore.saveMedicines) dataStore.saveMedicines(res.medicines);
+          }
         }
-        // Notify caregiver portal
-        window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: updatedMeds } }));
-      }).catch(() => {
-        window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: updatedMeds } }));
+      }).catch(err => {
+        console.warn('[ElderDashboard] Reminders save notice:', err);
       });
-    } else {
-      window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: updatedMeds } }));
     }
 
-    const remainingAfterThis = pendingMeds.filter(m => m.id !== medId);
+    const remainingAfterThis = updatedMeds.filter(m => !m.taken);
     if (remainingAfterThis.length === 0) {
       showToast(`🎉 Wonderful, ${displayHonorific}! All routines completed for today!`, 'success', 5000);
       speakText(`Wonderful, ${displayHonorific}! All daily medicines completed for today!`);
     } else {
       const nextMed = remainingAfterThis[0];
-      showToast(`✓ Marked "${currentMed.title}" as taken! Next: ${nextMed.title}`, 'success', 4000);
-      speakText(`Marked ${currentMed.title} as taken.`);
+      showToast(`✓ Marked "${currentMed.title || currentMed.name || 'Routine'}" as taken! Next: ${nextMed.title || nextMed.name}`, 'success', 4000);
+      speakText(`Marked ${currentMed.title || currentMed.name || 'Routine'} as taken.`);
     }
   };
 
@@ -781,6 +831,7 @@ Web3Forms Access Key: ${web3formsAccessKey}
                   </span>
 
                   <button
+                    id="elder-mark-taken-btn"
                     onClick={handleMarkCurrentMedTaken}
                     type="button"
                     className="btn-tactile btn-primary px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold cursor-pointer shadow-md flex items-center gap-1.5"

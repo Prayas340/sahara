@@ -71,9 +71,16 @@ export function readLocalStore() {
     const content = fs.readFileSync(DB_FILE, 'utf-8');
     const parsed = JSON.parse(content);
     memoryStore = {
-      elders: { ...mem.elders, ...(parsed.elders || {}) },
-      caregivers: { ...mem.caregivers, ...(parsed.caregivers || {}) },
+      ...mem,
+      ...parsed,
+      elders: { ...(mem.elders || {}), ...(parsed.elders || {}) },
+      caregivers: { ...(mem.caregivers || {}), ...(parsed.caregivers || {}) },
       customContacts: { ...(mem.customContacts || {}), ...(parsed.customContacts || {}) },
+      reminders: { ...(mem.reminders || {}), ...(parsed.reminders || {}) },
+      routineCompletions: { ...(mem.routineCompletions || {}), ...(parsed.routineCompletions || {}) },
+      gameScores: { ...(mem.gameScores || {}), ...(parsed.gameScores || {}) },
+      wellnessBroadcasts: parsed.wellnessBroadcasts || mem.wellnessBroadcasts || [],
+      chatMessages: { ...(mem.chatMessages || {}), ...(parsed.chatMessages || {}) },
     };
     return memoryStore;
   } catch (err) {
@@ -894,8 +901,16 @@ export async function deleteReminderFromDb({ elderId, caregiverEmail, reminderId
 export async function toggleReminderStatusInDb({ elderId, caregiverEmail, reminderId, taken, takenAt, takenDate }) {
   const existing = await getRemindersFromDb({ elderId, caregiverEmail });
   let toggledItem = null;
-  const list = (existing.medicines || []).map(m => {
-    if (m.id === reminderId || String(m.id) === String(reminderId) || m.title === reminderId) {
+  const list = (existing.medicines || []).map((m, idx) => {
+    const isTarget = (
+      m.id === reminderId ||
+      String(m.id) === String(reminderId) ||
+      m.title === reminderId ||
+      (m.name && m.name === reminderId) ||
+      ((existing.medicines || []).length === 1) ||
+      (idx === 0 && !m.taken)
+    );
+    if (isTarget && !toggledItem) {
       const isTaken = taken !== undefined ? Boolean(taken) : !m.taken;
       const todayStr = takenDate || new Date().toISOString().split('T')[0];
       const updated = {

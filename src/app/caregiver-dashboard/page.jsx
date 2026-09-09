@@ -374,8 +374,12 @@ export default function CaregiverDashboardPage() {
     };
 
     // On medicines change event, sync and re-fetch from server
-    const onMedicinesChange = () => {
-      syncData();
+    const onMedicinesChange = (e) => {
+      if (e?.detail?.medicines && Array.isArray(e.detail.medicines)) {
+        setMedicines([...e.detail.medicines]);
+      } else {
+        syncData();
+      }
       fetchServerReminders(_elderId, _caregiverEmail);
     };
 

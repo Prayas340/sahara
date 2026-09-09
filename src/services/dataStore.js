@@ -61,13 +61,26 @@ class DataStore {
   }
 
   markMedicineTaken(id) {
-    const med = this.state.medicines.find(m => m.id === id);
-    if (med) {
-      med.taken = true;
-      med.isDue = false;
-      med.takenAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      this.saveState();
-    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    const takenAtTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const currentMeds = this.getMedicines();
+    let found = false;
+    const updated = currentMeds.map((m, idx) => {
+      const isTarget = (
+        (id !== undefined && id !== null && (m.id === id || String(m.id) === String(id))) ||
+        (m.title && m.title === id) ||
+        (m.name && m.name === id) ||
+        (currentMeds.length === 1) ||
+        (idx === 0 && !m.taken)
+      );
+      if (isTarget && !found) {
+        found = true;
+        return { ...m, taken: true, isDue: false, takenAt: takenAtTime, takenDate: todayStr };
+      }
+      return m;
+    });
+    this.saveMedicines(updated);
+    return updated;
   }
 
   addReminder(reminder) {
@@ -518,12 +531,24 @@ class DataStore {
 
   toggleMedicineStatus(identifier) {
     const todayStr = new Date().toISOString().split('T')[0];
-    const list = this.getMedicines().map((m, idx) => {
-      if (m.id === identifier || idx === identifier) {
+    const currentMeds = this.getMedicines();
+    let toggled = false;
+    const list = currentMeds.map((m, idx) => {
+      const isTarget = (
+        m.id === identifier ||
+        idx === identifier ||
+        String(m.id) === String(identifier) ||
+        m.title === identifier ||
+        m.name === identifier ||
+        (currentMeds.length === 1)
+      );
+      if (isTarget && !toggled) {
+        toggled = true;
         const nowTaken = !m.taken;
         return {
           ...m,
           taken: nowTaken,
+          isDue: !nowTaken,
           takenAt: nowTaken ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
           takenDate: nowTaken ? todayStr : null,
         };
@@ -531,6 +556,7 @@ class DataStore {
       return m;
     });
     this.saveMedicines(list);
+    return list;
   }
 
   recordGameScore(scoreData) {
