@@ -287,8 +287,8 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               </div>
             </div>
 
-            <!-- Daily Status Metrics Grid (4 cards) -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <!-- Daily Status Metrics Grid (3 cards) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <!-- Card 1: Medicines -->
               <div class="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between cursor-pointer hover:border-[#006e1c] transition-colors" id="metric-meds-card">
                 <div class="flex items-start justify-between mb-3">
@@ -337,21 +337,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                 </div>
                 <p class="text-lg font-extrabold text-[#032109]">${dataStore.state.moodRating || 'Very Calm & Cheerful'}</p>
                 <span class="text-xs text-[#40493d] mt-1">Positive response to morning chai</span>
-              </div>
-
-              <!-- Card 4: WhatsApp Audio Broadcasts -->
-              <div class="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between cursor-pointer hover:border-[#006e1c] transition-colors" id="metric-contacts-card">
-                <div class="flex items-start justify-between mb-3">
-                  <div class="flex items-center gap-2">
-                    <span class="w-10 h-10 rounded-full bg-[#d9fdd6] flex items-center justify-center text-[#0d631b]">
-                      <span class="material-symbols-outlined text-2xl">campaign</span>
-                    </span>
-                    <span class="text-sm font-bold text-[#032109]">WhatsApp Sync</span>
-                  </div>
-                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                </div>
-                <p class="text-lg font-extrabold text-[#032109]">Active & Linked</p>
-                <span class="text-xs text-[#40493d] mt-1">Regional voice memos enabled</span>
               </div>
             </div>
 
@@ -855,7 +840,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
     document.getElementById('caregiver-contacts-page-btn')?.addEventListener('click', () => switchTab('contacts'));
     document.getElementById('metric-meds-card')?.addEventListener('click', () => switchTab('routine'));
     document.getElementById('metric-memories-card')?.addEventListener('click', () => switchTab('memories'));
-    document.getElementById('metric-contacts-card')?.addEventListener('click', () => switchTab('contacts'));
 
     // Modal & Toast Actions
     document.getElementById('caregiver-add-reminder-btn')?.addEventListener('click', () => openAddReminderModal());

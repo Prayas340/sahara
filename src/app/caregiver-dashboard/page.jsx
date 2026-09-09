@@ -498,7 +498,7 @@ export default function CaregiverDashboardPage() {
               </div>
 
               {/* Status Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div
                   onClick={() => handleSelectTab('routine')}
                   className="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between cursor-pointer hover:border-[#006e1c] transition-colors"
@@ -563,23 +563,6 @@ export default function CaregiverDashboardPage() {
                     {dataStore.state.moodRating || 'Very Calm & Cheerful'}
                   </p>
                   <span className="text-xs text-[#40493d] mt-1">Positive response to morning chai</span>
-                </div>
-
-                <div
-                  onClick={() => handleSelectTab('contacts')}
-                  className="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between cursor-pointer hover:border-[#006e1c] transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-10 h-10 rounded-full bg-[#d9fdd6] flex items-center justify-center text-[#0d631b]">
-                        <span className="material-symbols-outlined text-2xl">campaign</span>
-                      </span>
-                      <span className="text-sm font-bold text-[#032109]">WhatsApp Sync</span>
-                    </div>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  </div>
-                  <p className="text-lg font-extrabold text-[#032109]">Active & Linked</p>
-                  <span className="text-xs text-[#40493d] mt-1">Regional voice memos enabled</span>
                 </div>
               </div>
 
