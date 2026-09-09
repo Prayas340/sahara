@@ -234,12 +234,17 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
 
   // 1. Direct save to Firebase Auth (sahara-63072) with metadata
   try {
-    await Promise.all([
-      firebaseSaveElder(elderRecord, caregiverRecord),
-      firebaseSaveCaregiver(caregiverRecord, elderRecord),
-    ]);
+    const cgRes = await firebaseSaveCaregiver(caregiverRecord, elderRecord);
+    console.log('[serverDb] Saved caregiver to Firebase Auth:', cgRes?.uid || 'ok');
   } catch (fbErr) {
-    console.warn('[serverDb] Firebase Auth save notice:', fbErr.message);
+    console.warn('[serverDb] Firebase Auth caregiver save notice:', fbErr.message);
+  }
+
+  try {
+    const elderRes = await firebaseSaveElder(elderRecord, caregiverRecord);
+    console.log('[serverDb] Saved elder to Firebase Auth:', elderRes?.uid || 'ok');
+  } catch (fbElderErr) {
+    console.warn('[serverDb] Firebase Auth elder save notice:', fbElderErr.message);
   }
 
   // 2. Persist to server store with multi-indexing
@@ -347,6 +352,10 @@ export async function authenticateCaregiverFromDb({ email, password }) {
 
   if (!linkedElder && caregiver.elderId) {
     linkedElder = await getElderFromDb(caregiver.elderId);
+  }
+
+  if (!linkedElder) {
+    linkedElder = await getElderFromDb(cleanEmail);
   }
 
   if (!linkedElder) {

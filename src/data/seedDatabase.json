@@ -76,25 +76,6 @@
       "caregiverEmail": "sunita.borah@sahara.care",
       "updatedAt": "2026-09-08T15:26:17.363Z"
     },
-    "+918444807833": {
-      "id": "+918444807833",
-      "identifier": "+918444807833",
-      "phone": "+918444807833",
-      "email": "",
-      "name": "Snehashis Gooner",
-      "honorific": "Snehashis ji",
-      "age": 74,
-      "city": "Kolkata",
-      "state": "West Bengal",
-      "wing": "Garden Terrace Wing",
-      "location": "Kolkata, West Bengal",
-      "status": "Mild Cognitive Support Mode",
-      "tabletBattery": 94,
-      "lastActive": "Just now",
-      "avatar": "/avatar.png",
-      "caregiverEmail": "sagnikrc1407@gmail.com",
-      "updatedAt": "2026-09-08T18:29:53.795Z"
-    },
     "+919999988888": {
       "id": "+919999988888",
       "identifier": "+919999988888",
@@ -224,36 +205,6 @@
       },
       "avatar": "https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg",
       "updatedAt": "2026-09-08T15:26:17.364Z"
-    },
-    "sagnikrc1407@gmail.com": {
-      "id": "sagnikrc1407@gmail.com",
-      "email": "sagnikrc1407@gmail.com",
-      "name": "Sagnik",
-      "password": "12345a",
-      "relation": "Primary Caregiver",
-      "phone": "+91 98540 12345",
-      "elderId": "+918444807833",
-      "linkedElder": {
-        "id": "+918444807833",
-        "identifier": "+918444807833",
-        "phone": "+918444807833",
-        "email": "",
-        "name": "Snehashis Gooner",
-        "honorific": "Snehashis ji",
-        "age": 74,
-        "city": "Kolkata",
-        "state": "West Bengal",
-        "wing": "Garden Terrace Wing",
-        "location": "Kolkata, West Bengal",
-        "status": "Mild Cognitive Support Mode",
-        "tabletBattery": 94,
-        "lastActive": "Just now",
-        "avatar": "/avatar.png",
-        "caregiverEmail": "sagnikrc1407@gmail.com",
-        "updatedAt": "2026-09-08T18:29:53.795Z"
-      },
-      "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80",
-      "updatedAt": "2026-09-08T18:29:53.795Z"
     },
     "rohan.sharma@test.care": {
       "id": "rohan.sharma@test.care",

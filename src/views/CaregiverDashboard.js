@@ -794,7 +794,8 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
     const curUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
     if (curUser?.role === 'caregiver' && curUser?.email && authService.syncCaregiverElderData) {
       authService.syncCaregiverElderData(curUser.email).then(synced => {
-        if (synced && synced.patient && synced.patient.name !== patient.name) {
+        const syncedElder = synced?.elderProfile || synced?.elder || synced?.patient;
+        if (syncedElder && syncedElder.name && syncedElder.name !== patient.name) {
           onNavigate('caregiver-dashboard', { tab: activeTab });
         }
       }).catch(err => console.warn('Cloud sync error:', err));

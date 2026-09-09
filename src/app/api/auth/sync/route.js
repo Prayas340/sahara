@@ -53,6 +53,28 @@ export async function POST(request) {
         });
       }
 
+      // Check if elder is linked to caregiver in database
+      const fromDb = await getElderFromDb(cleanEmail);
+      if (fromDb && fromDb.name) {
+        const cgUser = {
+          id: fbUser?.uid || cleanEmail,
+          email: cleanEmail,
+          name: fbUser?.displayName || cleanEmail.split('@')[0],
+          role: 'caregiver',
+          elderPatient: fromDb.name,
+          elderPatientId: fromDb.id,
+          linkedElder: fromDb,
+        };
+        return NextResponse.json({
+          success: true,
+          role: 'caregiver',
+          user: cgUser,
+          caregiver: cgUser,
+          elderProfile: fromDb,
+          message: `Synchronized with ${fromDb.name}'s care overview.`,
+        });
+      }
+
       // Check local store
       const store = readLocalStore();
       const cg = store.caregivers?.[cleanEmail];

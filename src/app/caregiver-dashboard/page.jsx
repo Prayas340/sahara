@@ -96,12 +96,17 @@ export default function CaregiverDashboardPage() {
     window.addEventListener('sahara:auth-change', syncData);
 
     // Multi-Device Cloud Sync: automatically fetch connected elder profile
-    const activeUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
-    const cgEmail = activeUser?.email;
+    const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
+    const curUser = (authService.getCurrentUser ? authService.getCurrentUser() : null) || storedUser;
+    const cgEmail = curUser?.email;
     if (cgEmail) {
       authService.syncCaregiverElderData(cgEmail).then((res) => {
-        if (res?.elderProfile) {
-          syncData();
+        const elder = res?.elderProfile || res?.elder;
+        if (elder) {
+          setPatient(elder);
+          if (res.user || res.caregiver) setCaregiver(res.user || res.caregiver);
+          setMedicines([...(dataStore.state?.medicines || [])]);
+          setContacts([...(dataStore.state?.contacts || [])]);
         }
       });
     }
