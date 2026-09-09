@@ -12,6 +12,8 @@ import { dataStore } from '../../services/dataStore.js';
 import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
+import { db, normalizeElderId } from '../../lib/firebaseClient.js';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 export default function CaregiverDashboardPage() {
   const router = useRouter();
@@ -24,6 +26,8 @@ export default function CaregiverDashboardPage() {
   const [isSyncing, setIsSyncing] = useState(true);
   const [syncError, setSyncError] = useState('');
   const [medicines, setMedicines] = useState([]);
+  const [todayGameSessions, setTodayGameSessions] = useState(0);
+  const [todayGameScore, setTodayGameScore] = useState(0);
   const [contacts, setContacts] = useState([]);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactToEdit, setContactToEdit] = useState(null);
@@ -107,6 +111,7 @@ export default function CaregiverDashboardPage() {
     if (curUser.linkedElder && curUser.linkedElder.name) {
       setPatient(curUser.linkedElder);
       setIsSyncing(false);
+      setupFirestoreLiveListeners(curUser.linkedElder);
     }
 
     // 2. Fetch linked elder directly from cloud database for cross-device sync
@@ -119,6 +124,7 @@ export default function CaregiverDashboardPage() {
         if (elder && elder.name) {
           setPatient(elder);
           if (res.user || res.caregiver) setCaregiver(res.user || res.caregiver);
+          setupFirestoreLiveListeners(elder);
           setMedicines([...(dataStore.state?.medicines || [])]);
           
           // Load contacts from database
@@ -200,6 +206,76 @@ export default function CaregiverDashboardPage() {
     let _elderId = curUser?.linkedElder?.id || curUser?.linkedElder?.phone || curUser?.linkedElder?.email || null;
     let _caregiverEmail = curUser?.email || null;
 
+    // Real-time Firestore Live Listener for cross-device synchronization
+    const todayDate = new Date().toISOString().split('T')[0];
+    let unsubDailyLog = null;
+    let unsubElderDoc = null;
+
+    const setupFirestoreLiveListeners = (targetElderId) => {
+      if (!db || !targetElderId) return;
+      const cleanElderId = normalizeElderId(targetElderId);
+
+      if (unsubDailyLog) {
+        unsubDailyLog();
+        unsubDailyLog = null;
+      }
+      if (unsubElderDoc) {
+        unsubElderDoc();
+        unsubElderDoc = null;
+      }
+
+      // 1. Subscribe to today's daily log: elders/{elderId}/dailyLogs/{todayDate}
+      const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
+      unsubDailyLog = onSnapshot(dailyLogRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // Update mind games count & score
+          setTodayGameSessions(typeof data.gameSessions === 'number' ? data.gameSessions : 0);
+          setTodayGameScore(typeof data.gameScore === 'number' ? data.gameScore : 0);
+
+          // Update completed medicines count and checklist
+          const list = data.medications || data.routines;
+          if (Array.isArray(list) && list.length > 0) {
+            const liveMeds = list.map((m, idx) => ({
+              id: m.id || `med_${idx}`,
+              title: m.title || m.name || `Routine ${idx + 1}`,
+              name: m.name || m.title || `Routine ${idx + 1}`,
+              detail: m.detail || m.title || 'Scheduled routine',
+              scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+              taken: Boolean(m.taken || m.completed),
+              takenAt: m.completedAt || m.takenAt || null,
+              takenDate: m.takenDate || todayDate,
+            }));
+            setMedicines(liveMeds);
+            dataStore.state.medicines = liveMeds;
+          }
+        } else {
+          setTodayGameSessions(0);
+          setTodayGameScore(0);
+        }
+      }, (err) => {
+        console.warn('[CaregiverDashboard] Firestore dailyLog onSnapshot notice:', err.message);
+      });
+
+      // 2. Subscribe to elder profile doc: elders/{elderId}
+      const elderDocRef = doc(db, 'elders', cleanElderId);
+      unsubElderDoc = onSnapshot(elderDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const elderData = docSnap.data();
+          if (elderData.name) {
+            setPatient(prev => ({ ...prev, ...elderData }));
+          }
+        }
+      }, (err) => {
+        console.warn('[CaregiverDashboard] Firestore elder doc onSnapshot notice:', err.message);
+      });
+    };
+
+    // Initialize Firestore live listener
+    if (_elderId) {
+      setupFirestoreLiveListeners(_elderId);
+    }
+
     // Fetch fresh scores from server DB and update analytics
     const fetchServerScores = (elderId, caregiverEmail) => {
       if (!elderId && !caregiverEmail) return;
@@ -271,7 +347,10 @@ export default function CaregiverDashboardPage() {
     setTimeout(() => {
       const storedPatient = dataStore.state?.patient;
       const resolved = storedPatient?.id || storedPatient?.phone || storedPatient?.email;
-      if (resolved) _elderId = resolved;
+      if (resolved) {
+        _elderId = resolved;
+        setupFirestoreLiveListeners(resolved);
+      }
     }, 2000);
 
     return () => {
@@ -280,6 +359,8 @@ export default function CaregiverDashboardPage() {
       window.removeEventListener('sahara:game-score-change', onGameScoreChange);
       window.removeEventListener('sahara:medicines-change', onMedicinesChange);
       clearInterval(pollInterval);
+      if (unsubDailyLog) unsubDailyLog();
+      if (unsubElderDoc) unsubElderDoc();
     };
   }, [router]);
 
@@ -323,8 +404,16 @@ export default function CaregiverDashboardPage() {
 
   const handleDeleteReminder = (reminderId, reminderTitle) => {
     dataStore.deleteReminder(reminderId);
-    const updated = dataStore.getMedicines ? dataStore.getMedicines() : [];
+    const updated = (medicines || []).filter(m => m.id !== reminderId);
     setMedicines([...updated]);
+    if (db) {
+      const cleanElderId = normalizeElderId(patient?.id || patient?.phone || patient?.email || '+919854012345');
+      const todayDate = new Date().toISOString().split('T')[0];
+      setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate), {
+        medications: updated,
+        routines: updated.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
+      }, { merge: true }).catch(() => {});
+    }
     showToast(`🗑️ Removed reminder "${reminderTitle || 'Reminder'}"`, 'info', 3000);
   };
 
@@ -592,8 +681,8 @@ export default function CaregiverDashboardPage() {
                   </div>
                   <span className="text-xs text-[#40493d] mt-2">
                     {medicines.find((m) => !m.taken)
-                      ? `${t.metricNextMed || 'Next'}: ` + medicines.find((m) => !m.taken).scheduledTime
-                      : (t.metricAllMedsDone || 'All medicines completed for today')}
+                      ? `${t.metricNextMed || 'Next'}: ` + (medicines.find((m) => !m.taken).scheduledTime || 'Scheduled')
+                      : (totalMeds > 0 ? (t.metricAllMedsDone || 'All medicines completed for today') : 'No scheduled medicines')}
                   </span>
                 </div>
 
@@ -611,9 +700,13 @@ export default function CaregiverDashboardPage() {
                     <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold">{t.activeToday || 'Today'}</span>
                   </div>
                   <p className="text-2xl font-extrabold text-[#032109]">
-                    {dataStore.state.gamesPlayedCount || 1} {t.metricSessions || 'Sessions'}
+                    {todayGameSessions} {t.metricSessions || 'Sessions'}
                   </p>
-                  <span className="text-xs text-[#40493d] mt-1">{t.metricFamiliarTreasures || 'Familiar Treasures matched'}</span>
+                  <span className="text-xs text-[#40493d] mt-1">
+                    {todayGameSessions > 0
+                      ? `${todayGameScore} pts logged today`
+                      : (t.metricFamiliarTreasures || 'Familiar Treasures matched')}
+                  </span>
                 </div>
 
                 <div className="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between">
@@ -652,35 +745,41 @@ export default function CaregiverDashboardPage() {
                   </div>
 
                   <div className="space-y-3 pt-2">
-                    {medicines.map((med, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex items-center justify-between gap-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-xl ${
-                              med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-[#ffdad6] text-[#93000a]'
-                            } flex items-center justify-center font-bold`}
-                          >
-                            <span className="material-symbols-outlined">{med.taken ? 'check' : 'medication'}</span>
-                          </div>
-                          <div>
-                            <p className="text-sm sm:text-base font-bold text-[#032109]">{med.title}</p>
-                            <p className="text-xs text-[#40493d]">
-                              {med.detail} • {med.scheduledTime}
-                            </p>
-                          </div>
-                        </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'
-                          }`}
-                        >
-                          {med.taken ? 'Completed (' + (med.takenAt || 'Taken') + ')' : 'Pending Due'}
-                        </span>
+                    {medicines.length === 0 ? (
+                      <div className="p-6 text-center rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] text-sm text-[#40493d]">
+                        No scheduled routines found for today.
                       </div>
-                    ))}
+                    ) : (
+                      medicines.map((med, idx) => (
+                        <div
+                          key={med.id || idx}
+                          className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-10 h-10 rounded-xl ${
+                                med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-[#ffdad6] text-[#93000a]'
+                              } flex items-center justify-center font-bold`}
+                            >
+                              <span className="material-symbols-outlined">{med.taken ? 'check' : 'medication'}</span>
+                            </div>
+                            <div>
+                              <p className="text-sm sm:text-base font-bold text-[#032109]">{med.title || med.name}</p>
+                              <p className="text-xs text-[#40493d]">
+                                {med.detail || 'Daily routine'} • {med.scheduledTime}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'
+                            }`}
+                          >
+                            {med.taken ? 'Completed (' + (med.takenAt || 'Taken') + ')' : 'Pending Due'}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -1113,11 +1212,16 @@ export default function CaregiverDashboardPage() {
                 </div>
 
                 <div className="space-y-3 pt-2">
-                  {medicines.map((med, idx) => (
-                    <div
-                      key={med.id || idx}
-                      className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                    >
+                  {medicines.length === 0 ? (
+                    <div className="p-8 text-center rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] text-sm text-[#40493d]">
+                      No scheduled routines found. Click &quot;Add New Reminder&quot; above to create one.
+                    </div>
+                  ) : (
+                    medicines.map((med, idx) => (
+                      <div
+                        key={med.id || idx}
+                        className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-12 h-12 rounded-xl ${
@@ -1161,7 +1265,8 @@ export default function CaregiverDashboardPage() {
                         </button>
                       </div>
                     </div>
-                  ))}
+                  ))
+                )}
                 </div>
               </div>
 

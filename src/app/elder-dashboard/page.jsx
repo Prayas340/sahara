@@ -7,6 +7,8 @@ import { dataStore } from '../../services/dataStore.js';
 import { authService } from '../../services/authService.js';
 import { useTranslation } from '../../utils/i18n.js';
 import { showToast } from '../../components/Toast.jsx';
+import { db, normalizeElderId } from '../../lib/firebaseClient.js';
+import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 export default function ElderDashboardPage() {
   const router = useRouter();
@@ -71,6 +73,7 @@ export default function ElderDashboardPage() {
     window.addEventListener('sahara:medicines-change', syncData);
 
     // Multi-Device Cloud Sync for Elder
+    let unsubFirestore = null;
     try {
       let identifier = null;
       try {
@@ -83,6 +86,33 @@ export default function ElderDashboardPage() {
         const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
         identifier = u?.phone || u?.email || u?.id;
       }
+      const cleanElderId = normalizeElderId(identifier || dataStore.state?.patient?.phone || '+919854012345');
+
+      // Real-time Firestore live listener for dailyLogs
+      if (db && cleanElderId) {
+        const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
+        unsubFirestore = onSnapshot(dailyLogRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const list = data.medications || data.routines;
+            if (Array.isArray(list) && list.length > 0) {
+              const liveMeds = list.map((m, idx) => ({
+                id: m.id || `med_${idx}`,
+                title: m.title || m.name || `Routine ${idx + 1}`,
+                name: m.name || m.title || `Routine ${idx + 1}`,
+                detail: m.detail || m.title || 'Scheduled routine',
+                scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+                taken: Boolean(m.taken || m.completed),
+                takenAt: m.completedAt || m.takenAt || null,
+                takenDate: m.takenDate || todayStr,
+              }));
+              setMedicines(liveMeds);
+              dataStore.state.medicines = liveMeds;
+            }
+          }
+        }, (err) => console.warn('[ElderDashboard] onSnapshot notice:', err.message));
+      }
+
       if (identifier) {
         // Sync elder profile
         if (authService.syncElderData) {
@@ -110,6 +140,7 @@ export default function ElderDashboardPage() {
       window.removeEventListener('sahara:datastore-change', syncData);
       window.removeEventListener('sahara:auth-change', syncData);
       window.removeEventListener('sahara:medicines-change', syncData);
+      if (unsubFirestore) unsubFirestore();
     };
   }, []);
 
@@ -170,6 +201,50 @@ export default function ElderDashboardPage() {
     dataStore.state.medicines = updatedMeds;
     dataStore.saveState();
     setMedicines([...updatedMeds]);
+
+    // Format medications and routines for Firestore
+    const formattedMeds = updatedMeds.map(m => ({
+      id: m.id,
+      name: m.title || m.name,
+      title: m.title || m.name,
+      detail: m.detail || '',
+      scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+      taken: Boolean(m.taken),
+      completedAt: m.taken ? (m.takenAt || takenAtTime) : null,
+      takenAt: m.taken ? (m.takenAt || takenAtTime) : null,
+      takenDate: m.taken ? (m.takenDate || todayStr) : null,
+    }));
+
+    const formattedRoutines = updatedMeds.map(m => ({
+      id: m.id,
+      title: m.title || m.name,
+      completed: Boolean(m.taken),
+      completedAt: m.taken ? (m.takenAt || takenAtTime) : null,
+    }));
+
+    // Real-time Firestore Mutation
+    if (db) {
+      const cleanElderId = normalizeElderId(elderId || dataStore.state?.patient?.phone || '+919854012345');
+      const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
+      const elderRef = doc(db, 'elders', cleanElderId);
+
+      setDoc(dailyLogRef, {
+        medications: formattedMeds,
+        routines: formattedRoutines,
+        lastCompletedItem: {
+          id: medId,
+          name: currentMed.title,
+          completedAt: takenAtTime,
+        },
+        updatedAt: serverTimestamp(),
+      }, { merge: true }).catch(err => console.warn('[ElderDashboard] Firestore routine write error:', err));
+
+      setDoc(elderRef, {
+        id: cleanElderId,
+        lastActive: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true }).catch(() => {});
+    }
 
     // Persist directly to server DB via toggle action
     if (elderId) {

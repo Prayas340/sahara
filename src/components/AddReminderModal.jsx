@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { dataStore } from '../services/dataStore.js';
 import { showToast } from './Toast.jsx';
+import { db, normalizeElderId } from '../lib/firebaseClient.js';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function AddReminderModal({ isOpen, onClose }) {
   const [title, setTitle] = useState('');
@@ -22,6 +24,7 @@ export default function AddReminderModal({ isOpen, onClose }) {
     const newMed = {
       id: `rem_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       title: title.trim(),
+      name: title.trim(),
       detail: detail.trim() || 'Daily schedule',
       scheduledTime: time || '08:00 AM',
       taken: false,
@@ -30,6 +33,24 @@ export default function AddReminderModal({ isOpen, onClose }) {
     };
 
     dataStore.addReminder(newMed);
+
+    // Sync directly to Firestore dailyLogs
+    if (db) {
+      try {
+        const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
+        const elderId = activeUser?.linkedElder?.id || activeUser?.linkedElder?.phone || activeUser?.phone || dataStore.state?.patient?.phone || '+919854012345';
+        const cleanElderId = normalizeElderId(elderId);
+        const todayDate = new Date().toISOString().split('T')[0];
+        const updatedList = dataStore.getMedicines ? dataStore.getMedicines() : [];
+        setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate), {
+          medications: updatedList,
+          routines: updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
+        }, { merge: true }).catch(() => {});
+      } catch (err) {
+        console.warn('Firestore reminder sync warning:', err);
+      }
+    }
+
     showToast(`✓ Added reminder: "${title}" for ${time}`, 'success', 3500);
     setTitle('');
     setDetail('');

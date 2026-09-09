@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar.jsx';
+import { authService } from '../../services/authService.js';
 import { dataStore } from '../../services/dataStore.js';
 import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
+import { db, normalizeElderId } from '../../lib/firebaseClient.js';
+import { doc, updateDoc, setDoc, increment, arrayUnion, serverTimestamp } from 'firebase/firestore';
 
 export default function MemoryMatchGamePage() {
   const router = useRouter();
@@ -97,6 +100,64 @@ export default function MemoryMatchGamePage() {
           setLastScoreEarned(score);
           setRoundCompleted(true);
 
+          // Resolve active elder identity
+          let elderId = null;
+          try {
+            const activeUser = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
+            if (activeUser?.role === 'elder') {
+              elderId = activeUser.phone || activeUser.email || activeUser.id;
+            }
+          } catch (e) {}
+          if (!elderId) {
+            const u = authService?.getCurrentUser ? authService.getCurrentUser() : null;
+            elderId = u?.phone || u?.email || u?.id;
+          }
+          const cleanElderId = normalizeElderId(elderId || dataStore.state?.patient?.phone || '+919854012345');
+          const todayDate = new Date().toISOString().split('T')[0];
+
+          // 1. Real-time Firestore Mutation
+          if (db) {
+            const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
+            const elderRef = doc(db, 'elders', cleanElderId);
+            const gameEntry = {
+              gameName: 'Memory Match - Familiar Treasures',
+              score,
+              moves: updatedMoves,
+              matchedPairs: 3,
+              accuracy,
+              durationSeconds: duration,
+              completedAt: new Date().toISOString(),
+            };
+
+            // Atomically increment gameSessions, gameScore, append to gamesHistory, and record serverTimestamp
+            updateDoc(dailyLogRef, {
+              gameSessions: increment(1),
+              gameScore: increment(score),
+              gamesHistory: arrayUnion(gameEntry),
+              updatedAt: serverTimestamp(),
+            }).catch(async () => {
+              // If document does not exist yet for today, initialize it
+              try {
+                await setDoc(dailyLogRef, {
+                  gameSessions: 1,
+                  gameScore: score,
+                  gamesHistory: [gameEntry],
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                }, { merge: true });
+              } catch (setErr) {
+                console.warn('[MemoryGame] Firestore setDoc fallback error:', setErr);
+              }
+            });
+
+            setDoc(elderRef, {
+              id: cleanElderId,
+              lastActive: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            }, { merge: true }).catch(() => {});
+          }
+
+          // Local state & API fallback
           dataStore.incrementGamesCount?.();
           dataStore.recordGameScore?.({
             score,
