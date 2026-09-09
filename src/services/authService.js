@@ -641,6 +641,7 @@ export const authService = {
     }
 
     // 1. Authenticate with server database API first!
+    let apiAuthFailed = false;
     let apiErrorMessage = '';
     try {
       const res = await fetch('/api/auth/caregiver-login', {
@@ -692,7 +693,14 @@ export const authService = {
         const tokenResult = await fbUser.getIdTokenResult(true);
         const claims = tokenResult?.claims || {};
 
-        const linkedElder = claims.linkedElder || null;
+        let linkedElder = claims.linkedElder || null;
+        if (!linkedElder || !linkedElder.name) {
+          const syncRes = await this.syncCaregiverElderData(cleanEmail);
+          if (syncRes && syncRes.elderProfile) {
+            linkedElder = syncRes.elderProfile;
+          }
+        }
+
         if (!linkedElder || !linkedElder.name) {
           return {
             success: false,
