@@ -32,6 +32,7 @@ export default function CaregiverDashboardPage() {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactToEdit, setContactToEdit] = useState(null);
   const [isSafeMessageModalOpen, setIsSafeMessageModalOpen] = useState(false);
+  const [activeSosAlert, setActiveSosAlert] = useState(null);
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
@@ -164,9 +165,18 @@ export default function CaregiverDashboardPage() {
                 setMedicines(liveMeds);
                 if (dataStore?.state) dataStore.state.medicines = liveMeds;
               }
+
+              // Check for emergency SOS alerts logged today
+              if (data.lastSosAlert || (Array.isArray(data.sosAlerts) && data.sosAlerts.length > 0)) {
+                const latest = data.lastSosAlert || data.sosAlerts[data.sosAlerts.length - 1];
+                setActiveSosAlert(latest);
+              } else {
+                setActiveSosAlert(null);
+              }
             } else {
               setTodayGameSessions(0);
               setTodayGameScore(0);
+              setActiveSosAlert(null);
               // When no daily log document exists yet for today, existing scheduled medicines start as pending (taken: false)
               setMedicines(prev => prev.map(m => ({ ...m, taken: false, takenAt: null, takenDate: todayDate })));
               setGameAnalytics(prev => ({
@@ -624,6 +634,44 @@ export default function CaregiverDashboardPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Live Emergency SOS Alert Banner */}
+              {activeSosAlert && (
+                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-4 sm:p-5 rounded-2xl shadow-xl border-2 border-red-300 flex flex-col sm:flex-row items-center justify-between gap-4 animate-bounce-subtle">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-white text-red-600 flex items-center justify-center font-black shadow-md shrink-0">
+                      <span className="material-symbols-outlined text-3xl">emergency</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-yellow-300 text-red-950 text-[10px] font-black uppercase tracking-wider">
+                          CRITICAL EMERGENCY SOS
+                        </span>
+                        <span className="text-xs text-red-100 font-semibold">{activeSosAlert.time || activeSosAlert.formattedTime || 'Today'}</span>
+                      </div>
+                      <p className="text-base font-extrabold text-white mt-0.5">
+                        {patient?.name || 'Prayas Dey'} triggered the Emergency SOS Beacon!
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                    <a
+                      href={`tel:${patient?.phone?.replace(/\s+/g, '') || '+919854012345'}`}
+                      className="btn-tactile flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-white text-red-700 hover:bg-red-50 font-bold text-sm shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-lg">call</span>
+                      <span>Call {patient?.honorific || patient?.name?.split(' ')[0] || 'Elder'} Now</span>
+                    </a>
+                    <button
+                      onClick={() => setActiveSosAlert(null)}
+                      type="button"
+                      className="px-3.5 py-2.5 rounded-xl bg-red-800/80 hover:bg-red-800 text-white font-bold text-xs cursor-pointer border border-red-400"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Primary Patient Card */}
               <div className="card-tactile w-full bg-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden border border-[#cdf2cb]">
