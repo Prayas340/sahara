@@ -612,17 +612,18 @@ class DataStore {
     const timestamp = new Date().toISOString();
     const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    const accuracy = Number(scoreData.accuracy) || 0;
     const newScore = {
       id: `score_${Date.now()}`,
-      score: Number(scoreData.score) || 300,
-      moves: Number(scoreData.moves) || 6,
+      score: Number(scoreData.score) || 0,
+      moves: Number(scoreData.moves) || 0,
       matchedPairs: Number(scoreData.matchedPairs) || 3,
-      accuracy: Number(scoreData.accuracy) || 100,
-      durationSeconds: Number(scoreData.durationSeconds) || 45,
+      accuracy,
+      durationSeconds: Number(scoreData.durationSeconds) || 0,
       date: scoreData.date || todayStr,
       timestamp,
       time: timeFormatted,
-      status: scoreData.status || (scoreData.accuracy >= 90 ? 'High Focus' : 'Steady Recall'),
+      status: scoreData.status || (accuracy >= 90 ? 'High Focus' : 'Steady Recall'),
     };
 
     if (!Array.isArray(this.state.gameScores)) {
@@ -633,22 +634,40 @@ class DataStore {
     this.state.gamesPlayedCount = (this.state.gamesPlayedCount || 0) + 1;
     this.saveState();
 
-    // Async persist to cloud database
+    // Resolve elder identity: prefer active logged-in user, fall back to state.patient
+    let elderId = null;
+    let caregiverEmail = null;
     try {
-      const elderId = this.state.patient?.id || this.state.patient?.phone || this.state.patient?.email;
-      const caregiverEmail = this.state.caregiver?.email || this.state.patient?.caregiverEmail;
+      if (typeof window !== 'undefined') {
+        const activeUser = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
+        if (activeUser?.role === 'elder') {
+          elderId = activeUser.phone || activeUser.email || activeUser.id;
+          caregiverEmail = activeUser.caregiverEmail || null;
+        }
+      }
+    } catch (e) {}
+    // Fallback to state
+    if (!elderId) {
+      elderId = this.state.patient?.id || this.state.patient?.phone || this.state.patient?.email;
+    }
+    if (!caregiverEmail) {
+      caregiverEmail = this.state.caregiver?.email || this.state.patient?.caregiverEmail;
+    }
+
+    // Async persist to server database
+    if (elderId) {
       fetch('/api/game-scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          elderId,
-          caregiverEmail,
-          ...newScore,
-        }),
+        body: JSON.stringify({ elderId, caregiverEmail, ...newScore }),
       }).catch(err => console.warn('[dataStore] Failed to post game score to server:', err));
-    } catch (e) {}
+    }
 
+    // Notify caregiver portal in real time
     this.notifyChange();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sahara:game-score-change', { detail: { score: newScore } }));
+    }
     return newScore;
   }
 
