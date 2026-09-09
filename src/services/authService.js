@@ -272,7 +272,7 @@ export const authService = {
   },
 
   // Process any authenticated Google User (popup or in-app Google modal)
-  async processGoogleUser({ email, displayName, photoURL, role = 'elder' }) {
+  async processGoogleUser({ email, displayName, photoURL, role = 'elder', mode = 'signin' }) {
     if (!email || !email.includes('@')) {
       return { success: false, message: 'Valid Google email is required.' };
     }
@@ -311,34 +311,34 @@ export const authService = {
       };
     }
 
-    // Process Elder Google Login: CHECK DATABASE FOR FIRST-TIME VS 2ND TIME
-    let checkRes = await this.checkElderUser(googleUser.email);
-    let resolvedElder = checkRes?.elder;
-
-    // Fast-resolve known Prayas Dey Google account
-    if (!resolvedElder && (cleanEmail === 'deyprayas3@gmail.com' || cleanEmail.includes('prayas'))) {
-      resolvedElder = {
-        id: '+918444807833',
-        identifier: cleanEmail,
-        phone: '+918444807833',
-        email: cleanEmail,
-        name: 'Prayas Dey',
-        honorific: 'Prayas ji',
-        age: 90,
-        city: 'Kolkata',
-        state: 'West Bengal',
-        wing: 'Garden Terrace Wing',
-        location: 'Kolkata, West Bengal',
-        status: 'Mild Cognitive Support Mode',
-        problemStatement: 'Mild Cognitive Support Mode',
-        tabletBattery: 94,
-        lastActive: 'Just now',
-        avatar: '/avatar.png',
-        caregiverEmail: 'sagnikrc1407@gmail.com',
+    // If explicit SIGNUP mode was selected (e.g. tapping "Sign Up with Google"):
+    if (mode === 'signup') {
+      if (dataStore && dataStore.clearPatient) {
+        dataStore.clearPatient();
+      }
+      const pendingGoogleUser = {
+        id: googleUser.uid,
+        email: googleUser.email,
+        name: googleUser.displayName,
+        role: 'elder',
+        authProvider: 'google',
+        avatar: googleUser.photoURL || '/avatar.png',
+      };
+      this.setCurrentUser(pendingGoogleUser);
+      return {
+        success: true,
+        user: pendingGoogleUser,
+        role: 'elder',
+        isNewUser: true,
+        email: googleUser.email,
+        message: 'Google account connected! Please fill in your elder & caregiver profile details.',
       };
     }
 
-    // Check browser localStorage (in case client completed setup previously or network was slow)
+    // Process Elder Google Login (SIGNIN mode): Check Database / Firebase Claims
+    let checkRes = await this.checkElderUser(googleUser.email);
+    let resolvedElder = checkRes?.elder;
+
     if (!resolvedElder && typeof window !== 'undefined' && window.localStorage) {
       try {
         const isSetupDone = localStorage.getItem('sahara_elder_setup_completed_' + cleanEmail) || localStorage.getItem('sahara_elder_setup_completed');
@@ -356,7 +356,7 @@ export const authService = {
     const isReturningUser = checkRes?.exists || Boolean(resolvedElder);
 
     if (isReturningUser && resolvedElder) {
-      // 2ND TIME RETURNING GOOGLE USER: Auto-remember details and load into dataStore!
+      // RETURNING GOOGLE USER: Auto-remember details and load into dataStore!
       dataStore.loadLinkedPatient(resolvedElder);
       const returningGoogleElder = {
         id: resolvedElder.id || googleUser.email,
@@ -373,7 +373,6 @@ export const authService = {
       };
       this.setCurrentUser(returningGoogleElder);
 
-      // Cache remembered profile so subsequent 3rd, 4th, etc. logins are instantaneous
       if (typeof window !== 'undefined' && window.localStorage) {
         localStorage.setItem('sahara_elder_setup_completed_' + cleanEmail, 'true');
         localStorage.setItem('sahara_google_elder_' + cleanEmail, JSON.stringify(resolvedElder));
@@ -390,7 +389,7 @@ export const authService = {
       };
     }
 
-    // 1ST TIME GOOGLE SIGNUP: Clear old patient from dataStore so it doesn't bleed into new account
+    // If SIGNIN was clicked but no account exists yet:
     if (dataStore && dataStore.clearPatient) {
       dataStore.clearPatient();
     }
@@ -411,14 +410,15 @@ export const authService = {
       role: 'elder',
       isNewUser: true,
       email: googleUser.email,
-      message: 'Google account verified! Please complete your profile details.',
+      message: 'Google account verified! Please complete your companion & caregiver details.',
     };
   },
 
   // Google Sign In via Real Google OAuth (Popup + Redirect fallback)
-  async signInWithGoogle(role = 'elder') {
+  async signInWithGoogle(role = 'elder', mode = 'signin') {
     if (typeof window !== 'undefined' && window.sessionStorage) {
       sessionStorage.setItem('sahara_google_auth_role', role);
+      sessionStorage.setItem('sahara_google_auth_mode', mode);
       sessionStorage.removeItem('sahara_signed_out');
     }
     if (firebaseClientAuth) {
@@ -435,6 +435,7 @@ export const authService = {
               displayName: result.user.displayName,
               photoURL: result.user.photoURL,
               role,
+              mode,
             });
           }
         } catch (popupErr) {
@@ -477,15 +478,19 @@ export const authService = {
       const result = await getRedirectResult(firebaseClientAuth);
       if (result?.user && result.user.email) {
         let role = 'elder';
+        let mode = 'signin';
         if (window.sessionStorage) {
           role = sessionStorage.getItem('sahara_google_auth_role') || 'elder';
+          mode = sessionStorage.getItem('sahara_google_auth_mode') || 'signin';
           sessionStorage.removeItem('sahara_google_auth_role');
+          sessionStorage.removeItem('sahara_google_auth_mode');
         }
         return await this.processGoogleUser({
           email: result.user.email,
           displayName: result.user.displayName,
           photoURL: result.user.photoURL,
           role,
+          mode,
         });
       }
     } catch (err) {
