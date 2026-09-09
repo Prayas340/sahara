@@ -138,13 +138,13 @@ export function renderWelcomePhoneLogin(onNavigate) {
                 </div>
                 <!-- Big Easy-Touch Input Field -->
                 <input 
-                  class="w-full h-12 sm:h-13 px-3.5 text-lg sm:text-xl font-bold text-[#032109] placeholder:text-gray-400 bg-transparent rounded-r-2xl outline-none" 
+                  class="w-full h-12 sm:h-13 px-3.5 text-lg sm:text-xl font-bold text-[#032109] placeholder:text-gray-400 placeholder:font-normal bg-transparent rounded-r-2xl outline-none" 
                   id="login-phone-input" 
                   inputmode="numeric" 
                   maxlength="10" 
-                  placeholder="98540 12345" 
+                  placeholder="Enter 10-digit mobile number" 
                   type="tel"
-                  value="9854012345"
+                  value=""
                 />
                 <!-- Quick Clear Button -->
                 <button 

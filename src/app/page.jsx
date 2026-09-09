@@ -18,7 +18,7 @@ export default function HomePage() {
   const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'google'
   const [googleEmail, setGoogleEmail] = useState('');
   const [activeLanguage, setActiveLanguage] = useState('English');
-  const [phone, setPhone] = useState('98540 12345');
+  const [phone, setPhone] = useState('');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -642,9 +642,19 @@ export default function HomePage() {
                         required
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        placeholder="98540 12345"
-                        className="w-full bg-transparent text-base font-bold text-[#032109] focus:outline-none"
+                        placeholder="Enter 10-digit mobile number"
+                        className="w-full bg-transparent text-base font-bold text-[#032109] placeholder:text-gray-400 placeholder:font-normal focus:outline-none"
                       />
+                      {phone && (
+                        <button
+                          type="button"
+                          onClick={() => setPhone('')}
+                          className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+                          title="Clear phone number"
+                        >
+                          <span className="material-symbols-outlined text-lg">cancel</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 

@@ -8,14 +8,14 @@ import { showToast } from '../utils/toast.js';
 export function renderUserDetailsSetup(onNavigate, params = {}) {
   const currentPatient = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state.patient || {});
   const currentCaregiver = dataStore.getCaregiver ? dataStore.getCaregiver() : (dataStore.state.caregiver || {});
-  const initialName = currentPatient.name || 'Asha Devi Borah';
-  const initialAge = currentPatient.age || 72;
-  const initialLocation = currentPatient.location || 'Room 2, Garden Terrace Wing';
+  const initialName = currentPatient.name || '';
+  const initialAge = currentPatient.age || '';
+  const initialLocation = currentPatient.location || '';
   const initialCity = currentPatient.city || 'Guwahati';
   const initialState = currentPatient.state || 'Assam';
-  const initialCaregiverName = currentCaregiver.name || 'Riya Borah';
-  const initialCaregiverEmail = currentCaregiver.email || 'riya@sahara.care';
-  const initialCaregiverPassword = currentCaregiver.password || 'care1234';
+  const initialCaregiverName = currentCaregiver.name || '';
+  const initialCaregiverEmail = currentCaregiver.email || '';
+  const initialCaregiverPassword = currentCaregiver.password || '';
 
   const lang = dataStore.getLanguage() || 'English';
   const t = getTranslation(lang);
