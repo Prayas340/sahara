@@ -42,8 +42,8 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             className={getMobileTabClass('memories')}
             onClick={() => onSelectTab('memories')}
           >
-            <span className="material-symbols-outlined text-xl">photo_library</span>
-            <span>{t.tabMemories || 'Memories'}</span>
+            <span className="material-symbols-outlined text-xl">leaderboard</span>
+            <span>{t.tabGameScores || 'Game Score'}</span>
           </button>
           <button
             type="button"
@@ -98,15 +98,15 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('overview')}
           >
             <span className="material-symbols-outlined text-2xl">space_dashboard</span>
-            <span>Caregiver Overview</span>
+            <span>{t.tabOverview || 'Caregiver Overview'}</span>
           </button>
           <button
             type="button"
             className={getSidebarLinkClass('memories')}
             onClick={() => onSelectTab('memories')}
           >
-            <span className="material-symbols-outlined text-2xl">photo_library</span>
-            <span>Family Memories Deck</span>
+            <span className="material-symbols-outlined text-2xl">leaderboard</span>
+            <span>{t.tabGameScores || 'Patient Game Score'}</span>
           </button>
           <button
             type="button"
@@ -114,7 +114,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('routine')}
           >
             <span className="material-symbols-outlined text-2xl">schedule</span>
-            <span>Daily Rhythm & Routine</span>
+            <span>{t.tabRoutine || 'Daily Rhythm & Routine'}</span>
           </button>
           <button
             type="button"
@@ -122,7 +122,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('contacts')}
           >
             <span className="material-symbols-outlined text-2xl">contact_phone</span>
-            <span>Doctor & Family SOS</span>
+            <span>{t.tabContacts || 'Doctor & Family SOS'}</span>
           </button>
         </nav>
 

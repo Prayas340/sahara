@@ -66,9 +66,23 @@ export const translations = {
 
     // Caregiver Dashboard
     tabOverview: "Patient Overview",
-    tabMemories: "Memories & Mind Games",
+    tabMemories: "Patient Game Score",
     tabRoutine: "Daily Routine & Medicines",
     tabContacts: "Doctor & Family SOS",
+    
+    // Game Score Analytics
+    tabGameScores: "Patient Game Score",
+    dailyScore: "Today's Game Score",
+    weeklyScore: "Weekly Cumulative Score",
+    weeklyTrend: "7-Day Cognitive Performance Analytics",
+    cognitiveStability: "Cognitive Stability",
+    sessionHistory: "Recent Game Sessions & Score Logs",
+    averageAccuracy: "Average Accuracy",
+    sessionsCompleted: "Sessions Completed",
+    movesLabel: "Moves",
+    pointsLabel: "Points",
+    scoreEarned: "Score Earned",
+    recallStatus: "Recall Status",
     
     monitoringHeader: "Caregiver Monitoring Portal",
     monitoringSubheader: "Real-time wellness, routine adherence & gentle cognitive care",
@@ -190,9 +204,23 @@ export const translations = {
 
     // Caregiver Dashboard
     tabOverview: "मरीज़ की स्थिति",
-    tabMemories: "स्मृति व खेल",
+    tabMemories: "मरीज़ खेल स्कोर",
     tabRoutine: "दैनिक दवा व दिनचर्या",
     tabContacts: "डॉक्टर व पारिवारिक आपातकालीन संपर्क",
+    
+    // Game Score Analytics
+    tabGameScores: "मरीज़ खेल स्कोर व विश्लेषण",
+    dailyScore: "आज का कुल स्कोर",
+    weeklyScore: "साप्ताहिक संचयी स्कोर",
+    weeklyTrend: "7 दिनों का संज्ञानात्मक प्रदर्शन विश्लेषण",
+    cognitiveStability: "संज्ञानात्मक स्थिरता",
+    sessionHistory: "हाल के खेल सत्र और स्कोर रिकॉर्ड",
+    averageAccuracy: "औसत सटीकता",
+    sessionsCompleted: "पूर्ण किए गए सत्र",
+    movesLabel: "चालें",
+    pointsLabel: "अंक",
+    scoreEarned: "प्राप्त स्कोर",
+    recallStatus: "स्मृति स्थिति",
     
     monitoringHeader: "केयरगिवर देखभाल पोर्टल",
     monitoringSubheader: "दैनिक स्वास्थ्य, दवा की निगरानी और स्नेहपूर्ण देखभाल",
@@ -314,9 +342,23 @@ export const translations = {
 
     // Caregiver Dashboard
     tabOverview: "সামগ্ৰিক পৰিদৰ্শন",
-    tabMemories: "স্মৃতি আৰু খেল",
+    tabMemories: "মৰীজৰ খেল স্কোৰ",
     tabRoutine: "দৈনিক নিয়ম আৰু ঔষধ",
     tabContacts: "চিকিৎসক আৰু পৰিয়াল SOS",
+    
+    // Game Score Analytics
+    tabGameScores: "মৰীজৰ খেল স্কোৰ আৰু বিশ্লেষণ",
+    dailyScore: "আজিৰ মুঠ স্কোৰ",
+    weeklyScore: "সাপ্তাহিক সঞ্চিত স্কোৰ",
+    weeklyTrend: "৭ দিনৰ জ্ঞানমূলক প্ৰদৰ্শন বিশ্লেষণ",
+    cognitiveStability: "জ্ঞানমূলক স্থিৰতা",
+    sessionHistory: "শেহতীয়া খেলৰ সময় আৰু স্কোৰ ৰেকৰ্ড",
+    averageAccuracy: "গড় সঠিকতা",
+    sessionsCompleted: "সম্পূৰ্ণ হোৱা খেল",
+    movesLabel: "মুভ",
+    pointsLabel: "পইণ্ট",
+    scoreEarned: "অৰ্জন কৰা স্কোৰ",
+    recallStatus: "স্মৃতিৰ অৱস্থা",
     
     monitoringHeader: "কেয়াৰগিভাৰ তদাৰকী প’ৰ্টেল",
     monitoringSubheader: "দৈনন্দিন স্বাস্থ্য, ঔষধৰ নিয়ম আৰু মৰমৰ যত্ন",
@@ -438,9 +480,23 @@ export const translations = {
 
     // Caregiver Dashboard
     tabOverview: "রোগীর অবস্থা",
-    tabMemories: "স্মৃতি ও খেলা",
+    tabMemories: "রোগীর খেলার স্কোর",
     tabRoutine: "দৈনিক রুটিন ও ওষুধ",
     tabContacts: "চিকিৎসক ও জরুরি যোগাযোগ",
+    
+    // Game Score Analytics
+    tabGameScores: "রোগীর খেলার স্কোর ও বিশ্লেষণ",
+    dailyScore: "আজকের মোট স্কোর",
+    weeklyScore: "সাপ্তাহিক সঞ্চিত স্কোর",
+    weeklyTrend: "৭ দিনের জ্ঞানমূলক পারফরম্যান্স অ্যানালিটিক্স",
+    cognitiveStability: "জ্ঞানমূলক স্থিতিশীলতা",
+    sessionHistory: "সাম্প্রতিক খেলা ও স্কোরের বিবরণ",
+    averageAccuracy: "গড় নির্ভুলতা",
+    sessionsCompleted: "সম্পন্ন সেশন",
+    movesLabel: "মুভস",
+    pointsLabel: "পয়েন্ট",
+    scoreEarned: "অর্জিত স্কোর",
+    recallStatus: "স্মৃতি অবস্থা",
     
     monitoringHeader: "কেয়ারগিভার মনিটরিং পোর্টাল",
     monitoringSubheader: "দৈনিক স্বাস্থ্য, ওষুধের যত্ন এবং স্নেহময় তদারকি",
@@ -562,9 +618,23 @@ export const translations = {
 
     // Caregiver Dashboard
     tabOverview: "ꯃꯤꯑꯣꯏ ꯌꯦꯡꯁꯤꯅꯕꯥ",
-    tabMemories: "ꯅꯤꯡꯁꯤꯡ ꯑꯃꯁꯨꯡ ꯁꯥꯟꯅꯕꯥ",
+    tabMemories: "ꯑꯅꯥꯕꯒꯤ ꯁꯥꯟꯅꯕꯥ ꯃꯥꯔꯛ",
     tabRoutine: "ꯅꯨꯃꯤꯠ ꯈꯨꯗꯤꯡꯒꯤ ꯍꯤꯗꯥꯛ ꯃꯇꯝ",
     tabContacts: "ꯗꯥꯛꯇꯔ ꯑꯃꯁꯨꯡ ꯏꯃꯨꯡ SOS",
+    
+    // Game Score Analytics
+    tabGameScores: "ꯑꯅꯥꯕꯒꯤ ꯁꯥꯟꯅꯕꯥ ꯃꯥꯔꯛ ꯑꯃꯁꯨꯡ ꯌꯦꯡꯁꯤꯅꯕꯥ",
+    dailyScore: "ꯉꯁꯤꯒꯤ ꯑꯄꯨꯅꯕꯥ ꯃꯥꯔꯛ",
+    weeklyScore: "ꯅꯨꯃꯤꯠ ৭ ꯒꯤ ꯃꯥꯔꯛ",
+    weeklyTrend: "ꯅꯨꯃꯤꯠ ৭ ꯒꯤ ꯋꯥꯈꯜꯒꯤ ꯐꯤꯚꯝ",
+    cognitiveStability: "ꯋꯥꯈꯜ ꯂꯦꯡꯗꯕꯥ",
+    sessionHistory: "ꯍꯟꯗꯛ ꯁꯥꯟꯅꯈꯤꯕꯥ ꯃꯇꯝ ꯑꯃꯁꯨꯡ ꯃꯥꯔꯛ",
+    averageAccuracy: "ꯑꯆꯨꯝꯕꯥ ꯆꯥꯡ",
+    sessionsCompleted: "ꯁꯥꯟꯅꯈꯤꯕꯥ ꯃꯁꯤꯡ",
+    movesLabel: "ꯆꯠꯈꯤꯕꯥ",
+    pointsLabel: "ꯃꯥꯔꯛ",
+    scoreEarned: "ꯐꯪꯂꯕꯥ ꯃꯥꯔꯛ",
+    recallStatus: "ꯅꯤꯡꯁꯤꯡꯕꯒꯤ ꯐꯤꯚꯝ",
     
     monitoringHeader: "ꯌꯦꯡꯁꯤꯅꯕꯒꯤ ꯄꯣꯔꯇꯦꯜ",
     monitoringSubheader: "ꯅꯨꯃꯤꯠ ꯈꯨꯗꯤꯡꯒꯤ ꯍꯛꯁꯦꯜ, ꯍꯤꯗꯥꯛ ꯑꯃꯁꯨꯡ ꯅꯨꯡꯁꯤꯕꯥ ꯌꯦꯡꯁꯤꯅꯕꯥ",

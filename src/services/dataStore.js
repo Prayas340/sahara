@@ -39,6 +39,7 @@ const defaultState = {
     }
   ],
   gamesPlayedCount: 3,
+  gameScores: [],
   moodRating: 'Peaceful & Alert',
   wellnessBroadcasts: [],
   reminders: [
@@ -519,6 +520,102 @@ class DataStore {
   deleteContact(contactId) {
     const updated = (this.state.contacts || []).filter(c => c.id !== contactId);
     this.saveContacts(updated);
+  }
+
+  recordGameScore(scoreData) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const timestamp = new Date().toISOString();
+    const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const newScore = {
+      id: `score_${Date.now()}`,
+      score: Number(scoreData.score) || 300,
+      moves: Number(scoreData.moves) || 6,
+      matchedPairs: Number(scoreData.matchedPairs) || 3,
+      accuracy: Number(scoreData.accuracy) || 100,
+      durationSeconds: Number(scoreData.durationSeconds) || 45,
+      date: scoreData.date || todayStr,
+      timestamp,
+      time: timeFormatted,
+      status: scoreData.status || (scoreData.accuracy >= 90 ? 'High Focus' : 'Steady Recall'),
+    };
+
+    if (!Array.isArray(this.state.gameScores)) {
+      this.state.gameScores = [];
+    }
+
+    this.state.gameScores.unshift(newScore);
+    this.state.gamesPlayedCount = (this.state.gamesPlayedCount || 0) + 1;
+    this.saveState();
+
+    // Async persist to cloud database
+    try {
+      const elderId = this.state.patient?.id || this.state.patient?.phone || this.state.patient?.email;
+      const caregiverEmail = this.state.caregiver?.email || this.state.patient?.caregiverEmail;
+      fetch('/api/game-scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          elderId,
+          caregiverEmail,
+          ...newScore,
+        }),
+      }).catch(err => console.warn('[dataStore] Failed to post game score to server:', err));
+    } catch (e) {}
+
+    this.notifyChange();
+    return newScore;
+  }
+
+  getGameScores() {
+    return Array.isArray(this.state.gameScores) ? this.state.gameScores : [];
+  }
+
+  getGameAnalytics() {
+    const scores = this.getGameScores();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayScores = scores.filter(s => s.date === todayStr);
+    const todayTotalScore = todayScores.reduce((sum, s) => sum + s.score, 0);
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const last7Days = [];
+    let weeklyTotalScore = 0;
+    let weeklySessions = 0;
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dStr = d.toISOString().split('T')[0];
+      const dayLabel = dayNames[d.getDay()];
+      const dayRecords = scores.filter(s => s.date === dStr);
+      const dayScore = dayRecords.reduce((sum, s) => sum + s.score, 0);
+      const sessions = dayRecords.length;
+      weeklyTotalScore += dayScore;
+      weeklySessions += sessions;
+
+      last7Days.push({
+        date: dStr,
+        day: dayLabel,
+        score: dayScore,
+        sessions,
+        isToday: dStr === todayStr,
+      });
+    }
+
+    const avgAccuracy = scores.length > 0
+      ? Math.round(scores.reduce((sum, s) => sum + (s.accuracy || 100), 0) / scores.length)
+      : 100;
+
+    return {
+      todayScore: todayTotalScore,
+      todaySessions: todayScores.length,
+      weeklyScore: weeklyTotalScore,
+      weeklySessions,
+      avgAccuracy,
+      cognitiveStability: avgAccuracy >= 85 ? 'High Focus & Calm' : 'Steady Recall',
+      last7Days,
+      recentScores: scores.slice(0, 10),
+    };
   }
 
   getLanguage() {

@@ -47,16 +47,38 @@ export default function MemoryMatchGamePage() {
 
   const [cards, setCards] = useState(initialCards);
   const [flippedIndices, setFlippedIndices] = useState([]);
+  const [moves, setMoves] = useState(0);
+  const [roundCompleted, setRoundCompleted] = useState(false);
+  const [lastScoreEarned, setLastScoreEarned] = useState(0);
+  const [startTime, setStartTime] = useState(null);
 
-  const handleVoiceGuide = () => {
-    const guideText = 'Welcome to Memory Match. Tap any two cards to gently turn them over and find the familiar matching treasures. There is no rush.';
-    speakText(guideText);
-    showToast('🔊 ' + guideText, 'info', 6000);
+  const shufflePool = () => {
+    // Generate 3 pairs randomly arranged
+    const pairs = [
+      { pairId: 'chai', ...cardPool[0] },
+      { pairId: 'chai', ...cardPool[0] },
+      { pairId: 'tea_leaf', ...cardPool[1] },
+      { pairId: 'tea_leaf', ...cardPool[1] },
+      { pairId: 'cat', ...cardPool[2] },
+      { pairId: 'cat', ...cardPool[2] },
+    ];
+    // Shuffle
+    const shuffled = [...pairs].sort(() => Math.random() - 0.5);
+    return shuffled.map((c, i) => ({
+      id: i,
+      ...c,
+      matched: false,
+      flipped: false,
+    }));
   };
 
   const handleCardClick = (idx) => {
     const card = cards[idx];
     if (card.matched || card.flipped || flippedIndices.length >= 2) return;
+
+    if (!startTime) {
+      setStartTime(Date.now());
+    }
 
     const newCards = [...cards];
     newCards[idx].flipped = true;
@@ -68,6 +90,8 @@ export default function MemoryMatchGamePage() {
     speakText(card.title);
 
     if (newFlipped.length === 2) {
+      const updatedMoves = moves + 1;
+      setMoves(updatedMoves);
       const first = newCards[newFlipped[0]];
       const second = newCards[newFlipped[1]];
 
@@ -76,29 +100,51 @@ export default function MemoryMatchGamePage() {
         second.matched = true;
         setCards([...newCards]);
         setFlippedIndices([]);
-        dataStore.incrementGamesCount?.();
-        showToast(`🎉 Wonderful! You matched ${first.title}!`, 'success', 4000);
-        speakText(`Wonderful! You matched ${first.title}!`);
+        
+        // Check if all cards are matched
+        const allMatched = newCards.every((c) => c.matched);
+        if (allMatched) {
+          const duration = startTime ? Math.max(10, Math.round((Date.now() - startTime) / 1000)) : 30;
+          const accuracy = Math.min(100, Math.round((3 / Math.max(3, updatedMoves)) * 100));
+          const score = Math.max(120, 300 - Math.max(0, updatedMoves - 3) * 25);
+          
+          setLastScoreEarned(score);
+          setRoundCompleted(true);
+
+          dataStore.incrementGamesCount?.();
+          dataStore.recordGameScore?.({
+            score,
+            moves: updatedMoves,
+            matchedPairs: 3,
+            accuracy,
+            durationSeconds: duration,
+          });
+
+          showToast(`🌟 Round Complete! Score: ${score} pts (${accuracy}% Recall)`, 'success', 5000);
+          speakText(`Round Complete! You scored ${score} points!`);
+        } else {
+          showToast(`🎉 Wonderful! You matched ${first.title}!`, 'success', 3000);
+          speakText(`Wonderful! You matched ${first.title}!`);
+        }
       } else {
         setTimeout(() => {
           first.flipped = false;
           second.flipped = false;
           setCards([...newCards]);
           setFlippedIndices([]);
-        }, 1300);
+        }, 1200);
       }
     }
   };
 
   const handleReplay = () => {
-    const reset = cards.map((c, i) => ({
-      ...c,
-      flipped: i === 0 || i === 5,
-      matched: i === 0 || i === 5,
-    }));
-    setCards(reset);
+    const shuffled = shufflePool();
+    setCards(shuffled);
     setFlippedIndices([]);
-    showToast('Shuffled for next round!', 'info');
+    setMoves(0);
+    setRoundCompleted(false);
+    setStartTime(Date.now());
+    showToast('✨ Shuffled with fresh layout! Have fun.', 'info', 2000);
   };
 
   return (

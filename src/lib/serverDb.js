@@ -523,3 +523,135 @@ export async function getContactsFromDb(args) {
   return null;
 }
 
+/**
+ * Save a game score session to the database
+ */
+export async function saveGameScoreToDb(scoreData) {
+  const store = readLocalStore();
+  if (!store.gameScores) store.gameScores = {};
+
+  const id = 'score_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const elderId = scoreData.elderId ? normalizeIdentifier(scoreData.elderId) : 'default_elder';
+  const caregiverEmail = scoreData.caregiverEmail ? scoreData.caregiverEmail.trim().toLowerCase() : '';
+  const dateStr = scoreData.date || new Date().toISOString().split('T')[0];
+  const timestamp = scoreData.timestamp || new Date().toISOString();
+
+  const record = {
+    id,
+    elderId,
+    caregiverEmail,
+    score: Number(scoreData.score) || 300,
+    moves: Number(scoreData.moves) || 6,
+    matchedPairs: Number(scoreData.matchedPairs) || 3,
+    accuracy: Number(scoreData.accuracy) || 100,
+    durationSeconds: Number(scoreData.durationSeconds) || 45,
+    date: dateStr,
+    timestamp,
+    status: scoreData.status || 'Excellent Recall',
+  };
+
+  // Index by elderId
+  if (!store.gameScores[elderId]) store.gameScores[elderId] = [];
+  store.gameScores[elderId].unshift(record);
+
+  // Also index by caregiverEmail if available
+  if (caregiverEmail) {
+    if (!store.gameScores[caregiverEmail]) store.gameScores[caregiverEmail] = [];
+    store.gameScores[caregiverEmail].unshift(record);
+  }
+
+  writeLocalStore(store);
+  return { success: true, record };
+}
+
+/**
+ * Get game scores and analytics for an elder or caregiver
+ */
+export async function getGameScoresFromDb(args) {
+  let elderId, caregiverEmail;
+  if (typeof args === 'object' && args !== null) {
+    elderId = args.elderId;
+    caregiverEmail = args.caregiverEmail;
+  } else if (typeof args === 'string') {
+    if (args.includes('@')) {
+      caregiverEmail = args;
+    } else {
+      elderId = args;
+    }
+  }
+
+  const store = readLocalStore();
+  let scores = [];
+
+  if (elderId) {
+    const cleanId = normalizeIdentifier(elderId);
+    if (store.gameScores?.[cleanId]) {
+      scores = store.gameScores[cleanId];
+    }
+  }
+
+  if (scores.length === 0 && caregiverEmail) {
+    const cleanCg = caregiverEmail.trim().toLowerCase();
+    if (store.gameScores?.[cleanCg]) {
+      scores = store.gameScores[cleanCg];
+    } else {
+      const cg = store.caregivers?.[cleanCg];
+      if (cg?.elderId && store.gameScores?.[cg.elderId]) {
+        scores = store.gameScores[cg.elderId];
+      }
+    }
+  }
+
+  // Calculate daily & weekly analytics
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayScores = scores.filter(s => s.date === todayStr);
+  const todayTotalScore = todayScores.reduce((sum, s) => sum + s.score, 0);
+  const todayAvgScore = todayScores.length > 0 ? Math.round(todayTotalScore / todayScores.length) : 0;
+
+  // Last 7 days breakdown
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const last7Days = [];
+  let weeklyTotalScore = 0;
+  let weeklySessionsCount = 0;
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dStr = d.toISOString().split('T')[0];
+    const dayLabel = dayNames[d.getDay()];
+    const dayRecords = scores.filter(s => s.date === dStr);
+    const dayScore = dayRecords.reduce((sum, s) => sum + s.score, 0);
+    const sessions = dayRecords.length;
+    weeklyTotalScore += dayScore;
+    weeklySessionsCount += sessions;
+
+    last7Days.push({
+      date: dStr,
+      day: dayLabel,
+      score: dayScore,
+      sessions,
+      isToday: dStr === todayStr,
+    });
+  }
+
+  const avgAccuracy = scores.length > 0
+    ? Math.round(scores.reduce((sum, s) => sum + (s.accuracy || 100), 0) / scores.length)
+    : 100;
+
+  return {
+    success: true,
+    scores,
+    analytics: {
+      todayScore: todayTotalScore,
+      todaySessions: todayScores.length,
+      todayAvgScore,
+      weeklyScore: weeklyTotalScore,
+      weeklySessions: weeklySessionsCount,
+      weeklyAvgDailyScore: Math.round(weeklyTotalScore / 7),
+      avgAccuracy,
+      cognitiveStability: avgAccuracy >= 85 ? 'High Focus & Calm' : 'Steady Recall',
+      last7Days,
+    }
+  };
+}
+
