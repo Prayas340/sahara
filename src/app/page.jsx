@@ -499,9 +499,8 @@ export default function HomePage() {
       window.location.href = '/elder-dashboard';
     } catch (err) {
       setIsSavingSetup(false);
-      console.error(err);
-      showToast('Saved profile. Entering Sanctuary...', 'info');
-      window.location.href = '/elder-dashboard';
+      console.error('[Setup Error]:', err);
+      showToast('Database Error: ' + (err.message || 'Failed to save setup to database. Please try again.'), 'error', 6000);
     }
   };
 

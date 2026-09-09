@@ -455,7 +455,10 @@ export const authService = {
 
   // Save Elder profile and link Caregiver credentials to database and client store
   async saveElderProfile(patientData, caregiverData, customIdentifier) {
-    const cleanElderName = (patientData?.name || 'Asha Devi Borah').trim();
+    const cleanElderName = (patientData?.name || '').trim();
+    if (!cleanElderName) {
+      throw new Error('Elder full name is required to complete registration.');
+    }
     const firstName = cleanElderName.split(' ')[0];
     const cleanHonorific = patientData?.honorific || (firstName ? `${firstName} ji` : cleanElderName);
 
@@ -480,7 +483,10 @@ export const authService = {
 
     const elderIdentifier = customIdentifier || patientData?.phone || patientData?.email || 'elder_' + Date.now().toString(36);
 
-    // Persist to Server Database & Firebase Auth Cloud
+    // Persist directly to Server Database & Firebase Auth Cloud
+    let dbSuccess = false;
+    let dbErrorMsg = '';
+
     try {
       const res = await fetch('/api/auth/elder-save', {
         method: 'POST',
@@ -492,29 +498,41 @@ export const authService = {
           caregiverData,
         }),
       });
-      if (res.ok) {
-        const savedData = await res.json();
-        console.log('[authService] Saved to database successfully:', savedData);
+      const resData = await res.json().catch(() => ({}));
+      if (res.ok && resData.success) {
+        dbSuccess = true;
+        console.log('[authService] Saved to database successfully:', resData);
       } else {
-        throw new Error('Server save endpoint returned status ' + res.status);
+        dbErrorMsg = resData.error || resData.message || ('Server database returned status ' + res.status);
       }
     } catch (err) {
-      console.warn('[authService] Server database save note, engaging direct Firebase client fallback:', err);
-      if (firebaseClientAuth && caregiverData?.email && caregiverData?.password) {
-        try {
-          const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
-          const cred = await createUserWithEmailAndPassword(
-            firebaseClientAuth,
-            caregiverData.email.trim().toLowerCase(),
-            caregiverData.password.trim()
-          );
-          if (cred.user && caregiverData.name) {
-            await updateProfile(cred.user, { displayName: caregiverData.name });
-          }
-        } catch (clientAuthErr) {
-          console.warn('[authService] Firebase client create notice:', clientAuthErr.code, clientAuthErr.message);
+      dbErrorMsg = err.message || 'Network request failed';
+      console.warn('[authService] Server database save endpoint notice:', err);
+    }
+
+    // Direct Firebase client fallback if server endpoint had network issues
+    if (!dbSuccess && firebaseClientAuth && caregiverData?.email && caregiverData?.password) {
+      try {
+        const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+        const cred = await createUserWithEmailAndPassword(
+          firebaseClientAuth,
+          caregiverData.email.trim().toLowerCase(),
+          caregiverData.password.trim()
+        );
+        if (cred.user && caregiverData.name) {
+          await updateProfile(cred.user, { displayName: caregiverData.name });
+        }
+        dbSuccess = true;
+      } catch (clientAuthErr) {
+        console.warn('[authService] Firebase client create notice:', clientAuthErr.code, clientAuthErr.message);
+        if (clientAuthErr.code === 'auth/email-already-in-use') {
+          dbSuccess = true;
         }
       }
+    }
+
+    if (!dbSuccess && dbErrorMsg) {
+      throw new Error('Database Error: ' + dbErrorMsg);
     }
 
     const user = {
@@ -610,7 +628,7 @@ export const authService = {
     return list[0] || null;
   },
 
-  // Caregiver Portal Login with email & password - directly fetches linked elder profile from Database!
+  // Caregiver Portal Login with email & password - queries database for linked elder profile and fails explicitly
   async loginCaregiver({ email, password }) {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanPassword = (password || '').trim();
@@ -629,12 +647,16 @@ export const authService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
       });
-      const result = await res.json();
-      if (result && result.success && result.user) {
-        // DIRECTLY FETCH & LOAD LINKED ELDER PROFILE INTO DATASTORE!
-        if (result.elderProfile) {
-          dataStore.loadLinkedPatient(result.elderProfile, result.user);
+      const result = await res.json().catch(() => ({}));
+      if (res.ok && result && result.success && result.user) {
+        if (!result.elderProfile || !result.elderProfile.name) {
+          return {
+            success: false,
+            message: `No elder profile is associated with caregiver "${cleanEmail}" in the database.`
+          };
         }
+        // Load real linked elder profile into dataStore
+        dataStore.loadLinkedPatient(result.elderProfile, result.user);
         if (dataStore.updateCaregiverProfile) {
           dataStore.updateCaregiverProfile(result.user);
         }
@@ -643,22 +665,26 @@ export const authService = {
           name: result.user.name,
           email: result.user.email,
           password: cleanPassword,
-          patientData: result.elderProfile || dataStore.getPatient(),
+          patientData: result.elderProfile,
         });
         return {
           success: true,
           user: result.user,
-          elderProfile: result.elderProfile || dataStore.getPatient(),
-          message: result.message || `Welcome back, ${result.user.name}! Connected to ${result.elderProfile?.name}'s care overview.`
+          elderProfile: result.elderProfile,
+          message: result.message || `Welcome back, ${result.user.name}! Connected to ${result.elderProfile.name}'s care overview.`
         };
       } else if (result && !result.success) {
-        console.warn('[authService] API caregiver-login notice:', result.message);
+        // FAIL EXPLICITLY: Do NOT mask database failure with mock fallback!
+        return {
+          success: false,
+          message: result.message || 'Access denied. The email or password entered does not match this elder’s registered caregiver.'
+        };
       }
     } catch (apiErr) {
-      console.warn('[authService] Caregiver API login fallback to direct Firebase Cloud:', apiErr);
+      console.warn('[authService] Caregiver API login network error:', apiErr);
     }
 
-    // 2. Direct Firebase Client Authentication (accessible across any device anywhere in the world!)
+    // 2. Direct Firebase Client Authentication (if API endpoint network failed)
     if (firebaseClientAuth) {
       try {
         const { signInWithEmailAndPassword } = await import('firebase/auth');
@@ -667,11 +693,12 @@ export const authService = {
         const tokenResult = await fbUser.getIdTokenResult(true);
         const claims = tokenResult?.claims || {};
 
-        let linkedElder = claims.linkedElder || null;
-        if (!linkedElder) {
-          const registeredList = this.getRegisteredCaregivers();
-          const defaultCg = registeredList.find(c => c.email.toLowerCase() === cleanEmail);
-          linkedElder = defaultCg?.patientData || null;
+        const linkedElder = claims.linkedElder || null;
+        if (!linkedElder || !linkedElder.name) {
+          return {
+            success: false,
+            message: `Caregiver account found, but no elder profile is linked in the database. Please check registration.`
+          };
         }
 
         const caregiverUser = {
@@ -680,108 +707,46 @@ export const authService = {
           email: cleanEmail,
           role: 'caregiver',
           relation: claims.relation || 'Primary Caregiver',
-          elderPatient: linkedElder?.name || 'Elder Patient',
-          elderPatientId: linkedElder?.id || '',
+          elderPatient: linkedElder.name,
+          elderPatientId: linkedElder.id || '',
           linkedElder: linkedElder,
           authProvider: 'firebase-cloud-auth',
           avatar: fbUser.photoURL || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
         };
 
-        if (linkedElder) {
-          dataStore.loadLinkedPatient(linkedElder, caregiverUser);
-        }
+        dataStore.loadLinkedPatient(linkedElder, caregiverUser);
         if (dataStore.updateCaregiverProfile) {
           dataStore.updateCaregiverProfile(caregiverUser);
         }
         this.setCurrentUser(caregiverUser);
-        this.registerCaregiverAccount({
-          name: caregiverUser.name,
-          email: cleanEmail,
-          password: cleanPassword,
-          patientData: linkedElder || dataStore.getPatient(),
-        });
 
         return {
           success: true,
           user: caregiverUser,
-          elderProfile: linkedElder || dataStore.getPatient(),
-          message: `Welcome back, ${caregiverUser.name}! Connected to ${linkedElder?.name || 'your elder'}'s care overview via Firebase Cloud.`
+          elderProfile: linkedElder,
+          message: `Welcome back, ${caregiverUser.name}! Connected to ${linkedElder.name}'s care overview via Firebase Cloud.`
         };
       } catch (fbAuthErr) {
-        console.warn('[authService] Direct Firebase client auth notice:', fbAuthErr.code, fbAuthErr.message);
+        console.warn('[authService] Direct Firebase client auth error:', fbAuthErr.code, fbAuthErr.message);
         if (fbAuthErr.code === 'auth/wrong-password' || fbAuthErr.code === 'auth/invalid-credential') {
           return {
             success: false,
             message: 'Incorrect password for this caregiver account. Please check your credentials.'
           };
         }
+        if (fbAuthErr.code === 'auth/user-not-found') {
+          return {
+            success: false,
+            message: `No caregiver account found for "${cleanEmail}". Please check your email or register during Elder View Step 3.`
+          };
+        }
       }
     }
 
-    // 3. Client-side local fallback
-    const caregivers = this.getRegisteredCaregivers();
-    let matched = caregivers.find(c => c.email.toLowerCase() === cleanEmail);
-
-    if (!matched) {
-      const storeCg = dataStore.getCaregiver ? dataStore.getCaregiver() : null;
-      if (storeCg && storeCg.email && storeCg.email.toLowerCase() === cleanEmail) {
-        matched = {
-          ...storeCg,
-          patientData: dataStore.getPatient(),
-        };
-      }
-    }
-
-    if (!matched && cleanEmail === 'riya@sahara.care') {
-      matched = {
-        name: 'Riya Borah',
-        email: 'riya@sahara.care',
-        password: 'care123',
-        patientData: dataStore.getPatient(),
-      };
-    }
-
-    if (!matched) {
-      return {
-        success: false,
-        message: `No caregiver account found for "${cleanEmail}". Please check your email or register during Elder View Step 3.`
-      };
-    }
-
-    const isDemoPassword = cleanEmail === 'riya@sahara.care' && (cleanPassword === 'care123' || cleanPassword === 'care1234');
-    if (matched.password && matched.password !== cleanPassword && !isDemoPassword) {
-      return {
-        success: false,
-        message: 'Incorrect password for this caregiver account. Please check your credentials.'
-      };
-    }
-
-    const elderProfile = matched.patientData || dataStore.getPatient();
-    const caregiverUser = {
-      id: matched.id || 'caregiver_' + Date.now().toString(36),
-      name: matched.name || 'Caregiver',
-      email: matched.email,
-      role: 'caregiver',
-      relation: matched.relation || 'Primary Caregiver',
-      elderPatient: elderProfile.name,
-      elderPatientId: elderProfile.id,
-      linkedElder: elderProfile,
-      authProvider: 'caregiver-credentials',
-      avatar: matched.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
-    };
-
-    if (elderProfile) {
-      dataStore.loadLinkedPatient(elderProfile, caregiverUser);
-    }
-    if (dataStore.updateCaregiverProfile) {
-      dataStore.updateCaregiverProfile(caregiverUser);
-    }
-    this.setCurrentUser(caregiverUser);
+    // Explicit failure rather than silently masking missing database reads
     return {
-      success: true,
-      user: caregiverUser,
-      elderProfile,
-      message: `Welcome back, ${caregiverUser.name}! Connected to ${elderProfile.name}'s care overview.`
+      success: false,
+      message: `Authentication failed for "${cleanEmail}". Please ensure you have completed the Elder & Caregiver setup on Device A and check your internet connection.`
     };
   },
 

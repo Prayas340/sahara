@@ -794,7 +794,7 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
     });
 
     // Submit button
-    submitBtn?.addEventListener('click', () => {
+    submitBtn?.addEventListener('click', async () => {
       const name = nameInput?.value.trim();
       const age = ageInput?.value.trim();
       const location = locationInput?.value.trim();
@@ -846,68 +846,61 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
         return;
       }
 
-      // 1. Update patient in dataStore
-      dataStore.updatePatientProfile({
-        name,
-        age: age ? parseInt(age, 10) : undefined,
-        location: location || 'Room 2, Garden Terrace Wing',
-        city: city || 'Guwahati',
-        state: state || 'Assam',
-        status: problemStatement,
-        problemStatement: problemStatement,
-      });
+      const initialBtnText = submitBtn.innerText;
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Saving Profile to Database...';
 
-      // 2. Update caregiver in dataStore
-      dataStore.updateCaregiverProfile({
-        name: caregiverName,
-        email: caregiverEmail,
-        password: caregiverPassword,
-      });
+      try {
+        // 1. Persist to server database and register caregiver account
+        const currentUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
+        const pendingPhone = (typeof window !== 'undefined' && window.sessionStorage) ? sessionStorage.getItem('sahara_pending_phone') : '';
+        const elderPhone = params?.phone || currentUser?.phone || pendingPhone || '';
+        const elderEmail = params?.email || currentUser?.email || '';
+        const elderIdentifier = elderEmail || elderPhone || currentUser?.id || `elder_${Date.now().toString(36)}`;
 
-      // 3. Persist to server database and register caregiver account
-      const currentUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
-      const pendingPhone = (typeof window !== 'undefined' && window.sessionStorage) ? sessionStorage.getItem('sahara_pending_phone') : '';
-      const elderPhone = params?.phone || currentUser?.phone || pendingPhone || '';
-      const elderEmail = params?.email || currentUser?.email || '';
-      const elderIdentifier = elderEmail || elderPhone || currentUser?.id || `elder_${Date.now().toString(36)}`;
+        await authService.saveElderProfile(
+          {
+            name,
+            age: age ? parseInt(age, 10) : undefined,
+            location: location || `${city || 'Guwahati'}, ${state || 'Assam'}`,
+            city: city || 'Guwahati',
+            state: state || 'Assam',
+            status: problemStatement,
+            problemStatement: problemStatement,
+            phone: elderPhone,
+            email: elderEmail,
+          },
+          {
+            name: caregiverName,
+            email: caregiverEmail,
+            password: caregiverPassword,
+          },
+          elderIdentifier
+        );
 
-      authService.saveElderProfile(
-        {
+        // 2. Update in authService current session (Role: elder)
+        authService.updateUserProfile({
           name,
           age: age ? parseInt(age, 10) : undefined,
-          location: location || 'Room 2, Garden Terrace Wing',
+          location: location || `${city || 'Guwahati'}, ${state || 'Assam'}`,
           city: city || 'Guwahati',
           state: state || 'Assam',
           status: problemStatement,
           problemStatement: problemStatement,
-          phone: elderPhone,
-          email: elderEmail,
-        },
-        {
-          name: caregiverName,
-          email: caregiverEmail,
-          password: caregiverPassword,
-        },
-        elderIdentifier
-      );
+          role: 'elder',
+        });
 
-      // 4. Update in authService current session (Role: elder)
-      authService.updateUserProfile({
-        name,
-        age: age ? parseInt(age, 10) : undefined,
-        location: location || 'Room 2, Garden Terrace Wing',
-        city: city || 'Guwahati',
-        state: state || 'Assam',
-        status: problemStatement,
-        problemStatement: problemStatement,
-        role: 'elder',
-      });
+        const honorific = name.split(' ')[0] ? `${name.split(' ')[0]} ji` : name;
+        showToast(`Welcome to Sahara, ${honorific}! Your profile and Caregiver link are saved to the database.`, 'success', 5000);
 
-      const honorific = name.split(' ')[0] ? `${name.split(' ')[0]} ji` : name;
-      showToast(`Welcome to Sahara, ${honorific}! Your profile and Caregiver link are ready.`, 'success', 5000);
-
-      // Navigate to Elder Dashboard
-      onNavigate('elder-dashboard');
+        // Navigate to Elder Dashboard
+        onNavigate('elder-dashboard');
+      } catch (err) {
+        console.error('[Setup Error]:', err);
+        showToast('Database Error: ' + (err.message || 'Failed to persist profile to database. Please try again.'), 'error', 6000);
+        submitBtn.disabled = false;
+        submitBtn.innerText = initialBtnText;
+      }
     });
 
     // Focus name input

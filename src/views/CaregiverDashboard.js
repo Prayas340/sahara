@@ -8,8 +8,14 @@ import { speakText } from '../utils/speech.js';
 export function renderCaregiverDashboard(onNavigate, params = {}) {
   const activeTab = params?.tab || 'overview'; // 'overview' | 'memories' | 'routine' | 'contacts'
   const activeUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
+
+  if (!activeUser || activeUser.role !== 'caregiver') {
+    setTimeout(() => onNavigate('caregiver-login'), 0);
+    return '<div class="min-h-screen bg-[#ebffe7] flex items-center justify-center p-6"><div class="p-6 bg-white rounded-3xl shadow-md border border-[#cdf2cb] text-sm font-bold text-[#0d631b]">Please sign in with your caregiver account. Redirecting...</div></div>';
+  }
+
   const patient = activeUser?.linkedElder || (dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {}));
-  const caregiver = (activeUser?.role === 'caregiver' ? activeUser : null) || (dataStore.getCaregiver ? dataStore.getCaregiver() : (dataStore.state?.caregiver || {}));
+  const caregiver = activeUser;
   const medicines = dataStore.state.medicines || [];
   const contacts = dataStore.state.contacts || [];
   const takenCount = medicines.filter(m => m.taken).length;

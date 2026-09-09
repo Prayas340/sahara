@@ -14,8 +14,10 @@ export default function CaregiverDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'memories' | 'routine' | 'contacts'
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [patient, setPatient] = useState({});
-  const [caregiver, setCaregiver] = useState({});
+  const [patient, setPatient] = useState(null);
+  const [caregiver, setCaregiver] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(true);
+  const [syncError, setSyncError] = useState('');
   const [medicines, setMedicines] = useState([]);
   const [contacts, setContacts] = useState([]);
 
@@ -81,35 +83,62 @@ export default function CaregiverDashboardPage() {
   const [flippedIndices, setFlippedIndices] = useState([]);
 
   useEffect(() => {
-    const syncData = () => {
-      const activeUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
-      const linkedP = activeUser?.linkedElder || (dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {}));
-      const currentCg = (activeUser?.role === 'caregiver' ? activeUser : null) || (dataStore.getCaregiver ? dataStore.getCaregiver() : (dataStore.state?.caregiver || {}));
-      setPatient(linkedP);
-      setCaregiver(currentCg);
-      setMedicines([...(dataStore.state?.medicines || [])]);
-      setContacts([...(dataStore.state?.contacts || [])]);
-    };
-
-    syncData();
-    window.addEventListener('sahara:datastore-change', syncData);
-    window.addEventListener('sahara:auth-change', syncData);
-
-    // Multi-Device Cloud Sync: automatically fetch connected elder profile
+    // 1. Verify authenticated caregiver session on this device
     const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
     const curUser = (authService.getCurrentUser ? authService.getCurrentUser() : null) || storedUser;
-    const cgEmail = curUser?.email;
+
+    if (!curUser || curUser.role !== 'caregiver') {
+      showToast('Please sign in with your Caregiver account to access this portal.', 'info', 4000);
+      router.replace('/caregiver-login');
+      return;
+    }
+
+    setCaregiver(curUser);
+    if (curUser.linkedElder && curUser.linkedElder.name) {
+      setPatient(curUser.linkedElder);
+      setIsSyncing(false);
+    }
+
+    // 2. Fetch linked elder directly from cloud database for cross-device sync
+    const cgEmail = curUser.email;
     if (cgEmail) {
+      setIsSyncing(true);
       authService.syncCaregiverElderData(cgEmail).then((res) => {
+        setIsSyncing(false);
         const elder = res?.elderProfile || res?.elder;
-        if (elder) {
+        if (elder && elder.name) {
           setPatient(elder);
           if (res.user || res.caregiver) setCaregiver(res.user || res.caregiver);
           setMedicines([...(dataStore.state?.medicines || [])]);
           setContacts([...(dataStore.state?.contacts || [])]);
+        } else if (!curUser.linkedElder) {
+          setSyncError(`No elder profile associated with caregiver "${cgEmail}" in the database.`);
+        }
+      }).catch((err) => {
+        setIsSyncing(false);
+        console.error('Caregiver cloud sync error:', err);
+        if (!curUser.linkedElder) {
+          setSyncError('Could not reach cloud database to load elder details: ' + err.message);
         }
       });
+    } else {
+      setIsSyncing(false);
     }
+
+    const syncData = () => {
+      const activeUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
+      if (activeUser?.linkedElder && activeUser.linkedElder.name) {
+        setPatient(activeUser.linkedElder);
+      }
+      if (activeUser?.role === 'caregiver') {
+        setCaregiver(activeUser);
+      }
+      setMedicines([...(dataStore.state?.medicines || [])]);
+      setContacts([...(dataStore.state?.contacts || [])]);
+    };
+
+    window.addEventListener('sahara:datastore-change', syncData);
+    window.addEventListener('sahara:auth-change', syncData);
 
     // Read initial tab from URL if present
     if (typeof window !== 'undefined') {
@@ -124,7 +153,7 @@ export default function CaregiverDashboardPage() {
       window.removeEventListener('sahara:datastore-change', syncData);
       window.removeEventListener('sahara:auth-change', syncData);
     };
-  }, []);
+  }, [router]);
 
   const takenCount = medicines.filter((m) => m.taken).length;
   const totalMeds = medicines.length;
@@ -206,6 +235,34 @@ export default function CaregiverDashboardPage() {
 
         {/* Main Content Area */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[80rem] mx-auto w-full pb-28 pt-12 lg:pt-6">
+          {/* Explicit Error Banner if Database Read Failed */}
+          {syncError && !patient && (
+            <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-300 text-red-900 flex items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-2xl text-red-600">error</span>
+                <div>
+                  <p className="text-sm font-bold">{syncError}</p>
+                  <p className="text-xs text-red-700">Failed to query linked elder from database. Failures fail explicitly without falling back to mock data.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push('/caregiver-login')}
+                className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition-colors shrink-0 cursor-pointer"
+              >
+                Back to Login
+              </button>
+            </div>
+          )}
+
+          {/* Syncing Indicator */}
+          {isSyncing && !patient && !syncError && (
+            <div className="mb-6 p-6 rounded-2xl bg-white border border-[#cdf2cb] flex items-center justify-center gap-3 shadow-sm">
+              <span className="material-symbols-outlined text-2xl text-[#0d631b] animate-spin">sync</span>
+              <span className="text-sm font-bold text-[#0d631b]">Connecting to Elder Sanctuary & Synchronizing Cloud Database...</span>
+            </div>
+          )}
+
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">

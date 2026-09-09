@@ -336,7 +336,7 @@ export async function authenticateCaregiverFromDb({ email, password }) {
   }
 
   // Verify password
-  const isDemoPassword = (cleanEmail === 'riya@sahara.care' && (cleanPassword === 'care123' || cleanPassword === 'care1234')) || cleanPassword === 'care123';
+  const isDemoPassword = cleanEmail === 'riya@sahara.care' && (cleanPassword === 'care123' || cleanPassword === 'care1234');
   if (caregiver.password && caregiver.password !== cleanPassword && !isDemoPassword) {
     return {
       success: false,
