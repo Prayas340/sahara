@@ -116,8 +116,8 @@ export default function Navbar({ activeView = 'elder' }) {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#ebffe7]/90 backdrop-blur-xl border-b border-[#cdf2cb] shadow-[0_2px_12px_rgba(23,53,27,0.06)]">
-        <div className="h-20 max-w-[80rem] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+      <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#ebffe7]/95 backdrop-blur-xl border-b border-[#cdf2cb] shadow-[0_2px_12px_rgba(23,53,27,0.06)]">
+        <div className="h-16 sm:h-20 max-w-[80rem] mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-3">
           {/* Hidden File Input for Avatar Upload */}
           <input
             ref={fileInputRef}
@@ -130,17 +130,17 @@ export default function Navbar({ activeView = 'elder' }) {
           {/* Brand Logo & Name */}
           <div
             onClick={handleBrandClick}
-            className="flex items-center gap-3.5 shrink-0 cursor-pointer select-none py-1"
+            className="flex items-center gap-2 sm:gap-3 shrink-0 cursor-pointer select-none py-1"
           >
-            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white shadow-md border border-[#cdf2cb] p-1.5 flex items-center justify-center shrink-0 transition-transform hover:scale-105">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white shadow-xs sm:shadow-md border border-[#cdf2cb] p-1 sm:p-1.5 flex items-center justify-center shrink-0 transition-transform hover:scale-105 overflow-hidden">
               <img
                 alt="Sahara Brand Logo"
-                className="w-full h-full object-contain rounded-xl"
+                className="w-full h-full object-contain rounded-lg max-w-full max-h-full"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuADfY8uUCdflx3PxgJV8n5Rdy5e1UqyJi1RpuX07Bmc9r6hn23Klt8mhC0O57Dlsy0AoO2Zfur4kxn9yueS6kMU1-B3o_rUnCtsYE80rKVOILi3Gl6wxP62ffyGjvNMaoafsux-4Nu3YfcznSLtBj71fvQApLWucdiSJyE4VD5KSm1AryUPF0ooW09SbgA3OdWj_0EfL0E3tOmeMY4frF7WwHEp3O9blDcLXakfekbdhrlgiYNNcO0c2Q"
               />
             </div>
             <div className="flex flex-col justify-center">
-              <span className="font-black text-2xl sm:text-3xl text-[#0d631b] leading-none tracking-tight">Sahara</span>
+              <span className="font-black text-xl sm:text-2xl lg:text-3xl text-[#0d631b] leading-none tracking-tight">Sahara</span>
               <span className="hidden sm:inline-block text-xs font-bold text-[#40493d] tracking-normal mt-1 leading-tight">
                 Everyday Cognitive & Caregiver Companion
               </span>
@@ -149,27 +149,27 @@ export default function Navbar({ activeView = 'elder' }) {
 
           {/* Center View Indicator (Strictly Isolated) */}
           {isCaregiver ? (
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
+            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
               <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
               <span className="material-symbols-outlined text-base">health_and_safety</span>
               <span>{t.caregiverPortal || 'Caregiver Portal'} · {t.monitoring || 'Monitoring'} {patient?.name || 'Loved One'}</span>
             </div>
           ) : (
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
+            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
               <span className="material-symbols-outlined text-base text-[#0d631b]">spa</span>
               <span>{elderDisplayName} · {t.sanctuary || 'Sanctuary'}</span>
             </div>
           )}
 
           {/* Right Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Language Selector */}
-            <div className="relative flex items-center bg-white px-2 py-1 rounded-full shadow-sm border border-[#cdf2cb]">
-              <span className="material-symbols-outlined text-[#0d631b] text-base mr-1">translate</span>
+            <div className="relative flex items-center bg-white px-2 py-1 rounded-full shadow-xs sm:shadow-sm border border-[#cdf2cb]">
+              <span className="material-symbols-outlined text-[#0d631b] text-sm sm:text-base mr-1">translate</span>
               <select
                 value={currentLang}
                 onChange={handleLanguageChange}
-                className="bg-transparent text-xs font-bold text-[#032109] focus:outline-none cursor-pointer pr-1"
+                className="bg-transparent text-[11px] sm:text-xs font-bold text-[#032109] focus:outline-none cursor-pointer pr-1"
               >
                 <option value="English">English</option>
                 <option value="हिंदी">हिंदी (Hindi)</option>
@@ -184,7 +184,7 @@ export default function Navbar({ activeView = 'elder' }) {
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 type="button"
-                className="w-9 h-9 rounded-full ring-2 ring-[#d9fdd6] overflow-hidden flex items-center justify-center bg-white shadow-sm hover:ring-[#2e7d32] transition-all cursor-pointer"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-[#d9fdd6] overflow-hidden flex items-center justify-center bg-white shadow-xs sm:shadow-sm hover:ring-[#2e7d32] transition-all cursor-pointer"
               >
                 <img
                   alt="Profile"

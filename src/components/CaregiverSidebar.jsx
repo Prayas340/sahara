@@ -16,8 +16,8 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
   const getMobileTabClass = (tabName) => {
     const isActive = activeTab === tabName;
     return isActive
-      ? 'flex flex-col items-center py-2 px-3 rounded-xl bg-[#006e1c] text-white font-bold text-xs shadow-sm cursor-pointer'
-      : 'flex flex-col items-center py-2 px-3 rounded-xl text-[#40493d] hover:bg-[#cdf2cb] font-semibold text-xs transition-colors cursor-pointer';
+      ? 'flex flex-col items-center py-1 px-2 rounded-xl bg-[#006e1c] text-white font-bold text-[10px] sm:text-xs shadow-xs cursor-pointer shrink-0 transition-transform active:scale-95'
+      : 'flex flex-col items-center py-1 px-2 rounded-xl text-[#40493d] hover:bg-[#cdf2cb] font-semibold text-[10px] sm:text-xs transition-colors cursor-pointer shrink-0';
   };
 
   const handleEmergencyAlert = () => {
@@ -27,14 +27,14 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
   return (
     <>
       {/* Mobile Sub-Navigation Bar (always visible on smaller screens so navigation never vanishes) */}
-      <div className="lg:hidden fixed top-16 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#cdf2cb] px-2 py-1.5 shadow-sm">
-        <div className="flex items-center justify-around max-w-lg mx-auto">
+      <div className="lg:hidden fixed top-16 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#cdf2cb] px-1.5 py-1 shadow-xs">
+        <div className="flex items-center justify-around max-w-lg mx-auto gap-0.5">
           <button
             type="button"
             className={getMobileTabClass('overview')}
             onClick={() => onSelectTab('overview')}
           >
-            <span className="material-symbols-outlined text-xl">space_dashboard</span>
+            <span className="material-symbols-outlined text-lg sm:text-xl">space_dashboard</span>
             <span>{t.tabOverview || 'Overview'}</span>
           </button>
           <button
@@ -42,15 +42,15 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             className={getMobileTabClass('memories')}
             onClick={() => onSelectTab('memories')}
           >
-            <span className="material-symbols-outlined text-xl">leaderboard</span>
-            <span>{t.tabGameScores || 'Game Score'}</span>
+            <span className="material-symbols-outlined text-lg sm:text-xl">leaderboard</span>
+            <span>{t.tabGameScores || 'Games'}</span>
           </button>
           <button
             type="button"
             className={getMobileTabClass('routine')}
             onClick={() => onSelectTab('routine')}
           >
-            <span className="material-symbols-outlined text-xl">schedule</span>
+            <span className="material-symbols-outlined text-lg sm:text-xl">schedule</span>
             <span>{t.tabRoutine || 'Routine'}</span>
           </button>
           <button
@@ -58,15 +58,15 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             className={getMobileTabClass('contacts')}
             onClick={() => onSelectTab('contacts')}
           >
-            <span className="material-symbols-outlined text-xl">contact_phone</span>
-            <span>{t.tabContacts || 'Family Contact'}</span>
+            <span className="material-symbols-outlined text-lg sm:text-xl">contact_phone</span>
+            <span>{t.tabContacts || 'Contacts'}</span>
           </button>
           <button
             type="button"
             className={getMobileTabClass('report')}
             onClick={() => onSelectTab('report')}
           >
-            <span className="material-symbols-outlined text-xl">summarize</span>
+            <span className="material-symbols-outlined text-lg sm:text-xl">summarize</span>
             <span>{t.tabReport || 'Report'}</span>
           </button>
         </div>

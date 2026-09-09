@@ -67,19 +67,42 @@
   --shadow-btn-error: 0 4px 0 #93000a;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html {
   font-family: var(--font-family);
   background-color: var(--color-background);
   color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body {
   min-height: 100vh;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
   background-color: var(--color-background);
   color: var(--color-on-surface);
   overscroll-behavior-y: none;
+}
+
+img,
+svg,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block;
+  max-width: 100%;
 }
 
 /* Subtle Scrollbar */

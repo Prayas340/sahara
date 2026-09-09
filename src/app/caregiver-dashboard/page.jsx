@@ -792,7 +792,7 @@ export default function CaregiverDashboardPage() {
     <div className="min-h-screen bg-[#ebffe7] text-[#032109] flex flex-col">
       <Navbar activeView="caregiver" />
 
-      <div className="flex-1 flex pt-20 lg:pt-20">
+      <div className="flex-1 flex pt-24 sm:pt-28 lg:pt-20">
         {/* Persistent Left Sidebar */}
         <CaregiverSidebar
           activeTab={activeTab}
@@ -801,19 +801,19 @@ export default function CaregiverDashboardPage() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[80rem] mx-auto w-full pb-28 pt-12 lg:pt-6">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-[80rem] mx-auto w-full pb-28 pt-2 sm:pt-4 lg:pt-6">
           {/* Explicit Sync Status if Database Read Failed or No Elder Linked */}
           {!isSyncing && !patient && (
-            <div className="mb-6 p-8 rounded-3xl bg-white border border-amber-300 text-[#032109] flex flex-col items-center justify-center text-center space-y-4 shadow-md max-w-2xl mx-auto my-12">
-              <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-                <span className="material-symbols-outlined text-3xl">cloud_sync</span>
+            <div className="mb-6 p-6 sm:p-8 rounded-3xl bg-white border border-amber-300 text-[#032109] flex flex-col items-center justify-center text-center space-y-4 shadow-md max-w-2xl mx-auto my-6 sm:my-12">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+                <span className="material-symbols-outlined text-2xl sm:text-3xl">cloud_sync</span>
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-xl font-extrabold text-[#032109]">Elder Profile Not Synchronized</h3>
+                <h3 className="text-lg sm:text-xl font-extrabold text-[#032109]">Elder Profile Not Synchronized</h3>
                 <p className="text-xs sm:text-sm text-[#40493d]">
                   {syncError || `No elder profile is associated with caregiver "${caregiver?.email || 'this account'}" in the cloud database.`}
                 </p>
-                <p className="text-xs text-[#40493d]">
+                <p className="text-[11px] sm:text-xs text-[#40493d]">
                   To sync across devices, please ensure the Elder Profile setup was completed on Device A with this caregiver email.
                 </p>
               </div>
@@ -821,7 +821,7 @@ export default function CaregiverDashboardPage() {
                 <button
                   type="button"
                   onClick={handleRetrySync}
-                  className="btn-tactile btn-primary px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm cursor-pointer"
+                  className="btn-tactile btn-primary px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base">refresh</span>
                   <span>Retry Cloud Sync</span>
@@ -829,7 +829,7 @@ export default function CaregiverDashboardPage() {
                 <button
                   type="button"
                   onClick={() => router.push('/caregiver-login')}
-                  className="px-4 py-2.5 rounded-xl bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb] font-bold text-xs hover:bg-[#d9fdd6] transition-colors cursor-pointer"
+                  className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb] font-bold text-xs hover:bg-[#d9fdd6] transition-colors cursor-pointer"
                 >
                   Switch Account / Back to Login
                 </button>
@@ -839,7 +839,7 @@ export default function CaregiverDashboardPage() {
 
           {/* Syncing Indicator */}
           {isSyncing && !patient && (
-            <div className="mb-6 p-8 rounded-3xl bg-white border border-[#cdf2cb] flex flex-col items-center justify-center text-center space-y-3 shadow-md max-w-xl mx-auto my-12">
+            <div className="mb-6 p-6 sm:p-8 rounded-3xl bg-white border border-[#cdf2cb] flex flex-col items-center justify-center text-center space-y-3 shadow-md max-w-xl mx-auto my-6 sm:my-12">
               <span className="material-symbols-outlined text-3xl text-[#0d631b] animate-spin">sync</span>
               <p className="text-sm font-bold text-[#0d631b]">Connecting to Elder Sanctuary & Synchronizing Cloud Database...</p>
               <p className="text-xs text-[#40493d]">Retrieving real elder profile and vitals across devices...</p>
@@ -851,31 +851,31 @@ export default function CaregiverDashboardPage() {
             <>
               {/* TAB 1: OVERVIEW */}
               {activeTab === 'overview' && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Top Greeting */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
-                    <span className="text-xs font-bold text-[#0d631b] uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="w-2 h-2 rounded-full bg-[#006e1c] animate-pulse"></span>
+                    <span className="text-[11px] sm:text-xs font-bold text-[#0d631b] uppercase tracking-wider">
                       {t.monitoringHeader || 'Live Synchronized Caregiver Portal'}
                     </span>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109]">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#032109]">
                     {t.goodMorning || 'Hello'}, {caregiver?.name?.split(' ')[0] || 'Caregiver'}
                   </h1>
-                  <p className="text-sm text-[#40493d]">
+                  <p className="text-xs sm:text-sm text-[#40493d]">
                     {patient?.honorific || patient?.name} · {patient?.city ? `${patient.city}, ${patient.state || ''}` : t.residenceSanctuary || 'Live Connected'}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   <button
                     onClick={() => setIsReminderModalOpen(true)}
                     type="button"
-                    className="btn-tactile btn-primary flex items-center gap-2 h-11 px-5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
+                    className="btn-tactile btn-primary flex items-center gap-1.5 h-9 sm:h-11 px-3.5 sm:px-5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-xl">add_alarm</span>
+                    <span className="material-symbols-outlined text-base sm:text-xl">add_alarm</span>
                     <span>{t.addReminder || 'Add Reminder'}</span>
                   </button>
                 </div>
@@ -883,29 +883,29 @@ export default function CaregiverDashboardPage() {
 
               {/* Live Emergency SOS Alert Banner */}
               {activeSosAlert && (
-                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-4 sm:p-5 rounded-2xl shadow-xl border-2 border-red-300 flex flex-col sm:flex-row items-center justify-between gap-4 animate-bounce-subtle">
+                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-3.5 sm:p-5 rounded-2xl shadow-xl border-2 border-red-300 flex flex-col sm:flex-row items-center justify-between gap-3 animate-bounce-subtle">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-white text-red-600 flex items-center justify-center font-black shadow-md shrink-0">
-                      <span className="material-symbols-outlined text-3xl">emergency</span>
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white text-red-600 flex items-center justify-center font-black shadow-md shrink-0">
+                      <span className="material-symbols-outlined text-2xl sm:text-3xl">emergency</span>
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full bg-yellow-300 text-red-950 text-[10px] font-black uppercase tracking-wider">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full bg-yellow-300 text-red-950 text-[9px] sm:text-[10px] font-black uppercase tracking-wider">
                           CRITICAL EMERGENCY SOS
                         </span>
-                        <span className="text-xs text-red-100 font-semibold">{activeSosAlert.time || activeSosAlert.formattedTime || 'Today'}</span>
+                        <span className="text-[11px] sm:text-xs text-red-100 font-semibold">{activeSosAlert.time || activeSosAlert.formattedTime || 'Today'}</span>
                       </div>
-                      <p className="text-base font-extrabold text-white mt-0.5">
+                      <p className="text-sm sm:text-base font-extrabold text-white mt-0.5">
                         {patient?.name || 'Prayas Dey'} triggered the Emergency SOS Beacon!
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                     <a
                       href={`tel:${patient?.phone?.replace(/\s+/g, '') || '+919854012345'}`}
-                      className="btn-tactile flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-white text-red-700 hover:bg-red-50 font-bold text-sm shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="btn-tactile flex-1 sm:flex-none px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-white text-red-700 hover:bg-red-50 font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-lg">call</span>
+                      <span className="material-symbols-outlined text-base sm:text-lg">call</span>
                       <span>Call {patient?.honorific || patient?.name?.split(' ')[0] || 'Elder'} Now</span>
                     </a>
                     <button
@@ -914,7 +914,7 @@ export default function CaregiverDashboardPage() {
                         try { localStorage.removeItem('sahara_active_sos'); } catch (e) {}
                       }}
                       type="button"
-                      className="px-3.5 py-2.5 rounded-xl bg-red-800/80 hover:bg-red-800 text-white font-bold text-xs cursor-pointer border border-red-400"
+                      className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-red-800/80 hover:bg-red-800 text-white font-bold text-xs cursor-pointer border border-red-400"
                     >
                       Dismiss
                     </button>
@@ -923,11 +923,11 @@ export default function CaregiverDashboardPage() {
               )}
 
               {/* Primary Patient Card */}
-              <div className="card-tactile w-full bg-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden border border-[#cdf2cb]">
+              <div className="card-tactile w-full bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-sm sm:shadow-md relative overflow-hidden border border-[#cdf2cb]">
                 <div className="absolute -top-20 -right-20 w-56 h-56 rounded-full bg-[#d9fdd6]/60 pointer-events-none blur-2xl"></div>
 
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-                  <div className="flex items-center gap-4 sm:gap-6 flex-wrap sm:flex-nowrap">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 relative z-10">
+                  <div className="flex items-center gap-3.5 sm:gap-6">
                     <div className="relative shrink-0 group">
                       <input
                         ref={fileInputRef}
@@ -940,7 +940,7 @@ export default function CaregiverDashboardPage() {
                         onClick={() => fileInputRef.current?.click()}
                         type="button"
                         title="Click to upload/change elder profile photo"
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-sm border border-[#cdf2cb] bg-white relative block cursor-pointer transition-transform hover:scale-105"
+                        className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-2xl overflow-hidden shadow-xs sm:shadow-sm border border-[#cdf2cb] bg-white relative block cursor-pointer transition-transform hover:scale-105 shrink-0"
                       >
                         <img
                           alt={patient?.name || 'Patient'}
@@ -948,41 +948,41 @@ export default function CaregiverDashboardPage() {
                           src={patient?.avatar || '/avatar.png'}
                         />
                         <div className="absolute inset-0 bg-black/40 rounded-2xl flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="material-symbols-outlined text-xl">photo_camera</span>
-                          <span className="text-[10px] font-bold">Upload</span>
+                          <span className="material-symbols-outlined text-lg sm:text-xl">photo_camera</span>
+                          <span className="text-[9px] font-bold">Upload</span>
                         </div>
                       </button>
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         type="button"
                         title="Upload photo"
-                        className="absolute -bottom-1 -right-1 bg-[#0d631b] hover:bg-[#006e1c] text-white p-1 rounded-full shadow-sm flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+                        className="absolute -bottom-1 -right-1 bg-[#0d631b] hover:bg-[#006e1c] text-white p-1 rounded-full shadow-xs flex items-center justify-center cursor-pointer transition-transform active:scale-95"
                       >
-                        <span className="material-symbols-outlined text-sm">photo_camera</span>
+                        <span className="material-symbols-outlined text-xs sm:text-sm">photo_camera</span>
                       </button>
                     </div>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h2 className="text-xl sm:text-2xl font-extrabold text-[#032109]">{patient?.name || 'Elder Patient'}</h2>
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#d3f8d0] text-[#40493d] text-xs font-bold">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1">
+                        <h2 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-[#032109] truncate">{patient?.name || 'Elder Patient'}</h2>
+                        <span className="px-2 py-0.5 rounded-full bg-[#d3f8d0] text-[#40493d] text-[10px] sm:text-xs font-bold">
                           {patient?.age || 74}
                         </span>
-                        <span className="px-3 py-1 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-[#006e1c] animate-pulse"></span>
-                          {t.activeToday || 'Active today'} · {t.lastActive || 'Last active'} {patient?.lastActive || 'Just now'}
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-[10px] sm:text-xs font-bold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#006e1c] animate-pulse"></span>
+                          {t.activeToday || 'Active'} · {patient?.lastActive || 'Just now'}
                         </span>
                       </div>
-                      <p className="text-xs sm:text-sm text-[#40493d] mb-2">
+                      <p className="text-[11px] sm:text-xs lg:text-sm text-[#40493d] mb-1.5 truncate">
                         {(patient?.status || patient?.problemStatement || t.mildCognitiveSupport || 'Mild Cognitive Support Mode')} · {(patient?.location || patient?.wing || t.residenceSanctuary || 'Residence Sanctuary')}
                       </p>
-                      <div className="flex items-center gap-3 text-[#40493d] text-xs font-semibold flex-wrap">
+                      <div className="flex items-center gap-2 sm:gap-3 text-[#40493d] text-[11px] sm:text-xs font-semibold flex-wrap">
                         <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[#0d631b] text-base">wifi_tethering</span>
-                          {t.deviceConnected || 'Device Connected'}
+                          <span className="material-symbols-outlined text-[#0d631b] text-sm sm:text-base">wifi_tethering</span>
+                          {t.deviceConnected || 'Connected'}
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[#724f00] text-base">home_pin</span>
+                          <span className="material-symbols-outlined text-[#724f00] text-sm sm:text-base">home_pin</span>
                           {patient?.location || (patient?.city ? `${patient.city}, ${patient.state || ''}` : t.residenceSanctuary || 'Home')}
                         </span>
                       </div>
@@ -990,7 +990,7 @@ export default function CaregiverDashboardPage() {
                   </div>
 
                   {/* Quick Action Buttons */}
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto pt-2 sm:pt-0">
                     <button
                       onClick={() => {
                         const targetPhone = patient?.phone || '+91 98540 12345';
@@ -998,50 +998,50 @@ export default function CaregiverDashboardPage() {
                         window.open(`tel:${targetPhone.replace(/\s+/g, '')}`);
                       }}
                       type="button"
-                      className="btn-tactile btn-primary flex items-center gap-2 h-11 px-4 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
+                      className="btn-tactile btn-primary flex items-center justify-center gap-1.5 h-10 sm:h-11 px-3 sm:px-4 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold shadow-sm cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-xl">call</span>
-                      <span>{t.callDirect || 'Call'} {patient?.honorific || patient?.name?.split(' ')[0] || 'Elder'}</span>
+                      <span className="material-symbols-outlined text-lg sm:text-xl">call</span>
+                      <span className="truncate">{t.callDirect || 'Call'} {patient?.honorific || patient?.name?.split(' ')[0] || 'Elder'}</span>
                     </button>
                     <button
                       onClick={() => handleSelectTab('memories')}
                       type="button"
-                      className="btn-tactile btn-secondary flex items-center gap-2 h-11 px-4 rounded-full text-xs sm:text-sm font-bold bg-[#d3f8d0] text-[#032109] cursor-pointer"
+                      className="btn-tactile btn-secondary flex items-center justify-center gap-1.5 h-10 sm:h-11 px-3 sm:px-4 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold bg-[#d3f8d0] text-[#032109] cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-xl">photo_library</span>
-                      <span>{t.tabMemories || 'Memories Deck'}</span>
+                      <span className="material-symbols-outlined text-lg sm:text-xl">photo_library</span>
+                      <span className="truncate">{t.tabMemories || 'Game Score'}</span>
                     </button>
                   </div>
                 </div>
               </div>
 
               {/* Status Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div
                   onClick={() => handleSelectTab('routine')}
-                  className="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between cursor-pointer hover:border-[#006e1c] transition-colors"
+                  className="card-tactile bg-white rounded-2xl p-3.5 sm:p-5 shadow-xs sm:shadow-sm border border-[#cdf2cb] flex flex-col justify-between cursor-pointer hover:border-[#006e1c] transition-colors"
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="w-10 h-10 rounded-full bg-[#d9fdd6] flex items-center justify-center text-[#0d631b]">
-                        <span className="material-symbols-outlined text-2xl">medication</span>
+                      <span className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#d9fdd6] flex items-center justify-center text-[#0d631b] shrink-0">
+                        <span className="material-symbols-outlined text-xl sm:text-2xl">medication</span>
                       </span>
-                      <span className="text-sm font-bold text-[#032109]">{t.metricMedicines || 'Medicines'}</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#032109]">{t.metricMedicines || 'Medicines'}</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-lg font-extrabold text-[#0d631b]">
+                      <span className="text-base sm:text-lg font-extrabold text-[#0d631b]">
                         {takenCount}/{totalMeds}
                       </span>
-                      <span className="text-xs text-[#40493d] block">{t.metricTaken || 'Taken'}</span>
+                      <span className="text-[10px] sm:text-xs text-[#40493d] block">{t.metricTaken || 'Taken'}</span>
                     </div>
                   </div>
-                  <div className="w-full bg-[#d3f8d0] h-2.5 rounded-full overflow-hidden">
+                  <div className="w-full bg-[#d3f8d0] h-2 sm:h-2.5 rounded-full overflow-hidden">
                     <div
                       className="bg-[#0d631b] h-full rounded-full transition-all duration-500"
                       style={{ width: `${medPercent}%` }}
                     ></div>
                   </div>
-                  <span className="text-xs text-[#40493d] mt-2">
+                  <span className="text-[11px] sm:text-xs text-[#40493d] mt-2">
                     {medicines.find((m) => !m.taken)
                       ? `${t.metricNextMed || 'Next'}: ` + (medicines.find((m) => !m.taken).scheduledTime || 'Scheduled')
                       : (totalMeds > 0 ? (t.metricAllMedsDone || 'All medicines completed for today') : 'No scheduled medicines')}
@@ -1050,58 +1050,58 @@ export default function CaregiverDashboardPage() {
 
                 <div
                   onClick={() => handleSelectTab('memories')}
-                  className="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between cursor-pointer hover:border-[#006e1c] transition-colors"
+                  className="card-tactile bg-white rounded-2xl p-3.5 sm:p-5 shadow-xs sm:shadow-sm border border-[#cdf2cb] flex flex-col justify-between cursor-pointer hover:border-[#006e1c] transition-colors"
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="w-10 h-10 rounded-full bg-[#98f994] flex items-center justify-center text-[#0c7521]">
-                        <span className="material-symbols-outlined text-2xl">psychology</span>
+                      <span className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#98f994] flex items-center justify-center text-[#0c7521] shrink-0">
+                        <span className="material-symbols-outlined text-xl sm:text-2xl">psychology</span>
                       </span>
-                      <span className="text-sm font-bold text-[#032109]">{t.metricMindGames || 'Mind Games'}</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#032109]">{t.metricMindGames || 'Mind Games'}</span>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold">{t.activeToday || 'Today'}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-[10px] sm:text-xs font-bold">{t.activeToday || 'Today'}</span>
                   </div>
-                  <p className="text-2xl font-extrabold text-[#032109]">
+                  <p className="text-xl sm:text-2xl font-extrabold text-[#032109]">
                     {displayTodaySessions} {t.metricSessions || 'Sessions'}
                   </p>
-                  <span className="text-xs text-[#40493d] mt-1">
+                  <span className="text-[11px] sm:text-xs text-[#40493d] mt-0.5 sm:mt-1">
                     {displayTodaySessions > 0
                       ? `${displayTodayScore} pts logged today`
                       : 'No game rounds played today'}
                   </span>
                 </div>
 
-                <div className="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between">
-                  <div className="flex items-start justify-between mb-3">
+                <div className="card-tactile bg-white rounded-2xl p-3.5 sm:p-5 shadow-xs sm:shadow-sm border border-[#cdf2cb] flex flex-col justify-between">
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="w-10 h-10 rounded-full bg-[#ffdeaa] flex items-center justify-center text-[#724f00]">
-                        <span className="material-symbols-outlined text-2xl">mood</span>
+                      <span className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#ffdeaa] flex items-center justify-center text-[#724f00] shrink-0">
+                        <span className="material-symbols-outlined text-xl sm:text-2xl">mood</span>
                       </span>
-                      <span className="text-sm font-bold text-[#032109]">{t.metricMood || 'Mood & Comfort'}</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#032109]">{t.metricMood || 'Mood & Comfort'}</span>
                     </div>
-                    <span className="material-symbols-outlined text-emerald-600 text-xl">favorite</span>
+                    <span className="material-symbols-outlined text-emerald-600 text-lg sm:text-xl">favorite</span>
                   </div>
-                  <p className="text-lg font-extrabold text-[#032109]">
+                  <p className="text-base sm:text-lg font-extrabold text-[#032109]">
                     {dataStore.state.moodRating || t.metricMoodCalm || 'Very Calm & Cheerful'}
                   </p>
-                  <span className="text-xs text-[#40493d] mt-1">{t.metricChaiResponse || 'Positive response to morning chai'}</span>
+                  <span className="text-[11px] sm:text-xs text-[#40493d] mt-0.5 sm:mt-1">{t.metricChaiResponse || 'Positive response to morning chai'}</span>
                 </div>
               </div>
 
               {/* Medication Schedule & Vitals */}
-              <div className="w-full card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
+              <div className="w-full card-tactile bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-sm sm:shadow-md border border-[#cdf2cb] space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-extrabold text-[#032109]">{t.medScheduleTitle || 'Medication Schedule & Vitals'}</h3>
-                    <p className="text-xs sm:text-sm text-[#40493d]">
+                    <h3 className="text-lg sm:text-xl font-extrabold text-[#032109]">{t.medScheduleTitle || 'Medication Schedule & Vitals'}</h3>
+                    <p className="text-[11px] sm:text-xs lg:text-sm text-[#40493d]">
                       {t.medScheduleSubtitle || 'Real-time synchronization with smart pillbox and elder tablet'}
                     </p>
                   </div>
                   <button
                     onClick={() => handleSelectTab('routine')}
-                    className="text-xs font-bold text-[#0d631b] hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-[#0d631b] hover:underline flex items-center gap-1 cursor-pointer shrink-0"
                   >
-                    <span className="material-symbols-outlined text-base">edit</span> {t.openSchedule || 'Open Schedule'}
+                    <span className="material-symbols-outlined text-sm sm:text-base">edit</span> {t.openSchedule || 'Open Schedule'}
                   </button>
                 </div>
 

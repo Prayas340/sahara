@@ -2,6 +2,12 @@ import './globals.css';
 import ToastContainer from '../components/Toast.jsx';
 import DevBadgeRemover from '../components/DevBadgeRemover.jsx';
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata = {
   title: 'Sahara • সাঁকো • सहारा - Everyday Cognitive & Caregiver Companion',
   description: 'Dignified, calming cognitive support and daily routine companion for elderly loved ones and family caregivers across North East India.',

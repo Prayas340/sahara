@@ -81,24 +81,24 @@ export default function CaregiverLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ebffe7] flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-y-auto">
+    <div className="min-h-screen bg-[#ebffe7] flex items-center justify-center p-2.5 sm:p-4 lg:p-6 overflow-y-auto max-w-full">
       <main className="w-full max-w-lg lg:max-w-5xl xl:max-w-6xl mx-auto my-auto py-2 sm:py-4">
         {/* Top Switcher Bar */}
-        <div className="flex items-center justify-between mb-3 px-1">
-          <div className="inline-flex p-1 bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-[#cdf2cb] gap-1">
+        <div className="flex items-center justify-between mb-3 px-0.5">
+          <div className="inline-flex p-1 bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-[#cdf2cb] gap-1 max-w-full overflow-x-auto">
             <button
               onClick={() => router.push('/')}
               type="button"
-              className="py-1.5 px-3.5 rounded-xl text-[#40493d] hover:text-[#0d631b] hover:bg-[#ebffe7] font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer"
+              className="py-1 px-2.5 sm:py-1.5 sm:px-3.5 rounded-xl text-[#40493d] hover:text-[#0d631b] hover:bg-[#ebffe7] font-bold text-[11px] sm:text-sm flex items-center gap-1 transition-all cursor-pointer shrink-0"
             >
-              <span className="material-symbols-outlined text-base">elderly</span>
-              <span>← Switch to Elder View</span>
+              <span className="material-symbols-outlined text-sm sm:text-base">elderly</span>
+              <span>← Elder View</span>
             </button>
             <button
               type="button"
-              className="py-1.5 px-3.5 rounded-xl bg-[#0d631b] text-white font-extrabold text-xs sm:text-sm shadow-xs flex items-center gap-1.5 cursor-default"
+              className="py-1 px-2.5 sm:py-1.5 sm:px-3.5 rounded-xl bg-[#0d631b] text-white font-extrabold text-[11px] sm:text-sm shadow-xs flex items-center gap-1 cursor-default shrink-0"
             >
-              <span className="material-symbols-outlined text-base">health_and_safety</span>
+              <span className="material-symbols-outlined text-sm sm:text-base">health_and_safety</span>
               <span>Caregiver Portal</span>
             </button>
           </div>
