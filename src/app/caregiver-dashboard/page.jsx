@@ -414,11 +414,43 @@ export default function CaregiverDashboardPage() {
     window.addEventListener('sahara:game-score-change', onGameScoreChange);
     window.addEventListener('sahara:medicines-change', onMedicinesChange);
 
-    // Poll scores and routine completions from server every 5 seconds for real-time cross-device sync
+    const onSosAlertChange = (e) => {
+      const alert = e.detail;
+      if (alert) {
+        setActiveSosAlert(alert);
+      }
+    };
+    window.addEventListener('sahara:sos-alert', onSosAlertChange);
+
+    // Check local storage on mount for active SOS alert
+    try {
+      const storedSos = JSON.parse(localStorage.getItem('sahara_active_sos') || 'null');
+      if (storedSos && storedSos.status === 'ACTIVE_SOS') {
+        setActiveSosAlert(storedSos);
+      }
+    } catch (e) {}
+
+    const fetchServerSosAlert = async (eid, cemail) => {
+      try {
+        const queryParams = new URLSearchParams();
+        if (eid) queryParams.set('elderId', eid);
+        if (cemail) queryParams.set('caregiverEmail', cemail);
+        const res = await fetch(`/api/sos?${queryParams.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.alert && data.alert.status === 'ACTIVE_SOS') {
+            setActiveSosAlert(data.alert);
+          }
+        }
+      } catch (e) {}
+    };
+
+    // Poll scores, routine completions, and SOS alerts from server every 5 seconds for real-time cross-device sync
     const pollInterval = setInterval(() => {
       if (_elderId || _caregiverEmail) {
         fetchServerScores(_elderId, _caregiverEmail);
         fetchServerReminders(_elderId, _caregiverEmail);
+        fetchServerSosAlert(_elderId, _caregiverEmail);
       }
     }, 5000);
 
@@ -438,6 +470,7 @@ export default function CaregiverDashboardPage() {
       if (resolved) {
         _elderId = resolved;
         setupFirestoreLiveListeners(resolved);
+        fetchServerSosAlert(resolved, _caregiverEmail);
       }
     }, 2000);
 
@@ -446,6 +479,7 @@ export default function CaregiverDashboardPage() {
       window.removeEventListener('sahara:auth-change', syncData);
       window.removeEventListener('sahara:game-score-change', onGameScoreChange);
       window.removeEventListener('sahara:medicines-change', onMedicinesChange);
+      window.removeEventListener('sahara:sos-alert', onSosAlertChange);
       clearInterval(pollInterval);
       if (unsubDailyLog) unsubDailyLog();
       if (unsubElderDoc) unsubElderDoc();
@@ -695,7 +729,10 @@ export default function CaregiverDashboardPage() {
                       <span>Call {patient?.honorific || patient?.name?.split(' ')[0] || 'Elder'} Now</span>
                     </a>
                     <button
-                      onClick={() => setActiveSosAlert(null)}
+                      onClick={() => {
+                        setActiveSosAlert(null);
+                        try { localStorage.removeItem('sahara_active_sos'); } catch (e) {}
+                      }}
                       type="button"
                       className="px-3.5 py-2.5 rounded-xl bg-red-800/80 hover:bg-red-800 text-white font-bold text-xs cursor-pointer border border-red-400"
                     >

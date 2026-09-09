@@ -79,6 +79,7 @@ export function readLocalStore() {
       reminders: { ...(mem.reminders || {}), ...(parsed.reminders || {}) },
       routineCompletions: { ...(mem.routineCompletions || {}), ...(parsed.routineCompletions || {}) },
       gameScores: { ...(mem.gameScores || {}), ...(parsed.gameScores || {}) },
+      sosAlerts: parsed.sosAlerts || mem.sosAlerts || [],
       wellnessBroadcasts: parsed.wellnessBroadcasts || mem.wellnessBroadcasts || [],
       chatMessages: { ...(mem.chatMessages || {}), ...(parsed.chatMessages || {}) },
     };
@@ -998,3 +999,48 @@ export async function toggleReminderStatusInDb({ elderId, caregiverEmail, remind
 
   return saveRemindersToDb({ elderId, caregiverEmail, medicines: list });
 }
+
+// Record an emergency SOS alert in local DB and update elder emergency status
+export function recordSosAlertInDb({ elderId, elderName, caregiverEmail, caregiverName, location, phone, status, timestamp }) {
+  const store = readLocalStore();
+  if (!Array.isArray(store.sosAlerts)) store.sosAlerts = [];
+  const alertRecord = {
+    id: `sos_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    elderId: elderId || '+919854012345',
+    elderName: elderName || 'Prayas Dey',
+    caregiverEmail: caregiverEmail || 'prayasdey10@gmail.com',
+    caregiverName: caregiverName || 'Primary Caregiver',
+    location: location || 'Guwahati, Assam',
+    phone: phone || '+919854012345',
+    status: status || 'ACTIVE_SOS',
+    timestamp: timestamp || new Date().toISOString(),
+  };
+
+  store.sosAlerts.unshift(alertRecord);
+  if (store.sosAlerts.length > 50) store.sosAlerts = store.sosAlerts.slice(0, 50);
+
+  const normElder = normalizeIdentifier(elderId);
+  if (store.elders && store.elders[normElder]) {
+    store.elders[normElder].emergencyStatus = 'ACTIVE_SOS';
+    store.elders[normElder].lastSosAlert = alertRecord;
+  }
+
+  writeLocalStore(store);
+  return alertRecord;
+}
+
+// Retrieve the most recent emergency SOS alert for an elder or caregiver
+export function getLatestSosAlertFromDb(elderId, caregiverEmail) {
+  const store = readLocalStore();
+  if (!Array.isArray(store.sosAlerts) || store.sosAlerts.length === 0) return null;
+
+  const normElder = elderId ? normalizeIdentifier(elderId) : null;
+  const normCg = caregiverEmail ? normalizeIdentifier(caregiverEmail) : null;
+
+  for (const alert of store.sosAlerts) {
+    if (normElder && normalizeIdentifier(alert.elderId) === normElder) return alert;
+    if (normCg && normalizeIdentifier(alert.caregiverEmail) === normCg) return alert;
+  }
+  return store.sosAlerts[0] || null;
+}
+
