@@ -103,22 +103,22 @@ export default function HomePage() {
       setAvailableCities(getCitiesForState('Assam'));
     }
 
-    // Listen to Firebase Auth state on mount (catches redirects and saved sessions)
-    let unsubscribe = null;
+    // Listen to Firebase Auth state on mount (catches explicit OAuth redirects only)
     if (firebaseClientAuth) {
-      import('firebase/auth').then(({ onAuthStateChanged, getRedirectResult }) => {
-        // 1. Check redirect result
+      import('firebase/auth').then(({ getRedirectResult }) => {
         getRedirectResult(firebaseClientAuth).then(async (result) => {
           if (result?.user && result.user.email) {
             const role = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_role') || 'elder') : 'elder';
+            const mode = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_mode') || 'signin') : 'signin';
             const res = await authService.processGoogleUser({
               email: result.user.email,
               displayName: result.user.displayName,
               photoURL: result.user.photoURL,
               role,
+              mode,
             });
             if (res?.success) {
-              if (res.isNewUser) {
+              if (res.isNewUser || mode === 'signup') {
                 setAuthMethod('google');
                 const cleanEmail = res.email || result.user.email;
                 setGoogleEmail(cleanEmail);
@@ -137,48 +137,8 @@ export default function HomePage() {
             }
           }
         }).catch((err) => console.warn('[getRedirectResult error]:', err));
-
-        // 2. Listen to active auth state
-        unsubscribe = onAuthStateChanged(firebaseClientAuth, async (fbUser) => {
-          if (typeof window !== 'undefined' && sessionStorage.getItem('sahara_signed_out') === 'true') {
-            return;
-          }
-          if (fbUser && fbUser.email && !authService.getCurrentUser()) {
-            const role = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_role') || 'elder') : 'elder';
-            const mode = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_mode') || 'signin') : 'signin';
-            const res = await authService.processGoogleUser({
-              email: fbUser.email,
-              displayName: fbUser.displayName,
-              photoURL: fbUser.photoURL,
-              role,
-              mode,
-            });
-            if (res?.success) {
-              if (res.isNewUser) {
-                setAuthMethod('google');
-                const cleanEmail = res.email || fbUser.email;
-                setGoogleEmail(cleanEmail);
-                const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
-                setFullName(cleanName);
-                setAge('');
-                setCgName('');
-                setCgEmail('');
-                setCgPassword('');
-                showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
-                setStep(3);
-              } else {
-                showToast(res.message || `Welcome back, ${res.user?.name || 'Member'}! Loading your Sanctuary...`, 'success', 4000);
-                router.push('/elder-dashboard');
-              }
-            }
-          }
-        });
       }).catch(() => {});
     }
-
-    return () => {
-      if (typeof unsubscribe === 'function') unsubscribe();
-    };
   }, []);
 
   const t = getTranslation(activeLanguage);

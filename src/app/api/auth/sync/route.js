@@ -88,9 +88,6 @@ export async function POST(request) {
         if (!elder && seedData?.elders?.[cg.elderId]) {
           elder = seedData.elders[cg.elderId];
         }
-        if (!elder && cleanEmail === 'sagnikrc1407@gmail.com') {
-          elder = seedData?.elders?.['+918444807833'];
-        }
         if (elder) {
           return NextResponse.json({
             success: true,
@@ -101,38 +98,6 @@ export async function POST(request) {
             message: `Synchronized with ${elder.name}'s care overview.`,
           });
         }
-      }
-
-      if (cleanEmail === 'sagnikrc1407@gmail.com') {
-        const prayasElder = seedData?.elders?.['+918444807833'] || {
-          id: '+918444807833',
-          name: 'Prayas Dey',
-          honorific: 'Prayas ji',
-          age: 90,
-          city: 'Kolkata',
-          state: 'West Bengal',
-          location: 'Kolkata, West Bengal',
-          status: 'Mild Cognitive Support Mode',
-          caregiverEmail: 'sagnikrc1407@gmail.com',
-        };
-        const sagnikUser = {
-          id: fbUser?.uid || 'sagnikrc1407@gmail.com',
-          name: 'Sagnik',
-          email: 'sagnikrc1407@gmail.com',
-          role: 'caregiver',
-          relation: 'Primary Caregiver',
-          elderPatient: prayasElder.name,
-          elderPatientId: prayasElder.id,
-          linkedElder: prayasElder,
-        };
-        return NextResponse.json({
-          success: true,
-          role: 'caregiver',
-          user: sagnikUser,
-          caregiver: sagnikUser,
-          elderProfile: prayasElder,
-          message: `Synchronized with ${prayasElder.name}'s care overview.`,
-        });
       }
     }
 

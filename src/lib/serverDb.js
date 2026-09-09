@@ -119,30 +119,6 @@ export async function getElderFromDb(rawIdentifier) {
   const normalized = normalizeIdentifier(rawIdentifier);
   if (!normalized) return null;
 
-  // Direct fast match for Prayas Dey / Sagnik
-  if (normalized === 'deyprayas3@gmail.com' || normalized === '+918444807833' || normalized === 'sagnikrc1407@gmail.com') {
-    return {
-      id: '+918444807833',
-      identifier: 'deyprayas3@gmail.com',
-      phone: '+918444807833',
-      email: 'deyprayas3@gmail.com',
-      name: 'Prayas Dey',
-      honorific: 'Prayas ji',
-      age: 90,
-      city: 'Kolkata',
-      state: 'West Bengal',
-      wing: 'Garden Terrace Wing',
-      location: 'Kolkata, West Bengal',
-      status: 'Mild Cognitive Support Mode',
-      problemStatement: 'Mild Cognitive Support Mode',
-      tabletBattery: 94,
-      lastActive: 'Just now',
-      avatar: '/avatar.png',
-      caregiverEmail: 'sagnikrc1407@gmail.com',
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
   // 1. Direct Firebase Auth lookup on sahara-63072
   try {
     const fbUser = await firebaseLookupUser(normalized);
@@ -162,7 +138,7 @@ export async function getElderFromDb(rawIdentifier) {
     // Continue to next checks
   }
 
-  // 2. Try local store & seed store
+  // 2. Try local persistent store & starter seed store
   const store = readLocalStore();
   const elders = { ...(DEFAULT_STORE.elders || {}), ...(store.elders || {}) };
   const allCaregivers = { ...(DEFAULT_STORE.caregivers || {}), ...(store.caregivers || {}) };
@@ -360,9 +336,6 @@ export async function authenticateCaregiverFromDb({ email, password }) {
   if (!caregiver && cleanEmail === 'riya@sahara.care') {
     caregiver = DEFAULT_STORE.caregivers['riya@sahara.care'];
   }
-  if (!caregiver && cleanEmail === 'sagnikrc1407@gmail.com') {
-    caregiver = DEFAULT_STORE.caregivers['sagnikrc1407@gmail.com'];
-  }
 
   if (!caregiver) {
     return {
@@ -373,15 +346,11 @@ export async function authenticateCaregiverFromDb({ email, password }) {
 
   // Verify password
   const isDemoPassword = cleanEmail === 'riya@sahara.care' && (cleanPassword === 'care123' || cleanPassword === 'care1234');
-  const isSagnik = cleanEmail === 'sagnikrc1407@gmail.com';
-  if (caregiver.password && caregiver.password !== cleanPassword && !isDemoPassword && !isSagnik) {
+  if (caregiver.password && caregiver.password !== cleanPassword && !isDemoPassword) {
     return {
       success: false,
       message: 'Incorrect password for this caregiver account. Please check your credentials.',
     };
-  }
-  if (isSagnik && cleanPassword) {
-    caregiver.password = cleanPassword;
   }
 
   // DIRECTLY FETCH THE LINKED ELDER PROFILE!
@@ -409,10 +378,6 @@ export async function authenticateCaregiverFromDb({ email, password }) {
 
   if (!linkedElder && DEFAULT_STORE.caregivers[cleanEmail]?.linkedElder) {
     linkedElder = DEFAULT_STORE.caregivers[cleanEmail].linkedElder;
-  }
-
-  if (!linkedElder && cleanEmail === 'sagnikrc1407@gmail.com') {
-    linkedElder = DEFAULT_STORE.elders['+918444807833'] || DEFAULT_STORE.caregivers['sagnikrc1407@gmail.com']?.linkedElder;
   }
 
   if (!linkedElder && cleanEmail === 'riya@sahara.care') {

@@ -313,6 +313,12 @@ export const authService = {
 
     // If explicit SIGNUP mode was selected (e.g. tapping "Sign Up with Google"):
     if (mode === 'signup') {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem('sahara_elder_setup_completed_' + cleanEmail);
+        localStorage.removeItem('sahara_elder_setup_completed');
+        localStorage.removeItem('sahara_google_elder_' + cleanEmail);
+        localStorage.removeItem('sahara_patient_profile');
+      }
       if (dataStore && dataStore.clearPatient) {
         dataStore.clearPatient();
       }
@@ -339,23 +345,7 @@ export const authService = {
     let checkRes = await this.checkElderUser(googleUser.email);
     let resolvedElder = checkRes?.elder;
 
-    if (!resolvedElder && typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const isSetupDone = localStorage.getItem('sahara_elder_setup_completed_' + cleanEmail) || localStorage.getItem('sahara_elder_setup_completed');
-        const storedGoogleElder = localStorage.getItem('sahara_google_elder_' + cleanEmail);
-        const storedPatient = localStorage.getItem('sahara_patient_profile');
-        if (isSetupDone === 'true' && (storedGoogleElder || storedPatient)) {
-          const parsed = JSON.parse(storedGoogleElder || storedPatient);
-          if (parsed && parsed.name) {
-            resolvedElder = parsed;
-          }
-        }
-      } catch (e) {}
-    }
-
-    const isReturningUser = checkRes?.exists || Boolean(resolvedElder);
-
-    if (isReturningUser && resolvedElder) {
+    if (checkRes?.exists && resolvedElder && resolvedElder.name) {
       // RETURNING GOOGLE USER: Auto-remember details and load into dataStore!
       dataStore.loadLinkedPatient(resolvedElder);
       const returningGoogleElder = {
@@ -364,10 +354,10 @@ export const authService = {
         name: resolvedElder.name || googleUser.displayName,
         honorific: resolvedElder.honorific || `${(resolvedElder.name || googleUser.displayName).split(' ')[0]} ji`,
         age: resolvedElder.age || 74,
-        city: resolvedElder.city || 'Kolkata',
-        state: resolvedElder.state || 'West Bengal',
+        city: resolvedElder.city || 'Guwahati',
+        state: resolvedElder.state || 'Assam',
         role: 'elder',
-        caregiver: resolvedElder.caregiverEmail || 'sagnikrc1407@gmail.com',
+        caregiver: resolvedElder.caregiverEmail || '',
         authProvider: 'google',
         avatar: resolvedElder.avatar || googleUser.photoURL || '/avatar.png',
       };
@@ -389,7 +379,13 @@ export const authService = {
       };
     }
 
-    // If SIGNIN was clicked but no account exists yet:
+    // If SIGNIN was clicked but no registered account exists in DB/Firebase:
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem('sahara_elder_setup_completed_' + cleanEmail);
+      localStorage.removeItem('sahara_elder_setup_completed');
+      localStorage.removeItem('sahara_google_elder_' + cleanEmail);
+      localStorage.removeItem('sahara_patient_profile');
+    }
     if (dataStore && dataStore.clearPatient) {
       dataStore.clearPatient();
     }
@@ -410,7 +406,7 @@ export const authService = {
       role: 'elder',
       isNewUser: true,
       email: googleUser.email,
-      message: 'Google account verified! Please complete your companion & caregiver details.',
+      message: 'No existing profile found. Please complete your elder & caregiver profile details.',
     };
   },
 
@@ -783,22 +779,6 @@ export const authService = {
                 }
               }
             } catch (e) {}
-          }
-        }
-
-        if (!linkedElder || !linkedElder.name) {
-          if (cleanEmail === 'sagnikrc1407@gmail.com') {
-            linkedElder = {
-              id: '+918444807833',
-              name: 'Prayas Dey',
-              honorific: 'Prayas ji',
-              age: 90,
-              city: 'Kolkata',
-              state: 'West Bengal',
-              location: 'Kolkata, West Bengal',
-              status: 'Mild Cognitive Support Mode',
-              caregiverEmail: 'sagnikrc1407@gmail.com',
-            };
           }
         }
 
