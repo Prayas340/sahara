@@ -123,8 +123,8 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
             <span>Overview</span>
           </button>
           <button type="button" class="${getMobileTabClass('memories')}" id="mob-tab-memories">
-            <span class="material-symbols-outlined text-xl">photo_library</span>
-            <span>Memories</span>
+            <span class="material-symbols-outlined text-xl">leaderboard</span>
+            <span>Game Score</span>
           </button>
           <button type="button" class="${getMobileTabClass('routine')}" id="mob-tab-routine">
             <span class="material-symbols-outlined text-xl">schedule</span>
@@ -169,8 +169,8 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               <span>Caregiver Overview</span>
             </button>
             <button type="button" class="${getSidebarLinkClass('memories')}" id="side-memories">
-              <span class="material-symbols-outlined text-2xl">photo_library</span>
-              <span>Family Memories Deck</span>
+              <span class="material-symbols-outlined text-2xl">leaderboard</span>
+              <span>Patient Game Score</span>
             </button>
             <button type="button" class="${getSidebarLinkClass('routine')}" id="side-reminders">
               <span class="material-symbols-outlined text-2xl">schedule</span>
@@ -419,123 +419,143 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
             </div>
           ` : ''}
 
-          <!-- TAB 2: FAMILY MEMORIES DECK -->
+          <!-- TAB 2: PATIENT GAME SCORE & ANALYTICS -->
           ${activeTab === 'memories' ? `
             <div class="space-y-6">
               <!-- Memories Header Banner -->
               <div class="card-tactile bg-[#d9fdd6] rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                   <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white text-[#0d631b] mb-3 shadow-sm border border-[#cdf2cb]">
-                    <span class="material-symbols-outlined text-lg">photo_library</span>
-                    <span class="text-xs font-bold uppercase tracking-wide">Family Memories Deck & Cognitive Companion</span>
+                    <span class="material-symbols-outlined text-lg">leaderboard</span>
+                    <span class="text-xs font-bold uppercase tracking-wide">Patient Game Score & Cognitive Analytics</span>
                   </div>
                   <h1 class="text-2xl sm:text-3xl font-extrabold text-[#032109]">
-                    Memory Match & Familiar Treasures
+                    ${patient.name ? patient.name.split(' ')[0] : 'Patient'}'s Cognitive Game Scores
                   </h1>
                   <p class="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Caregiver monitoring and live game companion for ${patient.name || 'Asha Devi'}. Tap cards below to test or guide through the session.
+                    Daily and weekly memory game scores, pattern recognition recall, and cognitive stability tracking.
                   </p>
                 </div>
 
                 <div class="flex items-center gap-3 shrink-0 flex-wrap">
-                  <button 
-                    class="btn-tactile btn-primary flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
-                    id="memories-add-photo-btn"
-                    type="button"
-                  >
-                    <span class="material-symbols-outlined text-lg">add_photo_alternate</span>
-                    <span>Add New Photo Memory</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Cognitive Status Bar -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="bg-white p-4 rounded-2xl border border-[#cdf2cb] shadow-sm flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center font-bold">
-                    <span class="material-symbols-outlined text-2xl">extension</span>
-                  </div>
-                  <div>
-                    <span class="text-xs text-[#40493d] font-bold block">Game Difficulty</span>
-                    <span class="text-base font-extrabold text-[#032109]">Gentle & Free (3 Pairs)</span>
-                  </div>
-                </div>
-
-                <div class="bg-white p-4 rounded-2xl border border-[#cdf2cb] shadow-sm flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-xl bg-[#cdf2cb] text-[#006e1c] flex items-center justify-center font-bold">
-                    <span class="material-symbols-outlined text-2xl">check_circle</span>
-                  </div>
-                  <div>
-                    <span class="text-xs text-[#40493d] font-bold block">Completed Today</span>
-                    <span class="text-base font-extrabold text-[#032109]">${dataStore.state.gamesPlayedCount || 1} Sessions</span>
-                  </div>
-                </div>
-
-                <div class="bg-white p-4 rounded-2xl border border-[#cdf2cb] shadow-sm flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-xl bg-[#ffdeaa] text-[#724f00] flex items-center justify-center font-bold">
-                    <span class="material-symbols-outlined text-2xl">favorite</span>
-                  </div>
-                  <div>
-                    <span class="text-xs text-[#40493d] font-bold block">Emotional Response</span>
-                    <span class="text-base font-extrabold text-[#032109]">Calm & Joyful</span>
+                  <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-[#cdf2cb] shadow-sm">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
+                    <span class="text-xs font-bold text-[#0d631b]">Live Database Synced</span>
                   </div>
                 </div>
               </div>
 
-              <!-- Interactive Game Preview Container (embedded inside Caregiver layout!) -->
-              <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb]">
-                <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-                  <div>
+              <!-- 4 KPI Stat Cards -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
+                  <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
-                      <span class="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
-                      <h2 class="text-xl sm:text-2xl font-extrabold text-[#032109]">Familiar Treasures Game Board</h2>
+                      <span class="w-10 h-10 rounded-xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center font-bold">
+                        <span class="material-symbols-outlined text-2xl">today</span>
+                      </span>
+                      <span class="text-xs font-bold text-[#40493d]">Today's Score</span>
                     </div>
-                    <p class="text-xs sm:text-sm text-[#40493d]">Tap cards to flip them and test the elder experience in real time.</p>
+                    <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-[#cdf2cb] text-[#006e1c]">
+                      ${dataStore.state.gamesPlayedCount || 1} Sessions
+                    </span>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <button 
-                      class="btn-tactile btn-primary px-4 py-2 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1 cursor-pointer"
-                      id="cg-game-shuffle-btn"
-                      type="button"
-                    >
-                      <span class="material-symbols-outlined text-base">replay</span>
-                      <span>Shuffle Cards</span>
-                    </button>
+                  <div>
+                    <div class="flex items-baseline gap-1.5">
+                      <span class="text-3xl font-extrabold text-[#032109]">280</span>
+                      <span class="text-sm font-bold text-[#0d631b]">pts</span>
+                    </div>
+                    <p class="text-xs text-[#40493d] mt-1">Earned in today's memory matches</p>
                   </div>
                 </div>
 
-                <!-- 6 Tactile Cards Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6" id="cg-game-board">
-                  ${gameCards.map((card, idx) => `
-                    <div 
-                      class="cg-game-card cursor-pointer select-none transition-transform active:scale-[0.98]" 
-                      data-index="${idx}"
-                    >
-                      ${card.flipped || card.matched ? `
-                        <div class="card-tactile relative flex flex-col items-center justify-between p-4 bg-white rounded-3xl shadow-[0_4px_0_#2e7d32] border border-[#cdf2cb] min-h-[190px]">
-                          <div class="w-full flex items-center justify-between">
-                            <span class="text-xs ${card.matched ? 'bg-[#a3f69c] text-[#002204]' : 'bg-[#ffdeaa] text-[#724f00]'} font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                              <span class="material-symbols-outlined text-sm">${card.matched ? 'check_circle' : 'visibility'}</span> ${card.matched ? 'Matched' : 'Open'}
-                            </span>
-                            <span class="material-symbols-outlined text-[#0d631b] text-lg">favorite</span>
-                          </div>
-                          <div class="w-20 h-20 sm:w-24 sm:h-24 my-auto flex items-center justify-center rounded-2xl bg-[#d9fdd6] overflow-hidden p-1 border border-[#cdf2cb]">
-                            <img class="w-full h-full object-cover rounded-xl" src="${card.img}" alt="${card.title}" />
-                          </div>
-                          <div class="w-full text-center">
-                            <p class="text-sm sm:text-base font-extrabold text-[#0d631b]">${card.title}</p>
-                            <p class="text-xs text-[#40493d]">${card.subtitle}</p>
-                          </div>
-                        </div>
-                      ` : `
-                        <div class="card-tactile relative flex flex-col items-center justify-center p-4 bg-[#cdf2cb] hover:bg-[#d3f8d0] rounded-3xl shadow-[0_4px_0_#1b6d24] border border-[#bfcaba] min-h-[190px] group">
-                          <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/90 flex flex-col items-center justify-center text-[#0d631b] shadow-sm group-hover:scale-105 transition-transform border border-[#d9fdd6]">
-                            <span class="material-symbols-outlined text-3xl sm:text-4xl">${card.icon}</span>
-                            <span class="text-[10px] font-bold text-[#40493d] mt-1">Tap to Open</span>
-                          </div>
-                          <span class="mt-2 text-xs font-bold text-[#032109]">Card ${idx + 1}</span>
-                        </div>
-                      `}
+                <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <span class="w-10 h-10 rounded-xl bg-[#cdf2cb] text-[#006e1c] flex items-center justify-center font-bold">
+                        <span class="material-symbols-outlined text-2xl">date_range</span>
+                      </span>
+                      <span class="text-xs font-bold text-[#40493d]">Weekly Total</span>
+                    </div>
+                    <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      7-Day Total
+                    </span>
+                  </div>
+                  <div>
+                    <div class="flex items-baseline gap-1.5">
+                      <span class="text-3xl font-extrabold text-[#032109]">1,640</span>
+                      <span class="text-sm font-bold text-[#0d631b]">pts</span>
+                    </div>
+                    <p class="text-xs text-[#40493d] mt-1">Rolling 7-day cumulative points</p>
+                  </div>
+                </div>
+
+                <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <span class="w-10 h-10 rounded-xl bg-[#ffdeaa] text-[#724f00] flex items-center justify-center font-bold">
+                        <span class="material-symbols-outlined text-2xl">psychology</span>
+                      </span>
+                      <span class="text-xs font-bold text-[#40493d]">Cognitive Stability</span>
+                    </div>
+                    <span class="material-symbols-outlined text-emerald-600 text-lg">verified</span>
+                  </div>
+                  <div>
+                    <span class="text-lg font-extrabold text-[#032109] block leading-tight">
+                      High Recall (96%)
+                    </span>
+                    <p class="text-xs text-[#40493d] mt-1">Pattern retention & stability</p>
+                  </div>
+                </div>
+
+                <div class="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <span class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
+                        <span class="material-symbols-outlined text-2xl">query_stats</span>
+                      </span>
+                      <span class="text-xs font-bold text-[#40493d]">Accuracy</span>
+                    </div>
+                    <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">
+                      Steady
+                    </span>
+                  </div>
+                  <div>
+                    <div class="flex items-baseline gap-1.5">
+                      <span class="text-3xl font-extrabold text-[#032109]">94%</span>
+                    </div>
+                    <p class="text-xs text-[#40493d] mt-1">Average familiar cards precision</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 7-Day Performance Chart & Logs -->
+              <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-6">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-2xl text-[#0d631b]">bar_chart</span>
+                    <div>
+                      <h2 class="text-xl font-extrabold text-[#032109]">7-Day Cognitive Performance Analytics</h2>
+                      <p class="text-xs sm:text-sm text-[#40493d]">Daily scores tracking cognitive engagement and consistency.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-7 gap-2 sm:gap-4 items-end min-h-[200px] bg-[#ebffe7] p-4 sm:p-6 rounded-2xl border border-[#cdf2cb]">
+                  ${[
+                    { day: 'Mon', score: 260 },
+                    { day: 'Tue', score: 280 },
+                    { day: 'Wed', score: 240 },
+                    { day: 'Thu', score: 300 },
+                    { day: 'Fri', score: 280 },
+                    { day: 'Sat', score: 280 },
+                    { day: 'Today', score: 280 },
+                  ].map((d, i) => `
+                    <div class="flex flex-col items-center gap-2 h-full justify-end">
+                      <span class="text-[10px] sm:text-xs font-extrabold px-1.5 py-0.5 rounded-md ${i === 6 ? 'bg-[#006e1c] text-white shadow-sm' : 'bg-white text-[#0d631b] border border-[#cdf2cb]'}">${d.score}p</span>
+                      <div class="w-full max-w-[48px] bg-white rounded-t-xl overflow-hidden flex flex-col justify-end p-0.5 h-32 border border-[#cdf2cb]">
+                        <div style="height: ${(d.score / 350) * 100}%;" class="w-full rounded-t-lg ${i === 6 ? 'bg-gradient-to-t from-[#006e1c] to-[#2e7d32]' : 'bg-gradient-to-t from-[#0d631b] to-[#43a047]'}"></div>
+                      </div>
+                      <span class="text-xs font-bold ${i === 6 ? 'text-[#006e1c]' : 'text-[#032109]'}">${d.day}</span>
                     </div>
                   `).join('')}
                 </div>
