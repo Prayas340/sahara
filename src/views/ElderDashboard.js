@@ -211,17 +211,17 @@ export function renderElderDashboard(onNavigate) {
 
               <!-- Sensory Visual Cue Preview Blocks -->
               <div class="grid grid-cols-3 gap-3 pt-1">
-                <div class="h-24 sm:h-28 rounded-2xl overflow-hidden shadow-inner border border-[#cdf2cb] relative group cursor-pointer" id="cue-chai">
-                  <img class="w-full h-full object-cover group-hover:scale-105 transition-transform" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfb2Ilw0SLdOuUlOFLSzgAfBI-Gfu3AZuBqTInkesBiLBm6G2Be1pJ4TK9BY-Kh7Fs4oRCnQU5npntF9UZSiZKSoSrOkBgfIuaC67UF1QmjicWtikoUoag5AARfFvVxlZUBcNh0Usr1iI-fdom5Yok0COkHQwTVc4WLzYwOLywZ1ShZieBFZqd8vQOyjvOAqMJQotxgHn3DzFeSXIVXEaodQMgfHV_QNfPHER-HdxfMZdEicRJiGfmFA" alt="Assam Chai" />
-                  <span class="absolute bottom-1 left-2 right-2 text-center text-[11px] font-extrabold bg-black/60 text-white rounded-md px-1 backdrop-blur-xs">Assam Chai ☕</span>
+                <div class="h-24 sm:h-28 rounded-2xl overflow-hidden shadow-inner border border-[#cdf2cb] relative group cursor-pointer" id="cue-apple">
+                  <img class="w-full h-full object-cover group-hover:scale-105 transition-transform" src="/game-items/apple.jpeg" alt="Fresh Apple" />
+                  <span class="absolute bottom-1 left-2 right-2 text-center text-[11px] font-extrabold bg-black/60 text-white rounded-md px-1 backdrop-blur-xs">Fresh Apple 🍎</span>
                 </div>
-                <div class="h-24 sm:h-28 rounded-2xl overflow-hidden shadow-inner border border-[#cdf2cb] relative group cursor-pointer" id="cue-jaapi">
-                  <img class="w-full h-full object-cover group-hover:scale-105 transition-transform" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDauqRUl7YpuJSBa4kuyqJidfQJRaCYT-3Oo4ZsHNJ-in8bGK4pPiMMwFwYXfcbFm8bjhHjTdbTvCJCXeBeip_UP8N5E3SY6mspaZ_RJ96mymlOszjhLt6jkZv4bdFun-_i-V8jOzhenh_NupZeRE9_b7FTmWMFA7LGfVW5mICyVvp8a9Yl8jyP7w4U6gL2IiKQJrqw79kBvqVVgteQ_5Z_bsLTMPu9-kKoaukZGOL7wLaXdCvZ_8WK5Q" alt="Banana Leaf Chai" />
-                  <span class="absolute bottom-1 left-2 right-2 text-center text-[11px] font-extrabold bg-black/60 text-white rounded-md px-1 backdrop-blur-xs">Tea Garden</span>
+                <div class="h-24 sm:h-28 rounded-2xl overflow-hidden shadow-inner border border-[#cdf2cb] relative group cursor-pointer" id="cue-balloon">
+                  <img class="w-full h-full object-cover group-hover:scale-105 transition-transform" src="/game-items/balloon.jpeg" alt="Colorful Balloon" />
+                  <span class="absolute bottom-1 left-2 right-2 text-center text-[11px] font-extrabold bg-black/60 text-white rounded-md px-1 backdrop-blur-xs">Balloon 🎈</span>
                 </div>
                 <div class="h-24 sm:h-28 rounded-2xl overflow-hidden shadow-inner border border-[#cdf2cb] relative group cursor-pointer" id="cue-cat">
-                  <img class="w-full h-full object-cover group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=300&auto=format&fit=crop&q=80" alt="Pet Cat" />
-                  <span class="absolute bottom-1 left-2 right-2 text-center text-[11px] font-extrabold bg-black/60 text-white rounded-md px-1 backdrop-blur-xs">Gentle Cat</span>
+                  <img class="w-full h-full object-cover group-hover:scale-105 transition-transform" src="/game-items/Cat.webp" alt="Gentle Cat" />
+                  <span class="absolute bottom-1 left-2 right-2 text-center text-[11px] font-extrabold bg-black/60 text-white rounded-md px-1 backdrop-blur-xs">Gentle Cat 🐱</span>
                 </div>
               </div>
 
@@ -233,7 +233,7 @@ export function renderElderDashboard(onNavigate) {
                   type="button"
                 >
                   <span class="material-symbols-outlined text-2xl">extension</span>
-                  <span>Play Familiar Treasures (Start Match Game)</span>
+                  <span>Play Memory Match</span>
                   <span class="material-symbols-outlined text-xl">arrow_forward</span>
                 </button>
               </div>

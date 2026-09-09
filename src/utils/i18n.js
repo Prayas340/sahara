@@ -52,9 +52,9 @@ export const translations = {
     markedTakenSuccess: "Marked as Taken ✓",
     sipWaterReminder: "Sip a glass of warm water comfortably",
     
-    memoryMatchCardTitle: "Memory Match: Familiar Treasures",
-    memoryMatchDesc: "Gentle picture match with morning tea, flowers, and family memories.",
-    tapToPlayCards: "Tap to Open Card Match (5 min)",
+    memoryMatchCardTitle: "Memory Match",
+    memoryMatchDesc: "Gentle picture match with familiar items and joyful memories.",
+    tapToPlayCards: "Tap to Open Memory Match (5 min)",
     memoryVictoryPraise: "Every effort is a victory! Take all the time you need.",
 
     lovedOnesEmergencyTitle: "Speak with Loved Ones & Doctor",
@@ -134,7 +134,7 @@ export const translations = {
     // Memory Game
     paceGentle: "Pace: Gentle & Free",
     round1of3: "Round 1 of 3 · Take all the time you need",
-    memoryMatchTitle: "Memory Match: Familiar Treasures",
+    memoryMatchTitle: "Memory Match",
     memoryMatchSubtitle: "Every gentle effort is a victory. Find the pictures that belong together.",
     easySteps: "Easy Steps",
     easyStepsDesc: "Find the two matching pictures. Tap any card to flip it over softly.",

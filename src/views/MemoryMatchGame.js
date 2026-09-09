@@ -4,43 +4,41 @@ import { speakText } from '../utils/speech.js';
 import { showToast } from '../utils/toast.js';
 
 export function renderMemoryMatchGame(onNavigate) {
-  // Game card definitions (3 pairs = 6 cards)
-  const cardPool = [
-    {
-      pairId: 'chai',
-      title: 'Assam Chai ☕',
-      subtitle: 'Warm Morning Tea',
-      img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAfb2Ilw0SLdOuUlOFLSzgAfBI-Gfu3AZuBqTInkesBiLBm6G2Be1pJ4TK9BY-Kh7Fs4oRCnQU5npntF9UZSiZKSoSrOkBgfIuaC67UF1QmjicWtikoUoag5AARfFvVxlZUBcNh0Usr1iI-fdom5Yok0COkHQwTVc4WLzYwOLywZ1ShZieBFZqd8vQOyjvOAqMJQotxgHn3DzFeSXIVXEaodQMgfHV_QNfPHER-HdxfMZdEicRJiGfmFA',
-      icon: 'local_cafe',
-    },
-    {
-      pairId: 'tea_leaf',
-      title: 'Tea Garden 🌿',
-      subtitle: 'Fresh Green Leaves',
-      img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDauqRUl7YpuJSBa4kuyqJidfQJRaCYT-3Oo4ZsHNJ-in8bGK4pPiMMwFwYXfcbFm8bjhHjTdbTvCJCXeBeip_UP8N5E3SY6mspaZ_RJ96mymlOszjhLt6jkZv4bdFun-_i-V8jOzhenh_NupZeRE9_b7FTmWMFA7LGfVW5mICyVvp8a9Yl8jyP7w4U6gL2IiKQJrqw79kBvqVVgteQ_5Z_bsLTMPu9-kKoaukZGOL7wLaXdCvZ_8WK5Q',
-      icon: 'potted_plant',
-    },
-    {
-      pairId: 'cat',
-      title: 'Gentle Cat 🐱',
-      subtitle: 'Soft Sunlit Nap',
-      img: 'https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=400&auto=format&fit=crop&q=80',
-      icon: 'pets',
-    },
+  const FULL_ITEMS_POOL = [
+    { pairId: 'apple', title: 'Fresh Apple 🍎', subtitle: 'Sweet Red Fruit', img: '/game-items/apple.jpeg', icon: 'nutrition' },
+    { pairId: 'balloon', title: 'Colorful Balloon 🎈', subtitle: 'Floating Joy', img: '/game-items/balloon.jpeg', icon: 'celebration' },
+    { pairId: 'car', title: 'Classic Car 🚗', subtitle: 'Smooth Drive', img: '/game-items/car.jpeg', icon: 'directions_car' },
+    { pairId: 'cat', title: 'Gentle Cat 🐱', subtitle: 'Soft Warm Nap', img: '/game-items/Cat.webp', icon: 'pets' },
+    { pairId: 'heart', title: 'Caring Heart ❤️', subtitle: 'Love & Warmth', img: '/game-items/heart.jpeg', icon: 'favorite' },
+    { pairId: 'horse', title: 'Noble Horse 🐴', subtitle: 'Gentle Companion', img: '/game-items/horse.jpeg', icon: 'cruelty_free' },
+    { pairId: 'key', title: 'Golden Key 🔑', subtitle: 'Safe & Secure', img: '/game-items/key.jpeg', icon: 'key' },
+    { pairId: 'kite', title: 'Flying Kite 🪁', subtitle: 'High Blue Skies', img: '/game-items/kite.jpeg', icon: 'toys' },
+    { pairId: 'spade', title: 'Garden Spade ♠️', subtitle: 'Rich Blossom Soil', img: '/game-items/spade.jpeg', icon: 'handyman' },
+    { pairId: 'tree', title: 'Green Tree 🌳', subtitle: 'Peaceful Shade', img: '/game-items/tree.jpeg', icon: 'park' },
+    { pairId: 'umbrella', title: 'Bright Umbrella ☂️', subtitle: 'Gentle Rain Shelter', img: '/game-items/umbrella.jpeg', icon: 'umbrella' },
   ];
 
-  // 6 cards (shuffled pairs)
-  const cards = [
-    { id: 0, ...cardPool[0], matched: false, flipped: true }, // Starts Chai revealed like mockup
-    { id: 1, ...cardPool[1], matched: false, flipped: false },
-    { id: 2, ...cardPool[2], matched: false, flipped: false },
-    { id: 3, ...cardPool[1], matched: false, flipped: false },
-    { id: 4, ...cardPool[2], matched: false, flipped: false },
-    { id: 5, ...cardPool[0], matched: false, flipped: true }, // Matching Chai revealed
-  ];
-  // Set initial matched state for Chai pair like mockup
-  cards[0].matched = true;
-  cards[5].matched = true;
+  const generateRandomRoundCards = () => {
+    const poolCopy = [...FULL_ITEMS_POOL].sort(() => Math.random() - 0.5);
+    const chosen3 = poolCopy.slice(0, 3);
+    const pairs = [
+      { ...chosen3[0] },
+      { ...chosen3[0] },
+      { ...chosen3[1] },
+      { ...chosen3[1] },
+      { ...chosen3[2] },
+      { ...chosen3[2] },
+    ];
+    const shuffled = pairs.sort(() => Math.random() - 0.5);
+    return shuffled.map((c, i) => ({
+      id: i,
+      ...c,
+      matched: false,
+      flipped: false,
+    }));
+  };
+
+  let cards = generateRandomRoundCards();
 
   const html = `
     <div class="min-h-screen bg-[#ebffe7] text-[#032109]">
@@ -74,7 +72,7 @@ export function renderMemoryMatchGame(onNavigate) {
               <span>Round 1 of 3 · Take all the time you need</span>
             </div>
             <h1 class="text-2xl sm:text-3xl font-extrabold text-[#032109] tracking-tight">
-              Memory Match: <span class="text-[#0d631b] font-extrabold">Familiar Treasures</span>
+              Memory Match
             </h1>
             <p class="text-sm sm:text-base text-[#40493d] max-w-xl">
               Every gentle effort is a victory. Find the pictures that belong together.
@@ -288,11 +286,11 @@ export function renderMemoryMatchGame(onNavigate) {
     }
 
     document.getElementById('game-replay-btn')?.addEventListener('click', () => {
-      cards.forEach(c => { c.flipped = false; c.matched = false; });
-      cards.sort(() => Math.random() - 0.5);
+      cards = generateRandomRoundCards();
+      flippedIndices = [];
       renderBoard();
-      showToast('Game board shuffled! Pick any card to begin.', 'info');
-      speakText('Game board shuffled. Please choose any card to begin.');
+      showToast('Game board shuffled with new items! Pick any card to begin.', 'info');
+      speakText('Game board shuffled with new items. Please choose any card to begin.');
     });
   }, 0);
 

@@ -341,7 +341,7 @@ export default function ElderDashboardPage() {
                   {t.metricMindGames || 'Gentle Mind Game'}
                 </span>
                 <h3 className="text-xl sm:text-2xl font-extrabold text-[#032109] mt-0.5">
-                  {t.memoryMatchCardTitle || 'Familiar Treasures Match'}
+                  {t.memoryMatchCardTitle || 'Memory Match'}
                 </h3>
                 <p className="text-xs sm:text-sm text-[#40493d] mt-1">
                   {t.memoryMatchDesc || 'Gentle picture match with morning tea, flowers, and family memories.'}
