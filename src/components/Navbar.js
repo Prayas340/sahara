@@ -57,29 +57,46 @@ export function renderNavbar(activeView, onNavigate) {
 
           <!-- Avatar & Menu -->
           <div class="relative">
+            <input type="file" id="nav-file-input" accept="image/*" class="hidden" />
             <button 
               id="nav-avatar-btn" 
               type="button" 
-              class="w-9 h-9 rounded-full ring-2 ring-[#d9fdd6] overflow-hidden flex items-center justify-center bg-white shadow-sm hover:ring-[#2e7d32] transition-all"
+              class="w-9 h-9 rounded-full ring-2 ring-[#d9fdd6] overflow-hidden flex items-center justify-center bg-white shadow-sm hover:ring-[#2e7d32] transition-all cursor-pointer"
             >
               <img 
                 alt="Profile" 
                 class="w-full h-full object-cover bg-white" 
-                src="${user?.avatar || '/avatar.png'}"
+                src="${user?.avatar || patient?.avatar || '/avatar.png'}"
               />
             </button>
             
             <!-- User menu popup -->
-            <div id="nav-user-menu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 text-sm">
-              <div class="p-2 border-b border-gray-100">
-                <p class="font-bold text-gray-800">${user?.name || patient.name || 'Asha Devi Borah'}</p>
-                <p class="text-xs text-gray-500">${user?.role === 'caregiver' ? 'Caregiver Companion' : 'Mild Cognitive Support'}</p>
+            <div id="nav-user-menu" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 text-sm">
+              <div class="p-2 border-b border-gray-100 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-[#cdf2cb]">
+                  <img
+                    alt="User"
+                    class="w-full h-full object-cover bg-white"
+                    src="${user?.avatar || patient?.avatar || '/avatar.png'}"
+                  />
+                </div>
+                <div class="overflow-hidden">
+                  <p class="font-bold text-gray-800 truncate">${user?.name || patient.name || (isCaregiver ? 'Caregiver' : 'Sahara Member')}</p>
+                  <p class="text-xs text-gray-500">${user?.role === 'caregiver' || isCaregiver ? 'Caregiver Companion' : 'Mild Cognitive Support'}</p>
+                </div>
               </div>
-              <button id="menu-contacts-btn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ebffe7] text-[#0d631b] font-medium flex items-center gap-2">
+
+              <button id="menu-upload-photo-btn" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-[#ebffe7] text-[#0d631b] font-semibold flex items-center gap-2 cursor-pointer mt-1">
+                <span class="material-symbols-outlined text-lg text-[#0d631b]">add_a_photo</span>
+                Upload Profile Photo
+              </button>
+              
+              <button id="menu-contacts-btn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ebffe7] text-[#0d631b] font-medium flex items-center gap-2 cursor-pointer">
                 <span class="material-symbols-outlined text-lg">family_restroom</span>
                 Family Contacts
               </button>
-              <button id="menu-signout-btn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 font-medium flex items-center gap-2">
+
+              <button id="menu-signout-btn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 font-medium flex items-center gap-2 cursor-pointer border-t border-gray-100 mt-1 pt-2">
                 <span class="material-symbols-outlined text-lg">logout</span>
                 Sign Out
               </button>
@@ -98,6 +115,8 @@ export function renderNavbar(activeView, onNavigate) {
 
     const avatarBtn = document.getElementById('nav-avatar-btn');
     const userMenu = document.getElementById('nav-user-menu');
+    const fileInput = document.getElementById('nav-file-input');
+
     avatarBtn?.addEventListener('click', () => {
       userMenu?.classList.toggle('hidden');
     });
@@ -106,6 +125,60 @@ export function renderNavbar(activeView, onNavigate) {
       if (!avatarBtn?.contains(e.target) && !userMenu?.contains(e.target)) {
         userMenu?.classList.add('hidden');
       }
+    });
+
+    document.getElementById('menu-upload-photo-btn')?.addEventListener('click', () => {
+      userMenu?.classList.add('hidden');
+      fileInput?.click();
+    });
+
+    fileInput?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select a valid image file (PNG, JPG, JPEG).', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const rawDataUrl = event.target?.result;
+        if (!rawDataUrl) return;
+
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+          authService.updateAvatar(optimizedDataUrl);
+          showToast('✅ Profile photo updated successfully!', 'success');
+          onNavigate(activeView);
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
     });
 
     document.getElementById('menu-contacts-btn')?.addEventListener('click', () => {

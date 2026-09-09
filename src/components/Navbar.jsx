@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '../services/authService.js';
 import { dataStore } from '../services/dataStore.js';
@@ -8,6 +8,7 @@ import { showToast } from './Toast.jsx';
 
 export default function Navbar({ activeView = 'elder' }) {
   const router = useRouter();
+  const fileInputRef = useRef(null);
   const [user, setUser] = useState(null);
   const [patient, setPatient] = useState({});
   const [caregiver, setCaregiver] = useState({});
@@ -51,6 +52,54 @@ export default function Navbar({ activeView = 'elder' }) {
     }
   };
 
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, JPEG).', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result;
+      if (!rawDataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        authService.updateAvatar(optimizedDataUrl);
+        showToast('✅ Profile photo updated successfully!', 'success');
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleSignOut = async () => {
     const wasCaregiver = isCaregiver;
     setIsUserMenuOpen(false);
@@ -70,6 +119,15 @@ export default function Navbar({ activeView = 'elder' }) {
     <>
       <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#ebffe7]/90 backdrop-blur-xl border-b border-[#cdf2cb] shadow-[0_2px_12px_rgba(23,53,27,0.06)]">
         <div className="h-20 max-w-[80rem] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+          {/* Hidden File Input for Avatar Upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoUpload}
+            className="hidden"
+          />
+
           {/* Brand Logo & Name */}
           <div
             onClick={handleBrandClick}
@@ -130,18 +188,39 @@ export default function Navbar({ activeView = 'elder' }) {
                 <img
                   alt="Profile"
                   className="w-full h-full object-cover bg-white"
-                  src={user?.avatar || '/avatar.png'}
+                  src={user?.avatar || patient?.avatar || '/avatar.png'}
                 />
               </button>
 
               {isUserMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 text-sm">
-                  <div className="p-2 border-b border-gray-100">
-                    <p className="font-bold text-gray-800">{isCaregiver ? (user?.name || 'Caregiver') : (patient?.name || user?.name || 'Sahara Member')}</p>
-                    <p className="text-xs text-gray-500">
-                      {isCaregiver ? 'Caregiver Companion' : 'Mild Cognitive Support'}
-                    </p>
+                <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 text-sm">
+                  <div className="p-2 border-b border-gray-100 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-[#cdf2cb]">
+                      <img
+                        alt="User"
+                        className="w-full h-full object-cover bg-white"
+                        src={user?.avatar || patient?.avatar || '/avatar.png'}
+                      />
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="font-bold text-gray-800 truncate">{isCaregiver ? (user?.name || 'Caregiver') : (patient?.name || user?.name || 'Sahara Member')}</p>
+                      <p className="text-xs text-gray-500">
+                        {isCaregiver ? 'Caregiver Companion' : 'Mild Cognitive Support'}
+                      </p>
+                    </div>
                   </div>
+
+                  <button
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      fileInputRef.current?.click();
+                    }}
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-[#ebffe7] text-[#0d631b] font-semibold flex items-center gap-2 cursor-pointer mt-1"
+                  >
+                    <span className="material-symbols-outlined text-lg text-[#0d631b]">add_a_photo</span>
+                    Upload Profile Photo
+                  </button>
+
                   <button
                     onClick={() => {
                       setIsUserMenuOpen(false);
@@ -156,9 +235,10 @@ export default function Navbar({ activeView = 'elder' }) {
                     <span className="material-symbols-outlined text-lg">family_restroom</span>
                     Family Contacts
                   </button>
+
                   <button
                     onClick={handleSignOut}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 font-medium flex items-center gap-2 cursor-pointer"
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 font-medium flex items-center gap-2 cursor-pointer border-t border-gray-100 mt-1 pt-2"
                   >
                     <span className="material-symbols-outlined text-lg">logout</span>
                     Sign Out

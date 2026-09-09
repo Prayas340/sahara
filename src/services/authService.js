@@ -40,6 +40,34 @@ export const authService = {
     }
   },
 
+  // Update profile avatar for active user and sync to database
+  updateAvatar(avatarUrl) {
+    const user = this.getCurrentUser();
+    if (user) {
+      user.avatar = avatarUrl;
+      this.setCurrentUser(user);
+    }
+    const patient = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state.patient || {});
+    if (patient && typeof patient === 'object') {
+      patient.avatar = avatarUrl;
+      dataStore.setPatient(patient);
+      
+      // Async sync to server database
+      if (typeof window !== 'undefined' && window.fetch) {
+        const caregiverEmail = dataStore.state.caregiver?.email || user?.email || '';
+        fetch('/api/auth/elder-save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            elderProfile: { ...patient, avatar: avatarUrl },
+            caregiverEmail,
+          }),
+        }).catch(err => console.warn('Avatar database sync error:', err));
+      }
+    }
+    return user;
+  },
+
   // Update profile for active user
   updateUserProfile({ name, age, location, city, state }) {
     const user = this.getCurrentUser() || {

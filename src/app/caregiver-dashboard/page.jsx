@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar.jsx';
 import CaregiverSidebar from '../../components/CaregiverSidebar.jsx';
@@ -14,6 +14,7 @@ import { showToast } from '../../components/Toast.jsx';
 
 export default function CaregiverDashboardPage() {
   const router = useRouter();
+  const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'memories' | 'routine' | 'contacts'
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [patient, setPatient] = useState(null);
@@ -25,6 +26,55 @@ export default function CaregiverDashboardPage() {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactToEdit, setContactToEdit] = useState(null);
   const [isSafeMessageModalOpen, setIsSafeMessageModalOpen] = useState(false);
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, JPEG).', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result;
+      if (!rawDataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        authService.updateAvatar(optimizedDataUrl);
+        setPatient((prev) => prev ? { ...prev, avatar: optimizedDataUrl } : { avatar: optimizedDataUrl });
+        showToast('✅ Profile photo updated successfully!', 'success');
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Memory game state
   const initialCards = [
@@ -422,15 +472,38 @@ export default function CaregiverDashboardPage() {
 
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
                   <div className="flex items-center gap-4 sm:gap-6 flex-wrap sm:flex-nowrap">
-                    <div className="relative shrink-0">
-                      <img
-                        alt={patient?.name || 'Patient'}
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-sm border border-[#cdf2cb] bg-white"
-                        src={patient?.avatar || '/avatar.png'}
+                    <div className="relative shrink-0 group">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
                       />
-                      <div className="absolute -bottom-2 -right-2 bg-white p-1 rounded-full shadow-sm">
-                        <span className="material-symbols-outlined text-[#0d631b] text-xl">verified</span>
-                      </div>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        type="button"
+                        title="Click to upload/change elder profile photo"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-sm border border-[#cdf2cb] bg-white relative block cursor-pointer transition-transform hover:scale-105"
+                      >
+                        <img
+                          alt={patient?.name || 'Patient'}
+                          className="w-full h-full object-cover bg-white"
+                          src={patient?.avatar || '/avatar.png'}
+                        />
+                        <div className="absolute inset-0 bg-black/40 rounded-2xl flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="material-symbols-outlined text-xl">photo_camera</span>
+                          <span className="text-[10px] font-bold">Upload</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        type="button"
+                        title="Upload photo"
+                        className="absolute -bottom-1 -right-1 bg-[#0d631b] hover:bg-[#006e1c] text-white p-1 rounded-full shadow-sm flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+                      >
+                        <span className="material-symbols-outlined text-sm">photo_camera</span>
+                      </button>
                     </div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2 flex-wrap mb-1">

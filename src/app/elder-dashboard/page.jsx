@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar.jsx';
 import { dataStore } from '../../services/dataStore.js';
@@ -87,6 +87,56 @@ export default function ElderDashboardPage() {
     }
   };
 
+  const avatarInputRef = useRef(null);
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, JPEG).', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result;
+      if (!rawDataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        authService.updateAvatar(optimizedDataUrl);
+        showToast('✅ Profile photo updated successfully!', 'success');
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   return (
     <div className="min-h-screen bg-[#ebffe7] text-[#032109]">
       <Navbar activeView="elder" />
@@ -99,17 +149,39 @@ export default function ElderDashboardPage() {
             <div className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full bg-[#ffdeaa]/40 pointer-events-none blur-2xl"></div>
 
             <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6">
-              <div className="relative shrink-0">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 bg-gradient-to-tr from-[#2e7d32] via-[#98f994] to-[#ffdeaa] shadow-md">
+              {/* Profile Avatar with Direct Upload Trigger */}
+              <div className="relative shrink-0 group">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  type="button"
+                  title="Click to upload profile photo"
+                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 bg-gradient-to-tr from-[#2e7d32] via-[#98f994] to-[#ffdeaa] shadow-md relative overflow-hidden block cursor-pointer transition-transform hover:scale-105"
+                >
                   <img
                     alt={displayName}
                     className="w-full h-full object-cover rounded-full shadow-inner bg-white"
                     src={patient?.avatar || '/avatar.png'}
                   />
-                </div>
-                <span className="absolute bottom-1 right-1 bg-[#0d631b] text-white rounded-full p-1 shadow-md flex items-center justify-center">
-                  <span className="material-symbols-outlined text-sm">eco</span>
-                </span>
+                  <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="material-symbols-outlined text-2xl">photo_camera</span>
+                    <span className="text-[10px] font-bold mt-0.5">Change</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  type="button"
+                  title="Upload profile photo"
+                  className="absolute bottom-1 right-1 bg-[#0d631b] hover:bg-[#006e1c] text-white rounded-full p-1.5 shadow-md flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-sm">photo_camera</span>
+                </button>
               </div>
 
               <div className="flex-1 text-center sm:text-left space-y-2">
