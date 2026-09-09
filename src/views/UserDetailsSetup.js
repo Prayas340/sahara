@@ -865,6 +865,12 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
       });
 
       // 3. Persist to server database and register caregiver account
+      const currentUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
+      const pendingPhone = (typeof window !== 'undefined' && window.sessionStorage) ? sessionStorage.getItem('sahara_pending_phone') : '';
+      const elderPhone = params?.phone || currentUser?.phone || pendingPhone || '';
+      const elderEmail = params?.email || currentUser?.email || '';
+      const elderIdentifier = elderEmail || elderPhone || currentUser?.id || `elder_${Date.now().toString(36)}`;
+
       authService.saveElderProfile(
         {
           name,
@@ -874,15 +880,15 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
           state: state || 'Assam',
           status: problemStatement,
           problemStatement: problemStatement,
-          phone: params?.phone || '',
-          email: params?.email || '',
+          phone: elderPhone,
+          email: elderEmail,
         },
         {
           name: caregiverName,
           email: caregiverEmail,
           password: caregiverPassword,
         },
-        params?.email || params?.phone || ''
+        elderIdentifier
       );
 
       // 4. Update in authService current session (Role: elder)

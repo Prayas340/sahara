@@ -622,6 +622,12 @@ export const authService = {
           dataStore.updateCaregiverProfile(result.user);
         }
         this.setCurrentUser(result.user);
+        this.registerCaregiverAccount({
+          name: result.user.name,
+          email: result.user.email,
+          password: cleanPassword,
+          patientData: result.elderProfile || dataStore.getPatient(),
+        });
         return {
           success: true,
           user: result.user,

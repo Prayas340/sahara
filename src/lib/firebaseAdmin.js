@@ -1,6 +1,5 @@
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { JWT } from 'google-auth-library';
+import { getAuth } from 'firebase-admin/auth';
 
 // Sahara Firebase Service Account credentials for sahara-63072
 const rawKey = process.env.FIREBASE_PRIVATE_KEY || '-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDc0vdir0xIFRb9\nQM8wBRADtYSrp373rVgpi8OCpUtPdp4FsBMvgvmbVT8eL7RQ1km2A6hxPXmfc53X\nLUg4x7R/N63mE4BtSt7SICnrIjTTRNn5NovRapc3GwhcmLm4mNLYgCOWgxLOjLYo\na1Vh9rL91BYleGUM7V/964Fuow5x1xpnDWBJu2Ecyav3B2OftsCn2qgQDgF/cwBM\nmU6Ea66Hg4BQ1MdD05mfKVL7Z6+sT6eYbFYf2eqw3LpowsbDsf8awehG8EpvaOPo\nxNO2PzcKVmTWNrVwxZAJDY5lVrMLMT39T6CMAui2sk4U32QLnq/YbmB67c1vorfI\nc6BzF+pDAgMBAAECggEAD5Vv0e4PExMx8SNuu7PPwoM/3qFOa4o3K49qd8DUhMIZ\nOsuHPxYeKWEluCqjrgTBZO/zJjKxb5hILlRKwX8OdN/oDNGZgZ0EBo4whyB9298D\nBvxbd6bvDvuAZpB8otNeJds9J7UOUbdKb6XLe8NeNF2QRoqtjvD9kjzZgIZPUac7\n5dac/RT/49upjZDt7B7yN2kUG3jqUy62Ag9QMnLrKip3XgsMTLAkmChdVmtMof5b\nHZ87Qt4AiDgEe5XsRUlrl1XMyfYa4uMWFzKwmI5z+ATuZnXX0gWQfSU5HLAPO7RT\n+SKLcSlFS+6OYe7Qjv40CGvXp3DAXm+407R50QU7UQKBgQD4LmW9cgrj0447c6pW\nkRMRZ2uT/uqOeSd+ul1awMv93cUZJMw7ssjPCMRlwxD155bj3noHEMUBtqAG7OAT\n0gxW/eReVmnlMzM9jVoizfzFwekJJAUYm5Md/x4J+CPZqhs3Ta4GkuCg8Dsbtf2u\nT0Q6vdGypfqHZQHitQJU2csjiQKBgQDjx+5ifFw/Bg93wGOqh2xeshv3pCaBPpXV\nG+45hSAulSxpd/PTJoWLhpDnTzgO4fKn8PJQtsgdmrnBnthbM0+Xk4RcZgqxkK1g\nRDyYQyTM6ypqSYLMKmq1o40y9E1BkEUJieiHqwyOq0vW2Qf8X+4F0CveaiezrqEY\nMYl0eduQawKBgQCxj0BrEbSI20rfbhloZdLmmL922uKlnDiNinhP/a/0qT3ih1k3\nPOo+dV9ODwmLZW2nCfz0ISNR3n8PdVm71IPPmUZR2DFbMg5u8zqRvB4kvl8jkwmy\nWVwgEe5D46yChhmCr6jaOytK+ZTQdpxQoZWHEVd+IRHk3HdE44wPeOLFQQKBgQDT\nRLN0oYgl5IcgOU+38ZewVV7fWF9mbRgn65oPu8xXqIDi6iE67XXcLdnk0XNbSnL5\nFeCKwJ3n54T3c0+Vd4gRPP/9e5/bhidpLKFPUKencU+L+dbZa1ZCVwo2AqZNc3S1\nHjaQ7zPceEEFa5Oen5NzzNuDlc5xOD2u5PNrF0NxNQKBgQCXD7glMDWn63rpcbHI\nvnyTFqp2F/F+l7obFQKkIcal5usGCy6eKle5rlZqhWu0ypeyP+QGvB/ihlH8LMZM\n3toR9HvvDxvxVc54PDypfxb8eM2YPOipt4ICjg6TqzqDmlBspuZt2le7WZFHyeV3\nRy2sfqk9pUFOW6tyXVC/vWZ3cg==\n-----END PRIVATE KEY-----\n';
@@ -13,10 +12,8 @@ export const serviceAccount = {
   client_email: process.env.FIREBASE_CLIENT_EMAIL || 'firebase-adminsdk-fbsvc@sahara-63072.iam.gserviceaccount.com',
 };
 
-const PROJECT_NUMBER = '887187131198';
-
 let adminApp = null;
-let adminDb = null;
+let adminAuth = null;
 
 try {
   const existingApps = getApps();
@@ -29,72 +26,40 @@ try {
     });
   }
   if (adminApp) {
-    adminDb = getFirestore(adminApp);
+    adminAuth = getAuth(adminApp);
   }
 } catch (err) {
   console.warn('[firebaseAdmin] Setup notice:', err.message);
-}
-
-// Helper to obtain Google Cloud OAuth access token using Service Account
-export async function getServiceAccountToken() {
-  try {
-    const jwt = new JWT({
-      email: serviceAccount.client_email,
-      key: serviceAccount.private_key,
-      scopes: [
-        'https://www.googleapis.com/auth/identitytoolkit',
-        'https://www.googleapis.com/auth/cloud-platform',
-        'https://www.googleapis.com/auth/firebase',
-      ],
-    });
-    const tokens = await jwt.authorize();
-    return tokens?.access_token || null;
-  } catch (err) {
-    console.warn('[firebaseAdmin] getServiceAccountToken notice:', err.message);
-    return null;
-  }
 }
 
 /**
  * Lookup user in Firebase Auth on project sahara-63072
  */
 export async function firebaseLookupUser(identifier) {
-  if (!identifier) return null;
+  if (!identifier || !adminAuth) return null;
   const cleanId = String(identifier).trim();
   const isEmail = cleanId.includes('@');
 
   try {
-    const token = await getServiceAccountToken();
-    if (!token) return null;
-
-    const payload = isEmail ? { email: [cleanId.toLowerCase()] } : { phoneNumber: [cleanId] };
-    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_NUMBER}/accounts:lookup`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.users || data.users.length === 0) return null;
-
-    const user = data.users[0];
-    let customAttrs = {};
-    if (user.customAttributes) {
-      try {
-        customAttrs = JSON.parse(user.customAttributes);
-      } catch (e) {}
+    let user = null;
+    if (isEmail) {
+      user = await adminAuth.getUserByEmail(cleanId.toLowerCase()).catch(() => null);
+    } else if (cleanId.startsWith('+')) {
+      user = await adminAuth.getUserByPhoneNumber(cleanId).catch(() => null);
+    } else {
+      user = await adminAuth.getUser(cleanId).catch(() => null);
     }
 
+    if (!user) return null;
+
     return {
-      localId: user.localId,
+      localId: user.uid,
+      uid: user.uid,
       email: user.email,
       displayName: user.displayName,
       phoneNumber: user.phoneNumber,
-      customAttributes: customAttrs,
+      customAttributes: user.customClaims || {},
+      customClaims: user.customClaims || {},
     };
   } catch (err) {
     console.warn('[firebaseAdmin] firebaseLookupUser notice:', err.message);
@@ -103,144 +68,161 @@ export async function firebaseLookupUser(identifier) {
 }
 
 /**
- * Save or update Elder in Firebase Auth with full metadata customAttributes
+ * Lookup caregiver directly in Firebase Auth
  */
-export async function firebaseSaveElder(elderRecord, caregiverRecord) {
-  if (!elderRecord) return null;
-  const email = elderRecord.email ? elderRecord.email.trim().toLowerCase() : null;
-  const phone = elderRecord.phone || null;
+export async function firebaseLookupCaregiver(email) {
+  if (!email || !adminAuth) return null;
+  const cleanEmail = email.trim().toLowerCase();
 
   try {
-    const token = await getServiceAccountToken();
-    if (!token) return null;
+    const user = await adminAuth.getUserByEmail(cleanEmail).catch(() => null);
+    if (!user) return null;
 
-    // 1. Check if user already exists in Firebase Auth
-    let existing = null;
-    if (email) existing = await firebaseLookupUser(email);
-    if (!existing && phone) existing = await firebaseLookupUser(phone);
-
-    let localId = existing?.localId;
-
-    // 2. If user doesn't exist, create user in Firebase Auth
-    if (!localId) {
-      const createBody = {
-        displayName: elderRecord.name || 'Sahara Elder',
-      };
-      if (email) createBody.email = email;
-      if (phone && phone.startsWith('+')) createBody.phoneNumber = phone;
-
-      const createRes = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_NUMBER}/accounts`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(createBody),
-      });
-
-      if (createRes.ok) {
-        const createData = await createRes.json();
-        localId = createData.localId;
-      }
-    }
-
-    // 3. Save profile and caregiver linkage in customAttributes
-    if (localId) {
-      const customAttributes = {
-        role: 'elder',
-        elder: elderRecord,
-        caregiver: caregiverRecord ? {
-          email: caregiverRecord.email,
-          name: caregiverRecord.name,
-          relation: caregiverRecord.relation,
-          password: caregiverRecord.password,
-        } : null,
-        updatedAt: new Date().toISOString(),
-      };
-
-      await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_NUMBER}/accounts:update`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          localId,
-          displayName: elderRecord.name || undefined,
-          customAttributes: JSON.stringify(customAttributes),
-        }),
-      });
-    }
-
-    return { success: true, localId };
+    return {
+      uid: user.uid,
+      localId: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      customClaims: user.customClaims || {},
+      customAttributes: user.customClaims || {},
+    };
   } catch (err) {
-    console.warn('[firebaseAdmin] firebaseSaveElder notice:', err.message);
+    console.warn('[firebaseAdmin] firebaseLookupCaregiver notice:', err.message);
     return null;
   }
 }
 
 /**
- * Save or update Caregiver in Firebase Auth
+ * Save or update Elder in Firebase Auth
  */
-export async function firebaseSaveCaregiver(caregiverRecord, elderRecord) {
-  if (!caregiverRecord?.email) return null;
-  const email = caregiverRecord.email.trim().toLowerCase();
-  const password = caregiverRecord.password || 'care123';
-  const cleanPassword = password.length >= 6 ? password : `${password}123`;
+export async function firebaseSaveElder(elderRecord, caregiverRecord) {
+  if (!elderRecord || !adminAuth) return null;
+  const email = elderRecord.email ? elderRecord.email.trim().toLowerCase() : null;
+  const phone = elderRecord.phone || null;
 
   try {
-    const token = await getServiceAccountToken();
-    if (!token) return null;
-
-    let existing = await firebaseLookupUser(email);
-    let localId = existing?.localId;
-
-    if (!localId) {
-      const createRes = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_NUMBER}/accounts`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password: cleanPassword,
-          displayName: caregiverRecord.name || 'Caregiver Companion',
-        }),
-      });
-      if (createRes.ok) {
-        const createData = await createRes.json();
-        localId = createData.localId;
-      }
+    let user = null;
+    if (email) {
+      user = await adminAuth.getUserByEmail(email).catch(() => null);
+    }
+    if (!user && phone && phone.startsWith('+')) {
+      user = await adminAuth.getUserByPhoneNumber(phone).catch(() => null);
     }
 
-    if (localId) {
-      const customAttributes = {
-        role: 'caregiver',
-        elderId: elderRecord?.id || caregiverRecord.elderId,
-        linkedElder: elderRecord || null,
-        password: caregiverRecord.password,
+    if (!user) {
+      const createData = {
+        displayName: elderRecord.name || 'Sahara Elder',
+      };
+      if (email) createData.email = email;
+      if (phone && phone.startsWith('+') && phone.length >= 10) {
+        createData.phoneNumber = phone;
+      }
+      user = await adminAuth.createUser(createData).catch(err => {
+        console.warn('[firebaseAdmin] createUser notice for elder:', err.message);
+        return null;
+      });
+    }
+
+    if (user) {
+      const claims = {
+        role: 'elder',
+        elder: {
+          id: elderRecord.id || elderRecord.identifier || user.uid,
+          name: elderRecord.name || 'Sahara Member',
+          honorific: elderRecord.honorific || `${(elderRecord.name || 'Member').split(' ')[0]} ji`,
+          age: elderRecord.age || 74,
+          city: elderRecord.city || 'Guwahati',
+          state: elderRecord.state || 'Assam',
+          wing: elderRecord.wing || 'Garden Terrace Wing',
+          location: elderRecord.location || `${elderRecord.city || 'Guwahati'}, ${elderRecord.state || 'Assam'}`,
+          status: elderRecord.status || elderRecord.problemStatement || 'Mild Cognitive Support Mode',
+          avatar: elderRecord.avatar || '/avatar.png',
+          caregiverEmail: caregiverRecord?.email || elderRecord.caregiverEmail || '',
+        },
+        caregiverEmail: caregiverRecord?.email || '',
+        caregiverName: caregiverRecord?.name || '',
         updatedAt: new Date().toISOString(),
       };
 
-      await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_NUMBER}/accounts:update`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          localId,
-          password: cleanPassword,
-          displayName: caregiverRecord.name || undefined,
-          customAttributes: JSON.stringify(customAttributes),
-        }),
-      });
+      await adminAuth.setCustomUserClaims(user.uid, claims);
+      return { success: true, uid: user.uid };
     }
 
-    return { success: true, localId };
+    return null;
   } catch (err) {
-    console.warn('[firebaseAdmin] firebaseSaveCaregiver notice:', err.message);
+    console.warn('[firebaseAdmin] firebaseSaveElder error:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Save or update Caregiver in Firebase Auth with full linkedElder profile in claims
+ */
+export async function firebaseSaveCaregiver(caregiverRecord, elderRecord) {
+  if (!caregiverRecord?.email || !adminAuth) return null;
+  const cleanEmail = caregiverRecord.email.trim().toLowerCase();
+  const password = caregiverRecord.password || 'care123';
+  const cleanPassword = password.length >= 6 ? password : `${password}123`;
+  const cleanName = (caregiverRecord.name || 'Caregiver Companion').trim();
+
+  try {
+    let user = await adminAuth.getUserByEmail(cleanEmail).catch(() => null);
+
+    if (!user) {
+      user = await adminAuth.createUser({
+        email: cleanEmail,
+        password: cleanPassword,
+        displayName: cleanName,
+      }).catch(err => {
+        console.warn('[firebaseAdmin] createUser notice for caregiver:', err.message);
+        return null;
+      });
+    } else {
+      // Update display name or password if provided
+      await adminAuth.updateUser(user.uid, {
+        displayName: cleanName,
+        password: cleanPassword,
+      }).catch(() => {});
+    }
+
+    if (user) {
+      const elderName = elderRecord?.name || 'Sahara Member';
+      const firstName = elderName.split(' ')[0];
+      const honorific = elderRecord?.honorific || `${firstName} ji`;
+
+      const claims = {
+        role: 'caregiver',
+        password: caregiverRecord.password || 'care123',
+        elderId: elderRecord?.id || elderRecord?.identifier || caregiverRecord.elderId || '',
+        linkedElder: {
+          id: elderRecord?.id || elderRecord?.identifier || caregiverRecord.elderId || '',
+          name: elderName,
+          honorific: honorific,
+          age: parseInt(elderRecord?.age, 10) || 74,
+          city: elderRecord?.city || 'Guwahati',
+          state: elderRecord?.state || 'Assam',
+          wing: elderRecord?.wing || 'Garden Terrace Wing',
+          location: elderRecord?.location || `${elderRecord?.city || 'Guwahati'}, ${elderRecord?.state || 'Assam'}`,
+          status: elderRecord?.status || elderRecord?.problemStatement || 'Mild Cognitive Support Mode',
+          problemStatement: elderRecord?.problemStatement || elderRecord?.status || 'Mild Cognitive Support Mode',
+          tabletBattery: elderRecord?.tabletBattery || 94,
+          lastActive: 'Just now',
+          avatar: elderRecord?.avatar || '/avatar.png',
+          phone: elderRecord?.phone || '',
+          email: elderRecord?.email || '',
+          caregiverEmail: cleanEmail,
+          updatedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
+      await adminAuth.setCustomUserClaims(user.uid, claims);
+      return { success: true, uid: user.uid };
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('[firebaseAdmin] firebaseSaveCaregiver error:', err.message);
     return null;
   }
 }
@@ -256,6 +238,7 @@ export async function syncElderToFirebaseAuth(elder, caregiver) {
   return firebaseSaveElder(elder, caregiver);
 }
 
-export const adminAuth = null;
-export { adminDb };
+// Dummy export for backward compatibility so existing imports do not throw
+export const adminDb = null;
+export { adminAuth, adminApp };
 export default adminApp;

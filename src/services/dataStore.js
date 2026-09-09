@@ -194,12 +194,16 @@ class DataStore {
     this.saveState();
   }
 
-  updatePatientProfile({ name, age, location, city, state }) {
+  updatePatientProfile(data = {}) {
+    if (!this.state.patient || typeof this.state.patient !== 'object') {
+      this.state.patient = { ...defaultState.patient };
+    }
+    const { name, age, location, city, state, avatar, honorific, phone, email, status, wing } = data;
     if (name && name.trim()) {
       const cleanName = name.trim();
       this.state.patient.name = cleanName;
       const firstName = cleanName.split(' ')[0];
-      this.state.patient.honorific = firstName ? `${firstName} ji` : cleanName;
+      this.state.patient.honorific = honorific || (firstName ? `${firstName} ji` : cleanName);
     }
     if (age !== undefined && age !== '') {
       const numAge = parseInt(age, 10);
@@ -211,58 +215,96 @@ class DataStore {
       this.state.patient.location = location.trim();
       this.state.patient.wing = location.trim();
     }
+    if (wing && wing.trim()) {
+      this.state.patient.wing = wing.trim();
+    }
     if (city && city.trim()) {
       this.state.patient.city = city.trim();
     }
     if (state && state.trim()) {
       this.state.patient.state = state.trim();
     }
+    if (status && status.trim()) {
+      this.state.patient.status = status.trim();
+    }
+    if (avatar) {
+      this.state.patient.avatar = avatar;
+    }
+    if (phone) {
+      this.state.patient.phone = phone;
+    }
+    if (email) {
+      this.state.patient.email = email;
+    }
     this.saveState();
   }
 
   getPatient() {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const fresh = this.loadState();
-      if (fresh && fresh.patient) {
-        this.state.patient = fresh.patient;
-      }
-    }
-    if (this.state.patient && this.state.patient.name) {
-      return this.state.patient;
-    }
-    // Check if active user exists in session
+    // 1. If an active session exists in localStorage, inspect role & linkedElder first!
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const storedActive = localStorage.getItem('sahara_active_user');
         if (storedActive) {
           const u = JSON.parse(storedActive);
-          if (u && u.name) {
-            return {
-              id: u.id || u.phone || u.email,
-              name: u.name,
-              honorific: u.honorific || `${u.name.split(' ')[0]} ji`,
-              age: u.age || 74,
-              city: u.city || 'Guwahati',
-              state: u.state || 'Assam',
-              wing: u.location || 'Garden Terrace Wing',
-              location: u.location || `${u.city || 'Guwahati'}, ${u.state || 'Assam'}`,
-              status: 'Mild Cognitive Support Mode',
-              tabletBattery: 94,
-              avatar: u.avatar || '/avatar.png',
-              phone: u.phone || '',
-              email: u.email || '',
-              caregiverEmail: u.caregiver || 'riya@sahara.care',
+          // If logged-in user is a caregiver with a linkedElder, ALWAYS prioritize linkedElder!
+          if (u?.role === 'caregiver' && u.linkedElder?.name) {
+            const raw = u.linkedElder;
+            const cleanHonorific = raw.honorific || `${raw.name.split(' ')[0]} ji`;
+            const status = raw.status || raw.problemStatement || 'Mild Cognitive Support Mode';
+            const linked = {
+              id: raw.id || raw.identifier || raw.phone || raw.email || 'linked_elder',
+              name: raw.name,
+              honorific: cleanHonorific,
+              age: parseInt(raw.age, 10) || 74,
+              city: raw.city || 'Kolkata',
+              state: raw.state || 'West Bengal',
+              wing: raw.wing || raw.location || 'Garden Terrace Wing',
+              location: raw.location || `${raw.city || 'Kolkata'}, ${raw.state || 'West Bengal'}`,
+              status: status,
+              problemStatement: status,
+              tabletBattery: raw.tabletBattery || 94,
+              deviceConnected: true,
+              lastActive: raw.lastActive || 'Just now',
+              avatar: raw.avatar || '/avatar.png',
+              phone: raw.phone || '',
+              email: raw.email || '',
+              caregiverEmail: raw.caregiverEmail || u.email || '',
             };
+            this.state.patient = linked;
+            return linked;
+          }
+          // If logged-in user is an elder, return elder profile
+          if (u?.role === 'elder' && u.name) {
+            const elderObj = {
+              ...this.state.patient,
+              ...u,
+              honorific: u.honorific || `${u.name.split(' ')[0]} ji`,
+            };
+            this.state.patient = elderObj;
+            return elderObj;
           }
         }
       } catch (e) {}
     }
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const fresh = this.loadState();
+      if (fresh && fresh.patient && fresh.patient.name) {
+        this.state.patient = fresh.patient;
+        return this.state.patient;
+      }
+    }
+
+    if (this.state.patient && this.state.patient.name) {
+      return this.state.patient;
+    }
+
     // Safe fallback to defaultState so UI components never crash on patient.name
     return (this.state.patient && typeof this.state.patient === 'object') ? this.state.patient : defaultState.patient;
   }
 
   clearPatient() {
-    this.state.patient = null;
+    this.state.patient = { ...defaultState.patient, name: '', honorific: '' };
     this.saveState();
   }
 
@@ -286,6 +328,23 @@ class DataStore {
 
   getCaregiver() {
     if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const storedActive = localStorage.getItem('sahara_active_user');
+        if (storedActive) {
+          const u = JSON.parse(storedActive);
+          if (u?.role === 'caregiver' && u.name) {
+            return {
+              name: u.name,
+              email: u.email,
+              phone: u.phone || '+91 98540 12345',
+              relation: u.relation || 'Primary Caregiver',
+              avatar: u.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
+              ...u,
+            };
+          }
+        }
+      } catch (e) {}
+
       const fresh = this.loadState();
       if (fresh && fresh.caregiver) {
         this.state.caregiver = fresh.caregiver;
@@ -333,6 +392,7 @@ class DataStore {
     if (patientData && typeof patientData === 'object') {
       const rawName = patientData.name || 'Sahara Member';
       const cleanHonorific = patientData.honorific || `${rawName.split(' ')[0]} ji`;
+      const status = patientData.status || patientData.problemStatement || 'Mild Cognitive Support Mode';
       this.state.patient = {
         id: patientData.id || patientData.identifier || patientData.email || patientData.phone,
         name: rawName,
@@ -342,7 +402,8 @@ class DataStore {
         state: patientData.state || 'Assam',
         wing: patientData.wing || 'Garden Terrace Wing',
         location: patientData.location || `${patientData.city || 'Guwahati'}, ${patientData.state || 'Assam'}`,
-        status: patientData.status || 'Mild Cognitive Support Mode',
+        status: status,
+        problemStatement: status,
         tabletBattery: patientData.tabletBattery || 94,
         deviceConnected: true,
         lastActive: 'Just now',

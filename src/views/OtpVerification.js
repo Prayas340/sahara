@@ -301,7 +301,7 @@ export function renderOtpVerification(onNavigate, params = {}) {
         }
       } else {
         errorBanner?.classList.remove('hidden');
-        document.getElementById('otp-error-text').innerText = res?.message || "That code doesn't look quite right. Please enter 5432.";
+        document.getElementById('otp-error-text').innerText = res?.message || "Invalid verification code. Please check your SMS messages.";
       }
     });
 

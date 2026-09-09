@@ -75,15 +75,15 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
               <span className="w-3 h-3 rounded-full bg-[#006e1c] absolute -bottom-0.5 -right-0.5 border-2 border-white"></span>
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-bold text-[#032109] truncate">{patient?.name || 'Asha Devi Borah'}</p>
-              <p className="text-[11px] text-[#40493d] truncate">Mild Cognitive Support</p>
+              <p className="text-sm font-bold text-[#032109] truncate">{patient?.name || 'Sahara Member'}</p>
+              <p className="text-[11px] text-[#40493d] truncate">{patient?.status || patient?.problemStatement || 'Mild Cognitive Support Mode'}</p>
             </div>
           </div>
           <div className="mt-2.5 pt-2 border-t border-[#ebffe7] flex items-center justify-between text-[11px] text-[#40493d]">
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#006e1c]"></span>Live Connected
             </span>
-            <span className="font-bold text-[#0d631b]">{patient?.city || 'Guwahati'}</span>
+            <span className="font-bold text-[#0d631b]">{patient?.city || 'Local'}</span>
           </div>
         </div>
 

@@ -32,8 +32,8 @@ export default function ElderDashboardPage() {
     };
   }, []);
 
-  const displayName = activeUser?.name || patient?.name || 'Sahara Member';
-  const displayHonorific = activeUser?.honorific || patient?.honorific || (displayName ? `${displayName.split(' ')[0]} ji` : 'Elder');
+  const displayName = patient?.name || activeUser?.name || 'Sahara Member';
+  const displayHonorific = patient?.honorific || activeUser?.honorific || (displayName ? `${displayName.split(' ')[0]} ji` : 'Elder');
   const morningMed = medicines[0] || {
     title: 'Donepezil 5mg',
     detail: 'After breakfast with a warm cup of Assam tea',

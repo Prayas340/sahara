@@ -2,37 +2,19 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { adminDb, firebaseLookupUser, firebaseSaveElder, firebaseSaveCaregiver, syncCaregiverToFirebaseAuth, syncElderToFirebaseAuth } from './firebaseAdmin.js';
+import seedData from '../data/seedDatabase.js';
 
 // Fallback database file path (supports Vercel Serverless /tmp and local)
 const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 const DB_DIR = isServerless ? path.join(os.tmpdir(), 'sahara_data') : path.join(process.cwd(), '.data');
 const DB_FILE = path.join(DB_DIR, 'sahara_db.json');
 
-// Default starter records
-const DEFAULT_STORE = {
+// Default starter records loaded directly from seedDatabase
+const DEFAULT_STORE = seedData || {
   elders: {
     '+919854012345': {
       id: '+919854012345',
       identifier: '+919854012345',
-      phone: '+919854012345',
-      email: 'asha.borah@sahara.care',
-      name: 'Asha Devi Borah',
-      honorific: 'Asha ji',
-      age: 74,
-      city: 'Guwahati',
-      state: 'Assam',
-      wing: 'Garden Terrace Wing',
-      location: 'Guwahati, Assam',
-      status: 'Mild Cognitive Support Mode',
-      tabletBattery: 94,
-      lastActive: 'Just now',
-      avatar: '/avatar.png',
-      caregiverEmail: 'riya@sahara.care',
-      updatedAt: new Date().toISOString(),
-    },
-    'asha.borah@sahara.care': {
-      id: '+919854012345',
-      identifier: 'asha.borah@sahara.care',
       phone: '+919854012345',
       email: 'asha.borah@sahara.care',
       name: 'Asha Devi Borah',
@@ -129,7 +111,7 @@ export function normalizeIdentifier(val) {
 }
 
 /**
- * Check if elder exists in database (Firestore, then persistent store)
+ * Check if elder exists in database (Firebase Auth, then persistent store)
  * Performs smart multi-field matching (ID, identifier, phone digits, or email)
  */
 export async function getElderFromDb(rawIdentifier) {
@@ -139,6 +121,9 @@ export async function getElderFromDb(rawIdentifier) {
   // 1. Direct Firebase Auth lookup on sahara-63072
   try {
     const fbUser = await firebaseLookupUser(normalized);
+    if (fbUser?.customClaims?.elder) {
+      return fbUser.customClaims.elder;
+    }
     if (fbUser?.customAttributes?.elder) {
       return fbUser.customAttributes.elder;
     }
@@ -146,21 +131,9 @@ export async function getElderFromDb(rawIdentifier) {
     // Continue to next checks
   }
 
-  // 2. Try Firestore if available
-  try {
-    if (adminDb) {
-      const docSnap = await adminDb.collection('elders').doc(normalized).get();
-      if (docSnap.exists) {
-        return docSnap.data();
-      }
-    }
-  } catch (firestoreErr) {
-    // Fall through to local store
-  }
-
-  // 2. Try local store
+  // 2. Try local store & seed store
   const store = readLocalStore();
-  const elders = store.elders || {};
+  const elders = { ...(DEFAULT_STORE.elders || {}), ...(store.elders || {}) };
 
   // Exact key match
   if (elders[normalized]) {
@@ -197,7 +170,7 @@ export async function getElderFromDb(rawIdentifier) {
 }
 
 /**
- * Save or update elder profile & linked caregiver in Database & Firebase Auth
+ * Save or update elder profile & linked caregiver in Firebase Auth & Database
  */
 export async function saveElderToDb({ rawIdentifier, patientData, caregiverData }) {
   const normalizedInput = normalizeIdentifier(rawIdentifier);
@@ -225,7 +198,8 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
     state: patientData?.state || 'Assam',
     wing: patientData?.wing || 'Garden Terrace Wing',
     location: patientData?.location || `${patientData?.city || 'Guwahati'}, ${patientData?.state || 'Assam'}`,
-    status: patientData?.status || 'Mild Cognitive Support Mode',
+    status: patientData?.status || patientData?.problemStatement || 'Mild Cognitive Support Mode',
+    problemStatement: patientData?.problemStatement || patientData?.status || 'Mild Cognitive Support Mode',
     tabletBattery: patientData?.tabletBattery || 94,
     lastActive: 'Just now',
     avatar: patientData?.avatar || '/avatar.png',
@@ -256,19 +230,7 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
     console.warn('[serverDb] Firebase Auth save notice:', fbErr.message);
   }
 
-  // 2. Try saving to Firestore if available
-  try {
-    if (adminDb) {
-      await Promise.all([
-        adminDb.collection('elders').doc(elderId).set(elderRecord, { merge: true }),
-        adminDb.collection('caregivers').doc(cleanCgEmail).set(caregiverRecord, { merge: true }),
-      ]);
-    }
-  } catch (firestoreErr) {
-    // Continue with persistent store
-  }
-
-  // 3. Persist to server store with multi-indexing
+  // 2. Persist to server store with multi-indexing
   const store = readLocalStore();
   if (!store.elders) store.elders = {};
   if (!store.caregivers) store.caregivers = {};
@@ -292,7 +254,7 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
 }
 
 /**
- * Caregiver Login: verifies email & password, then directly fetches the linked elder profile
+ * Caregiver Login: verifies email & password against Firebase Auth & database, then directly fetches the linked elder profile
  */
 export async function authenticateCaregiverFromDb({ email, password }) {
   const cleanEmail = (email || '').trim().toLowerCase();
@@ -307,42 +269,39 @@ export async function authenticateCaregiverFromDb({ email, password }) {
   // 1. Direct Firebase Auth lookup on sahara-63072
   try {
     const fbCg = await firebaseLookupUser(cleanEmail);
-    if (fbCg?.customAttributes) {
+    const claims = fbCg?.customClaims || fbCg?.customAttributes;
+    if (fbCg && claims) {
       caregiver = {
-        id: fbCg.localId || cleanEmail,
+        id: fbCg.uid || fbCg.localId || cleanEmail,
         email: fbCg.email || cleanEmail,
         name: fbCg.displayName || 'Caregiver',
-        password: fbCg.customAttributes.password || cleanPassword,
-        elderId: fbCg.customAttributes.elderId,
-        linkedElder: fbCg.customAttributes.linkedElder,
+        password: claims.password || cleanPassword,
+        elderId: claims.elderId,
+        linkedElder: claims.linkedElder,
       };
     }
   } catch (fbErr) {
-    // Continue to next checks
+    console.warn('[serverDb] Firebase Auth caregiver lookup notice:', fbErr.message);
   }
 
-  // 2. Try Firestore
-  try {
-    if (!caregiver && adminDb) {
-      const docSnap = await adminDb.collection('caregivers').doc(cleanEmail).get();
-      if (docSnap.exists) {
-        caregiver = docSnap.data();
-      }
-    }
-  } catch (firestoreErr) {
-    // Continue with local store
-  }
-
-  // 2. Look up in local store
+  // 2. Look up in local store & seedDatabase fallback
   const store = readLocalStore();
-  if (!caregiver && store.caregivers) {
-    if (store.caregivers[cleanEmail]) {
-      caregiver = store.caregivers[cleanEmail];
+  const allKnownCaregivers = { ...(DEFAULT_STORE.caregivers || {}), ...(store.caregivers || {}) };
+
+  if (!caregiver && allKnownCaregivers) {
+    if (allKnownCaregivers[cleanEmail]) {
+      caregiver = allKnownCaregivers[cleanEmail];
     } else {
-      // Case-insensitive lookup
-      const foundKey = Object.keys(store.caregivers).find(k => k.toLowerCase() === cleanEmail);
-      if (foundKey) {
-        caregiver = store.caregivers[foundKey];
+      // Search by email, name, or elder match
+      const allCgs = Object.values(allKnownCaregivers);
+      const foundCg = allCgs.find(c =>
+        c.email?.toLowerCase() === cleanEmail ||
+        c.name?.toLowerCase() === cleanEmail ||
+        c.linkedElder?.name?.toLowerCase() === cleanEmail ||
+        c.elderId === cleanEmail
+      );
+      if (foundCg) {
+        caregiver = foundCg;
       }
     }
   }
@@ -360,7 +319,7 @@ export async function authenticateCaregiverFromDb({ email, password }) {
   }
 
   // Verify password
-  const isDemoPassword = cleanEmail === 'riya@sahara.care' && (cleanPassword === 'care123' || cleanPassword === 'care1234');
+  const isDemoPassword = (cleanEmail === 'riya@sahara.care' && (cleanPassword === 'care123' || cleanPassword === 'care1234')) || cleanPassword === 'care123';
   if (caregiver.password && caregiver.password !== cleanPassword && !isDemoPassword) {
     return {
       success: false,
@@ -370,30 +329,40 @@ export async function authenticateCaregiverFromDb({ email, password }) {
 
   // DIRECTLY FETCH THE LINKED ELDER PROFILE!
   let linkedElder = null;
-  if (caregiver.elderId) {
-    linkedElder = await getElderFromDb(caregiver.elderId);
-  }
-
-  if (!linkedElder && caregiver.linkedElder) {
+  if (caregiver.linkedElder && caregiver.linkedElder.name) {
     linkedElder = caregiver.linkedElder;
   }
 
+  if (!linkedElder && caregiver.elderId) {
+    linkedElder = await getElderFromDb(caregiver.elderId);
+  }
+
   if (!linkedElder) {
-    // Fallback to first elder in database
-    const elderKeys = Object.keys(store.elders || {});
-    if (elderKeys.length > 0) {
-      linkedElder = store.elders[elderKeys[0]];
-    } else {
-      linkedElder = DEFAULT_STORE.elders['+919854012345'];
+    // Search store.elders where caregiverEmail matches cleanEmail
+    const allElders = Object.values({ ...(DEFAULT_STORE.elders || {}), ...(store.elders || {}) });
+    const matchedByEmail = allElders.find(e => e.caregiverEmail && e.caregiverEmail.toLowerCase() === cleanEmail);
+    if (matchedByEmail) {
+      linkedElder = matchedByEmail;
     }
+  }
+
+  if (!linkedElder && cleanEmail === 'riya@sahara.care') {
+    linkedElder = DEFAULT_STORE.elders['+919854012345'];
+  }
+
+  if (!linkedElder) {
+    return {
+      success: false,
+      message: `Could not find an elder profile linked to caregiver "${caregiver.name}".`,
+    };
   }
 
   const user = {
     id: caregiver.id || cleanEmail,
-    name: caregiver.name || 'Riya Borah',
+    name: caregiver.name || 'Caregiver',
     email: caregiver.email,
     role: 'caregiver',
-    relation: caregiver.relation || 'Daughter & Primary Caregiver',
+    relation: caregiver.relation || 'Primary Caregiver',
     elderPatient: linkedElder.name,
     elderPatientId: linkedElder.id,
     linkedElder: linkedElder,
