@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '../../services/authService.js';
-import { dataStore } from '../../services/dataStore.js';
 import { showToast } from '../../components/Toast.jsx';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -17,19 +16,6 @@ export default function CaregiverLoginPage() {
   const [loginError, setLoginError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
   const [touched, setTouched] = useState({ email: false, password: false });
-  const [patient, setPatient] = useState({});
-  const [caregiver, setCaregiver] = useState({});
-
-  useEffect(() => {
-    const latestCg = authService.getLatestRegisteredCaregiver ? authService.getLatestRegisteredCaregiver() : null;
-    const storeCg = dataStore.getCaregiver ? dataStore.getCaregiver() : null;
-    const activeCg = latestCg || storeCg || { email: 'riya@sahara.care', password: 'care123', name: 'Riya Borah' };
-
-    const currentPatient = latestCg?.patientData || (dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {}));
-    setPatient(currentPatient);
-    setCaregiver(activeCg);
-    // Inputs remain empty by default so credentials must be provided explicitly
-  }, []);
 
   const validateEmail = (val) => {
     const clean = (val || '').trim();
@@ -154,11 +140,9 @@ export default function CaregiverLoginPage() {
                     <span className="w-2.5 h-2.5 rounded-full bg-[#0d631b] animate-pulse"></span>
                     <p className="text-xs sm:text-sm font-bold text-[#0d631b]">Caregiver Companion Portal</p>
                   </div>
-                  {patient?.name && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb]">
-                      Linked: {patient.name.split(' ')[0]}
-                    </span>
-                  )}
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb]">
+                    Protected Access
+                  </span>
                 </div>
               </div>
 
@@ -184,7 +168,7 @@ export default function CaregiverLoginPage() {
 
               <h2 className="text-2xl font-extrabold text-[#032109] mb-1">Welcome, Caregiver</h2>
               <p className="text-xs sm:text-sm text-[#40493d] mb-5">
-                Sign in with the email & password configured during the Elder View setup to load synchronized care overview.
+                Sign in with your authorized email and password to access the care dashboard and patient insights.
               </p>
 
               {/* Error Alert Box */}
@@ -255,7 +239,7 @@ export default function CaregiverLoginPage() {
                     <label className="text-xs font-bold text-[#032109]" htmlFor="cg-login-password">
                       Password <span className="text-red-600">*</span>
                     </label>
-                    <span className="text-[11px] text-[#40493d]">Direct elder security key</span>
+                    <span className="text-[11px] text-[#40493d]">Authorized access password</span>
                   </div>
                   <div className="relative flex items-center">
                     <span className="material-symbols-outlined absolute left-3.5 text-gray-400 text-lg pointer-events-none">

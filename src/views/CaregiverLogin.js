@@ -1,10 +1,7 @@
 import { authService } from '../services/authService.js';
-import { dataStore } from '../services/dataStore.js';
 import { showToast } from '../utils/toast.js';
 
 export function renderCaregiverLogin(onNavigate) {
-  const currentElder = dataStore.getPatient();
-
   const html = `
     <div class="min-h-screen lg:h-screen lg:max-h-screen bg-[#ebffe7] flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-y-auto lg:overflow-hidden">
       <main class="w-full max-w-lg lg:max-w-5xl xl:max-w-6xl mx-auto my-auto py-2 sm:py-4">
@@ -74,21 +71,13 @@ export function renderCaregiverLogin(onNavigate) {
                   />
                 </div>
                 
-                <!-- Linked Elder Status Pill inside banner -->
                 <div class="p-3 bg-white flex items-center justify-between border-t border-[#cdf2cb]">
                   <div class="flex items-center gap-2">
-                    <img 
-                      class="w-8 h-8 rounded-full object-cover border border-[#cdf2cb] bg-white" 
-                      src="${currentElder.avatar || '/avatar.png'}" 
-                      alt="${currentElder.name}"
-                    />
-                    <div class="text-left">
-                      <p class="text-xs font-bold text-[#032109] truncate max-w-[170px]">${currentElder.name || 'Elder Patient'}</p>
-                      <p class="text-[10px] text-[#40493d]">${currentElder.city || 'Guwahati'}, ${currentElder.state || 'Assam'}</p>
-                    </div>
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#0d631b] animate-pulse"></span>
+                    <p class="text-xs sm:text-sm font-bold text-[#0d631b]">Caregiver Companion Portal</p>
                   </div>
-                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb]">
-                    Linked Profile
+                  <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb]">
+                    Protected Access
                   </span>
                 </div>
               </div>
@@ -123,7 +112,7 @@ export function renderCaregiverLogin(onNavigate) {
                 <h2 class="text-lg sm:text-xl font-extrabold text-[#032109]">Sign In to Caregiver Portal</h2>
               </div>
               <p class="text-xs sm:text-sm text-[#40493d] mb-4">
-                Enter the caregiver credentials configured during the Elder profile setup. Signing in will directly fetch and load your loved one's care plan.
+                Sign in with your authorized caregiver email and password to access the patient care dashboard.
               </p>
 
               <!-- Error Alert Box -->
