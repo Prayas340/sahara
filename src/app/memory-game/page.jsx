@@ -276,7 +276,7 @@ export default function MemoryMatchGamePage() {
                 ) : (
                   <div className="card-tactile relative flex flex-col items-center justify-center p-4 bg-[#cdf2cb] hover:bg-[#d3f8d0] rounded-3xl shadow-[0_6px_0_#1b6d24] border border-[#bfcaba] min-h-[200px] sm:min-h-[240px] group">
                     <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/90 flex flex-col items-center justify-center text-[#0d631b] shadow-sm group-hover:scale-105 transition-transform border border-[#d9fdd6]">
-                      <span className="material-symbols-outlined text-4xl sm:text-5xl">{card.icon}</span>
+                      <span className="material-symbols-outlined text-3xl sm:text-4xl text-[#0d631b]">touch_app</span>
                       <span className="text-[11px] font-bold text-[#40493d] mt-1">{t.tapToOpen || 'Tap to Open'}</span>
                     </div>
                     <span className="mt-3 text-xs sm:text-sm font-bold text-[#032109]">Card {idx + 1}</span>
