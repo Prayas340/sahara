@@ -586,21 +586,29 @@ class DataStore {
     this.state.gamesPlayedCount = (this.state.gamesPlayedCount || 0) + 1;
     this.saveState();
 
-    // Resolve elder identity: prefer active logged-in user, fall back to state.patient
-    let elderId = null;
-    let caregiverEmail = null;
+    // Resolve elder identity: prefer passed args, then active logged-in user, fall back to state.patient
+    let elderId = scoreData.elderId || null;
+    let caregiverEmail = scoreData.caregiverEmail || null;
     try {
       if (typeof window !== 'undefined') {
         const activeUser = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
-        if (activeUser?.role === 'elder') {
-          elderId = activeUser.phone || activeUser.email || activeUser.id;
-          caregiverEmail = activeUser.caregiverEmail || null;
-        } else if (activeUser?.role === 'caregiver') {
-          elderId = activeUser.linkedElder?.phone || activeUser.linkedElder?.id || activeUser.linkedElder?.email;
-          caregiverEmail = activeUser.email || null;
+        if (!elderId) {
+          if (activeUser?.role === 'elder') {
+            elderId = activeUser.phone || activeUser.email || activeUser.id;
+          } else if (activeUser?.role === 'caregiver') {
+            elderId = activeUser.linkedElder?.phone || activeUser.linkedElder?.id || activeUser.linkedElder?.email;
+          }
+        }
+        if (!caregiverEmail) {
+          if (activeUser?.role === 'caregiver') {
+            caregiverEmail = activeUser.email || null;
+          } else if (activeUser?.role === 'elder') {
+            caregiverEmail = activeUser.caregiverEmail || null;
+          }
         }
       }
     } catch (e) {}
+
     // Fallback to state
     if (!elderId) {
       elderId = this.state.patient?.id || this.state.patient?.phone || this.state.patient?.email;
@@ -609,8 +617,17 @@ class DataStore {
       caregiverEmail = this.state.caregiver?.email || this.state.patient?.caregiverEmail;
     }
 
+    // Persist scores to localStorage under both targetId and general keys
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const targetId = elderId || this.state.patient?.id || this.state.patient?.phone || 'global';
+        localStorage.setItem(`sahara_game_scores_${targetId}`, JSON.stringify(this.state.gameScores));
+        localStorage.setItem('sahara_game_scores', JSON.stringify(this.state.gameScores));
+      } catch (e) {}
+    }
+
     // Async persist to server database
-    if (elderId) {
+    if (elderId || caregiverEmail) {
       fetch('/api/game-scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -621,7 +638,7 @@ class DataStore {
     // Notify caregiver portal in real time
     this.notifyChange();
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('sahara:game-score-change', { detail: { score: newScore } }));
+      window.dispatchEvent(new CustomEvent('sahara:game-score-change', { detail: { score: newScore, elderId, caregiverEmail } }));
     }
     return newScore;
   }
@@ -631,11 +648,31 @@ class DataStore {
       this.state.gameScores = scores;
       this.state.gamesPlayedCount = scores.length;
       this.saveState();
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
+          localStorage.setItem(`sahara_game_scores_${targetId}`, JSON.stringify(scores));
+          localStorage.setItem('sahara_game_scores', JSON.stringify(scores));
+        } catch (e) {}
+      }
       this.notifyChange();
     }
   }
 
   getGameScores() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
+        const stored = localStorage.getItem(`sahara_game_scores_${targetId}`) || localStorage.getItem('sahara_game_scores');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.state.gameScores = parsed;
+            return parsed;
+          }
+        }
+      } catch (e) {}
+    }
     return Array.isArray(this.state.gameScores) ? this.state.gameScores : [];
   }
 

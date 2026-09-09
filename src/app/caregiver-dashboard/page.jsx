@@ -138,14 +138,14 @@ export default function CaregiverDashboardPage() {
               const data = docSnap.data() || {};
               const sessions = typeof data.gameSessions === 'number' ? data.gameSessions : 0;
               const score = typeof data.gameScore === 'number' ? data.gameScore : 0;
-              setTodayGameSessions(sessions);
-              setTodayGameScore(score);
+              if (sessions > 0) setTodayGameSessions(prev => Math.max(prev, sessions));
+              if (score > 0) setTodayGameScore(prev => Math.max(prev, score));
 
               const history = Array.isArray(data.gamesHistory) ? data.gamesHistory : [];
               setGameAnalytics(prev => ({
                 ...prev,
-                todaySessions: sessions,
-                todayScore: score,
+                todaySessions: Math.max(sessions, prev?.todaySessions || 0),
+                todayScore: Math.max(score, prev?.todayScore || 0),
                 sessions: history.length > 0 ? history : (prev?.sessions || []),
                 recentScores: history.length > 0 ? history : (prev?.recentScores || []),
               }));
@@ -174,18 +174,12 @@ export default function CaregiverDashboardPage() {
                 setActiveSosAlert(null);
               }
             } else {
-              setTodayGameSessions(0);
-              setTodayGameScore(0);
+              // Daily log document does not exist yet in Firestore for today
               setActiveSosAlert(null);
-              // When no daily log document exists yet for today, existing scheduled medicines start as pending (taken: false)
-              setMedicines(prev => prev.map(m => ({ ...m, taken: false, takenAt: null, takenDate: todayDate })));
-              setGameAnalytics(prev => ({
-                ...prev,
-                todaySessions: 0,
-                todayScore: 0,
-                sessions: [],
-                recentScores: [],
-              }));
+              // Do NOT zero out scores if already loaded from database or dataStore
+              if (_elderId || _caregiverEmail) {
+                fetchServerScores(_elderId, _caregiverEmail);
+              }
             }
           } catch (snapErr) {
             console.warn('[CaregiverDashboard] dailyLog snapshot parsing error:', snapErr);
@@ -261,13 +255,27 @@ export default function CaregiverDashboardPage() {
         .then(sData => {
           if (sData?.success && sData?.scores) {
             dataStore.saveGameScores?.(sData.scores);
-            if (sData.analytics) setGameAnalytics(sData.analytics);
+            if (sData.analytics) {
+              setGameAnalytics(sData.analytics);
+              const tSessions = Number(sData.analytics.todaySessions) || 0;
+              const tScore = Number(sData.analytics.todayScore) || 0;
+              if (tSessions > 0) setTodayGameSessions(prev => Math.max(prev, tSessions));
+              if (tScore > 0) setTodayGameScore(prev => Math.max(prev, tScore));
+            }
           } else if (dataStore.getGameAnalytics) {
-            setGameAnalytics(dataStore.getGameAnalytics());
+            const ga = dataStore.getGameAnalytics();
+            setGameAnalytics(ga);
+            if (ga?.todaySessions > 0) setTodayGameSessions(prev => Math.max(prev, ga.todaySessions));
+            if (ga?.todayScore > 0) setTodayGameScore(prev => Math.max(prev, ga.todayScore));
           }
         })
         .catch(() => {
-          if (dataStore.getGameAnalytics) setGameAnalytics(dataStore.getGameAnalytics());
+          if (dataStore.getGameAnalytics) {
+            const ga = dataStore.getGameAnalytics();
+            setGameAnalytics(ga);
+            if (ga?.todaySessions > 0) setTodayGameSessions(prev => Math.max(prev, ga.todaySessions));
+            if (ga?.todayScore > 0) setTodayGameScore(prev => Math.max(prev, ga.todayScore));
+          }
         });
     };
 
@@ -367,9 +375,27 @@ export default function CaregiverDashboardPage() {
     }
 
 
-    // On game score change, re-fetch from server for real data
-    const onGameScoreChange = () => {
+    // On game score change, update state immediately and re-fetch from server
+    const onGameScoreChange = (e) => {
       syncData();
+      if (e?.detail?.score) {
+        const s = e.detail.score;
+        const addScore = Number(s.score) || 0;
+        setTodayGameSessions(prev => prev + 1);
+        setTodayGameScore(prev => prev + addScore);
+        setGameAnalytics(prev => {
+          const newSessions = (prev?.todaySessions || 0) + 1;
+          const newScore = (prev?.todayScore || 0) + addScore;
+          const history = [s, ...(prev?.sessions || [])];
+          return {
+            ...prev,
+            todaySessions: newSessions,
+            todayScore: newScore,
+            sessions: history,
+            recentScores: history.slice(0, 10),
+          };
+        });
+      }
       fetchServerScores(_elderId, _caregiverEmail);
     };
 
@@ -388,13 +414,13 @@ export default function CaregiverDashboardPage() {
     window.addEventListener('sahara:game-score-change', onGameScoreChange);
     window.addEventListener('sahara:medicines-change', onMedicinesChange);
 
-    // Poll scores and routine completions from server every 15 seconds for real-time cross-device sync
+    // Poll scores and routine completions from server every 5 seconds for real-time cross-device sync
     const pollInterval = setInterval(() => {
       if (_elderId || _caregiverEmail) {
         fetchServerScores(_elderId, _caregiverEmail);
         fetchServerReminders(_elderId, _caregiverEmail);
       }
-    }, 15000);
+    }, 5000);
 
     // Read initial tab from URL if present
     if (typeof window !== 'undefined') {
@@ -458,6 +484,8 @@ export default function CaregiverDashboardPage() {
   const takenCount = medicines.filter((m) => m.taken).length;
   const totalMeds = medicines.length;
   const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 0;
+  const displayTodaySessions = Math.max(todayGameSessions, gameAnalytics?.todaySessions || 0);
+  const displayTodayScore = Math.max(todayGameScore, gameAnalytics?.todayScore || 0);
 
   const handleSelectTab = (tab) => {
     setActiveTab(tab);
@@ -817,11 +845,11 @@ export default function CaregiverDashboardPage() {
                     <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold">{t.activeToday || 'Today'}</span>
                   </div>
                   <p className="text-2xl font-extrabold text-[#032109]">
-                    {todayGameSessions} {t.metricSessions || 'Sessions'}
+                    {displayTodaySessions} {t.metricSessions || 'Sessions'}
                   </p>
                   <span className="text-xs text-[#40493d] mt-1">
-                    {todayGameSessions > 0
-                      ? `${todayGameScore} pts logged today`
+                    {displayTodaySessions > 0
+                      ? `${displayTodayScore} pts logged today`
                       : 'No game rounds played today'}
                   </span>
                 </div>
@@ -1022,12 +1050,12 @@ export default function CaregiverDashboardPage() {
                       <span className="text-xs font-bold text-[#40493d]">{t.dailyScore || "Today's Game Score"}</span>
                     </div>
                     <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-[#cdf2cb] text-[#006e1c]">
-                      {gameAnalytics.todaySessions || 0} {t.metricSessions || 'Sessions'}
+                      {displayTodaySessions} {t.metricSessions || 'Sessions'}
                     </span>
                   </div>
                   <div>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-3xl font-extrabold text-[#032109]">{gameAnalytics.todayScore || 0}</span>
+                      <span className="text-3xl font-extrabold text-[#032109]">{displayTodayScore}</span>
                       <span className="text-sm font-bold text-[#0d631b]">{t.pointsLabel || 'pts'}</span>
                     </div>
                     <p className="text-xs text-[#40493d] mt-1">Earned in today&apos;s memory matches</p>

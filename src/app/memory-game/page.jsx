@@ -11,6 +11,57 @@ import { showToast } from '../../components/Toast.jsx';
 import { db, normalizeElderId } from '../../lib/firebaseClient.js';
 import { doc, updateDoc, setDoc, increment, arrayUnion, serverTimestamp } from 'firebase/firestore';
 
+function resolveElderAndCaregiver() {
+  let elderId = null;
+  let caregiverEmail = null;
+  let caregiverName = null;
+
+  try {
+    const stored = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
+    if (stored?.role === 'elder') {
+      elderId = stored.phone || stored.email || stored.id;
+      caregiverEmail = stored.caregiverEmail || null;
+      caregiverName = stored.caregiverName || null;
+    } else if (stored?.role === 'caregiver') {
+      elderId = stored.linkedElder?.phone || stored.linkedElder?.id || stored.linkedElder?.email;
+      caregiverEmail = stored.email || null;
+      caregiverName = stored.name || null;
+    }
+  } catch (e) {}
+
+  if (!elderId) {
+    const u = authService?.getCurrentUser ? authService.getCurrentUser() : null;
+    if (u?.role === 'elder') {
+      elderId = u.phone || u.email || u.id;
+      caregiverEmail = u.caregiverEmail || caregiverEmail;
+      caregiverName = u.caregiverName || caregiverName;
+    } else if (u?.role === 'caregiver') {
+      elderId = u.linkedElder?.phone || u.linkedElder?.id || u.linkedElder?.email;
+      caregiverEmail = u.email || caregiverEmail;
+      caregiverName = u.name || caregiverName;
+    }
+  }
+
+  if (!elderId) {
+    const p = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
+    elderId = p?.phone || p?.id || p?.email;
+    caregiverEmail = caregiverEmail || p?.caregiverEmail;
+    caregiverName = caregiverName || p?.caregiverName;
+  }
+  if (!caregiverEmail) {
+    const cg = dataStore.getCaregiver ? dataStore.getCaregiver() : dataStore.state?.caregiver;
+    caregiverEmail = cg?.email || dataStore.state?.patient?.caregiverEmail || null;
+    caregiverName = caregiverName || cg?.name || null;
+  }
+
+  return {
+    elderId: elderId || '+919854012345',
+    caregiverEmail: caregiverEmail || 'prayasdey10@gmail.com',
+    caregiverName: caregiverName || 'Primary Caregiver',
+    cleanElderId: normalizeElderId(elderId || '+919854012345'),
+  };
+}
+
 export default function MemoryMatchGamePage() {
   const router = useRouter();
   const { t, lang } = useTranslation();
@@ -100,29 +151,12 @@ export default function MemoryMatchGamePage() {
           setLastScoreEarned(score);
           setRoundCompleted(true);
 
-          // Resolve active elder identity
-          let elderId = null;
-          try {
-            const activeUser = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
-            if (activeUser?.role === 'elder') {
-              elderId = activeUser.phone || activeUser.email || activeUser.id;
-            } else if (activeUser?.role === 'caregiver') {
-              elderId = activeUser.linkedElder?.phone || activeUser.linkedElder?.id || activeUser.linkedElder?.email;
-            }
-          } catch (e) {}
-          if (!elderId) {
-            const u = authService?.getCurrentUser ? authService.getCurrentUser() : null;
-            if (u?.role === 'elder') {
-              elderId = u.phone || u.email || u.id;
-            } else if (u?.role === 'caregiver') {
-              elderId = u.linkedElder?.phone || u.linkedElder?.id || u.linkedElder?.email;
-            }
-          }
-          const cleanElderId = normalizeElderId(elderId || dataStore.state?.patient?.phone || '+919854012345');
+          // Resolve identities reliably for cross-device sync
+          const { elderId, caregiverEmail, cleanElderId } = resolveElderAndCaregiver();
           const todayDate = new Date().toISOString().split('T')[0];
 
           // 1. Real-time Firestore Mutation
-          if (db) {
+          if (db && cleanElderId) {
             const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
             const elderRef = doc(db, 'elders', cleanElderId);
             const gameEntry = {
@@ -152,7 +186,7 @@ export default function MemoryMatchGamePage() {
             }, { merge: true }).catch(() => {});
           }
 
-          // Local state & API fallback
+          // 2. Local state & DataStore update
           dataStore.incrementGamesCount?.();
           dataStore.recordGameScore?.({
             score,
@@ -160,7 +194,46 @@ export default function MemoryMatchGamePage() {
             matchedPairs: 3,
             accuracy,
             durationSeconds: duration,
+            date: todayDate,
+            elderId,
+            caregiverEmail,
           });
+
+          // 3. Direct server DB persistence
+          fetch('/api/game-scores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              elderId,
+              caregiverEmail,
+              score,
+              moves: updatedMoves,
+              matchedPairs: 3,
+              accuracy,
+              durationSeconds: duration,
+              status: accuracy >= 90 ? 'High Focus' : 'Steady Recall',
+              date: todayDate,
+            }),
+          }).catch(err => console.warn('[MemoryGame] API save notice:', err));
+
+          // 4. Dispatch event across windows
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('sahara:game-score-change', {
+              detail: {
+                score: {
+                  score,
+                  moves: updatedMoves,
+                  matchedPairs: 3,
+                  accuracy,
+                  durationSeconds: duration,
+                  date: todayDate,
+                  timestamp: new Date().toISOString(),
+                },
+                elderId,
+                caregiverEmail,
+              }
+            }));
+          }
 
           showToast(`🌟 Round Complete! Score: ${score} pts (${accuracy}% Recall)`, 'success', 5000);
           speakText(`Round Complete! You scored ${score} points!`);

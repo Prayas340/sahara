@@ -538,15 +538,33 @@ export async function saveGameScoreToDb(scoreData) {
   if (!store.gameScores) store.gameScores = {};
 
   const id = 'score_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-  const elderId = scoreData.elderId ? normalizeIdentifier(scoreData.elderId) : 'default_elder';
-  const caregiverEmail = scoreData.caregiverEmail ? scoreData.caregiverEmail.trim().toLowerCase() : '';
+  let elderId = scoreData.elderId ? normalizeIdentifier(scoreData.elderId) : null;
+  let caregiverEmail = scoreData.caregiverEmail ? scoreData.caregiverEmail.trim().toLowerCase() : null;
+
+  // Resolve cross-links if one is missing
+  if (!caregiverEmail && elderId) {
+    const elder = store.elders?.[elderId] || findElderInDb(elderId);
+    if (elder?.caregiverEmail) {
+      caregiverEmail = elder.caregiverEmail.trim().toLowerCase();
+    }
+  }
+
+  if (!elderId && caregiverEmail) {
+    const cg = store.caregivers?.[caregiverEmail];
+    if (cg?.elderId) {
+      elderId = normalizeIdentifier(cg.elderId);
+    }
+  }
+
+  if (!elderId) elderId = 'default_elder';
+
   const dateStr = scoreData.date || new Date().toISOString().split('T')[0];
   const timestamp = scoreData.timestamp || new Date().toISOString();
 
   const record = {
     id,
     elderId,
-    caregiverEmail,
+    caregiverEmail: caregiverEmail || '',
     score: Number(scoreData.score) || 300,
     moves: Number(scoreData.moves) || 6,
     matchedPairs: Number(scoreData.matchedPairs) || 3,
@@ -557,9 +575,15 @@ export async function saveGameScoreToDb(scoreData) {
     status: scoreData.status || 'Excellent Recall',
   };
 
-  // Index by elderId
+  // Index by elderId (normalized)
   if (!store.gameScores[elderId]) store.gameScores[elderId] = [];
   store.gameScores[elderId].unshift(record);
+
+  // Also index by raw elderId if different
+  if (scoreData.elderId && scoreData.elderId !== elderId) {
+    if (!store.gameScores[scoreData.elderId]) store.gameScores[scoreData.elderId] = [];
+    store.gameScores[scoreData.elderId].unshift(record);
+  }
 
   // Also index by caregiverEmail if available
   if (caregiverEmail) {
@@ -592,20 +616,35 @@ export async function getGameScoresFromDb(args) {
 
   if (elderId) {
     const cleanId = normalizeIdentifier(elderId);
-    if (store.gameScores?.[cleanId]) {
+    if (store.gameScores?.[cleanId] && store.gameScores[cleanId].length > 0) {
       scores = store.gameScores[cleanId];
+    } else if (store.gameScores?.[elderId] && store.gameScores[elderId].length > 0) {
+      scores = store.gameScores[elderId];
     }
   }
 
   if (scores.length === 0 && caregiverEmail) {
     const cleanCg = caregiverEmail.trim().toLowerCase();
-    if (store.gameScores?.[cleanCg]) {
+    if (store.gameScores?.[cleanCg] && store.gameScores[cleanCg].length > 0) {
       scores = store.gameScores[cleanCg];
     } else {
       const cg = store.caregivers?.[cleanCg];
-      if (cg?.elderId && store.gameScores?.[cg.elderId]) {
-        scores = store.gameScores[cg.elderId];
+      if (cg?.elderId) {
+        if (store.gameScores?.[cg.elderId] && store.gameScores[cg.elderId].length > 0) {
+          scores = store.gameScores[cg.elderId];
+        } else if (store.gameScores?.[normalizeIdentifier(cg.elderId)] && store.gameScores[normalizeIdentifier(cg.elderId)].length > 0) {
+          scores = store.gameScores[normalizeIdentifier(cg.elderId)];
+        }
       }
+    }
+  }
+
+  // If still empty and elderId is known, check if elder has a linked caregiver
+  if (scores.length === 0 && elderId) {
+    const cleanId = normalizeIdentifier(elderId);
+    const elder = store.elders?.[cleanId] || store.elders?.[elderId] || findElderInDb(cleanId) || findElderInDb(elderId);
+    if (elder?.caregiverEmail && store.gameScores?.[elder.caregiverEmail.trim().toLowerCase()]) {
+      scores = store.gameScores[elder.caregiverEmail.trim().toLowerCase()];
     }
   }
 
