@@ -6,71 +6,12 @@ const defaultState = {
   patient: null,
   caregiver: null,
   contacts: [],
-  medicines: [
-    {
-      id: 'med_morning',
-      title: 'Morning Medicine',
-      detail: 'Blood pressure tablet & Vitamin D',
-      instruction: 'Take 1 round white tablet and 1 yellow gel capsule with lukewarm water after breakfast.',
-      scheduledTime: '8:00 AM',
-      isDue: true,
-      taken: false,
-      takenAt: null,
-    },
-    {
-      id: 'med_afternoon',
-      title: 'Afternoon Digestive',
-      detail: 'Herbal digestive tonic (10ml)',
-      instruction: 'Mix with warm water after lunch.',
-      scheduledTime: '1:30 PM',
-      isDue: false,
-      taken: true,
-      takenAt: '1:35 PM',
-    },
-    {
-      id: 'med_night',
-      title: 'Night Calm Routine',
-      detail: 'Joint mobility tablet & warm turmeric milk',
-      instruction: 'Take before reading or sleep.',
-      scheduledTime: '8:30 PM',
-      isDue: false,
-      taken: false,
-      takenAt: null,
-    }
-  ],
+  medicines: [],
   gamesPlayedCount: 0,
   gameScores: [],
   moodRating: 'Peaceful & Alert',
   wellnessBroadcasts: [],
-  reminders: [
-    {
-      id: 'rem_1',
-      title: 'Take blood pressure tablet with warm water',
-      category: 'Medicine',
-      time: '08:00 AM',
-      frequency: 'Daily',
-      whatsAppSync: true,
-      recipients: 'Both (Active)',
-    },
-    {
-      id: 'rem_2',
-      title: 'Veranda gentle morning stroll',
-      category: 'Walk / Stretch',
-      time: '09:30 AM',
-      frequency: 'Daily',
-      whatsAppSync: true,
-      recipients: 'Patient (Asha ji)',
-    },
-    {
-      id: 'rem_3',
-      title: 'Familiar Treasures memory picture game',
-      category: 'Memory Game',
-      time: '04:00 PM',
-      frequency: 'Daily',
-      whatsAppSync: false,
-      recipients: 'Patient (Asha ji)',
-    }
-  ]
+  reminders: []
 };
 
 class DataStore {
@@ -271,10 +212,10 @@ class DataStore {
       language: this.state.language || 'English',
       patient: null,
       caregiver: null,
-      contacts: [...defaultState.contacts],
-      medicines: [...defaultState.medicines],
-      reminders: [...defaultState.reminders],
-      gamesPlayedCount: 3,
+      contacts: [...(defaultState.contacts || [])],
+      medicines: [...(defaultState.medicines || [])],
+      reminders: [...(defaultState.reminders || [])],
+      gamesPlayedCount: 0,
       moodRating: 'Peaceful & Alert',
       wellnessBroadcasts: [],
     };
@@ -401,39 +342,10 @@ class DataStore {
         this.state.contacts = customContacts;
       }
 
-      // Update medicines tailored to this elder
-      this.state.medicines = [
-        {
-          id: 'med_morning',
-          title: status.includes('Alzheimer') || status.includes('Cognitive') ? 'Donepezil & Morning Rhythm' : 'Morning Vitality Dose',
-          detail: `Blood pressure tablet & warm hydration after breakfast for ${cleanHonorific}`,
-          instruction: 'Take with warm water or light tea.',
-          scheduledTime: '08:00 AM',
-          isDue: false,
-          taken: true,
-          takenAt: '08:15 AM',
-        },
-        {
-          id: 'med_afternoon',
-          title: 'Afternoon Digestive Tonic',
-          detail: '10ml digestive syrup with lukewarm water after lunch',
-          instruction: 'Take after midday rest.',
-          scheduledTime: '01:30 PM',
-          isDue: true,
-          taken: false,
-          takenAt: null,
-        },
-        {
-          id: 'med_night',
-          title: 'Night Calm Routine',
-          detail: 'Joint mobility tablet with warm turmeric milk',
-          instruction: 'Take before sleep.',
-          scheduledTime: '08:30 PM',
-          isDue: false,
-          taken: false,
-          takenAt: null,
-        }
-      ];
+      // Load actual medicines for this elder if present, otherwise preserve existing state
+      if (Array.isArray(patientData?.medicines)) {
+        this.state.medicines = patientData.medicines;
+      }
 
       this.saveState();
       this.notifyChange();

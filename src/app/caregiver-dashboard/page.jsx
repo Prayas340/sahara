@@ -135,11 +135,22 @@ export default function CaregiverDashboardPage() {
           try {
             if (docSnap.exists()) {
               const data = docSnap.data() || {};
-              setTodayGameSessions(typeof data.gameSessions === 'number' ? data.gameSessions : 0);
-              setTodayGameScore(typeof data.gameScore === 'number' ? data.gameScore : 0);
+              const sessions = typeof data.gameSessions === 'number' ? data.gameSessions : 0;
+              const score = typeof data.gameScore === 'number' ? data.gameScore : 0;
+              setTodayGameSessions(sessions);
+              setTodayGameScore(score);
+
+              const history = Array.isArray(data.gamesHistory) ? data.gamesHistory : [];
+              setGameAnalytics(prev => ({
+                ...prev,
+                todaySessions: sessions,
+                todayScore: score,
+                sessions: history.length > 0 ? history : (prev?.sessions || []),
+                recentScores: history.length > 0 ? history : (prev?.recentScores || []),
+              }));
 
               const list = data.medications || data.routines;
-              if (Array.isArray(list) && list.length > 0) {
+              if (Array.isArray(list)) {
                 const liveMeds = list.map((m, idx) => ({
                   id: m.id || `med_${idx}`,
                   title: m.title || m.name || `Routine ${idx + 1}`,
@@ -156,6 +167,15 @@ export default function CaregiverDashboardPage() {
             } else {
               setTodayGameSessions(0);
               setTodayGameScore(0);
+              // When no daily log document exists yet for today, existing scheduled medicines start as pending (taken: false)
+              setMedicines(prev => prev.map(m => ({ ...m, taken: false, takenAt: null, takenDate: todayDate })));
+              setGameAnalytics(prev => ({
+                ...prev,
+                todaySessions: 0,
+                todayScore: 0,
+                sessions: [],
+                recentScores: [],
+              }));
             }
           } catch (snapErr) {
             console.warn('[CaregiverDashboard] dailyLog snapshot parsing error:', snapErr);
@@ -172,6 +192,24 @@ export default function CaregiverDashboardPage() {
               const elderData = docSnap.data() || {};
               if (elderData.name) {
                 setPatient(prev => ({ ...prev, ...elderData }));
+              }
+              // If dailyLog hasn't loaded medicines and elderDoc has scheduled medications, load them
+              if (Array.isArray(elderData.medications) && elderData.medications.length > 0) {
+                setMedicines(prev => {
+                  if (prev.length === 0) {
+                    return elderData.medications.map((m, idx) => ({
+                      id: m.id || `med_${idx}`,
+                      title: m.title || m.name || `Routine ${idx + 1}`,
+                      name: m.name || m.title || `Routine ${idx + 1}`,
+                      detail: m.detail || m.title || 'Scheduled routine',
+                      scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+                      taken: false,
+                      takenAt: null,
+                      takenDate: todayDate,
+                    }));
+                  }
+                  return prev;
+                });
               }
             }
           } catch (elderSnapErr) {
@@ -405,7 +443,7 @@ export default function CaregiverDashboardPage() {
 
   const takenCount = medicines.filter((m) => m.taken).length;
   const totalMeds = medicines.length;
-  const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 100;
+  const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 0;
 
   const handleSelectTab = (tab) => {
     setActiveTab(tab);
@@ -420,6 +458,10 @@ export default function CaregiverDashboardPage() {
       const cleanElderId = normalizeElderId(patient?.id || patient?.phone || patient?.email || '+919854012345');
       const todayDate = new Date().toISOString().split('T')[0];
       setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate), {
+        medications: updated,
+        routines: updated.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
+      }, { merge: true }).catch(() => {});
+      setDoc(doc(db, 'elders', cleanElderId), {
         medications: updated,
         routines: updated.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
       }, { merge: true }).catch(() => {});
@@ -728,7 +770,7 @@ export default function CaregiverDashboardPage() {
                   <span className="text-xs text-[#40493d] mt-1">
                     {todayGameSessions > 0
                       ? `${todayGameScore} pts logged today`
-                      : (t.metricFamiliarTreasures || 'Familiar Treasures matched')}
+                      : 'No game rounds played today'}
                   </span>
                 </div>
 
@@ -1293,46 +1335,40 @@ export default function CaregiverDashboardPage() {
                 </div>
               </div>
 
-              {/* Daily Milestones */}
+              {/* Daily Milestones - Live Dynamic Rhythm */}
               <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
                 <h3 className="text-xl font-extrabold text-[#032109]">Daily Activity Rhythm</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-                  <div className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#0d631b] uppercase">Morning · 8:00 AM</span>
-                      <span className="material-symbols-outlined text-[#0d631b]">wb_sunny</span>
-                    </div>
-                    <p className="text-sm font-bold text-[#032109]">Warm Assam Chai & Donepezil</p>
-                    <p className="text-xs text-[#40493d] mt-1">Veranda garden walk & gentle music</p>
+                {medicines.length === 0 ? (
+                  <div className="p-8 text-center rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] text-sm text-[#40493d]">
+                    No routine milestones scheduled yet. Click &quot;Add New Reminder&quot; above to establish {patient?.name || 'the elder'}&apos;s daily rhythm.
                   </div>
-
-                  <div className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#0d631b] uppercase">Noon · 1:00 PM</span>
-                      <span className="material-symbols-outlined text-[#0d631b]">restaurant</span>
-                    </div>
-                    <p className="text-sm font-bold text-[#032109]">Lunch & Hydration Check</p>
-                    <p className="text-xs text-[#40493d] mt-1">Light dal, rice & tender greens</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pt-2">
+                    {medicines.map((med, idx) => (
+                      <div key={med.id || idx} className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-[#0d631b] uppercase">
+                              {med.scheduledTime || 'Scheduled'}
+                            </span>
+                            <span className="material-symbols-outlined text-[#0d631b]">
+                              {med.taken ? 'check_circle' : 'schedule'}
+                            </span>
+                          </div>
+                          <p className="text-sm font-bold text-[#032109]">{med.title || med.name}</p>
+                          <p className="text-xs text-[#40493d] mt-1">{med.detail}</p>
+                        </div>
+                        <div className="pt-3 mt-2 border-t border-[#cdf2cb] flex items-center justify-between">
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                            med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'
+                          }`}>
+                            {med.taken ? `✓ Completed${med.takenAt ? ' (' + med.takenAt + ')' : ''}` : 'Pending Elder'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#0d631b] uppercase">Evening · 5:30 PM</span>
-                      <span className="material-symbols-outlined text-[#0d631b]">psychology</span>
-                    </div>
-                    <p className="text-sm font-bold text-[#032109]">Memory Match & Audio Memos</p>
-                    <p className="text-xs text-[#40493d] mt-1">Familiar treasures on tablet</p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#0d631b] uppercase">Night · 9:00 PM</span>
-                      <span className="material-symbols-outlined text-[#0d631b]">bedtime</span>
-                    </div>
-                    <p className="text-sm font-bold text-[#032109]">Night Calming & Bedtime</p>
-                    <p className="text-xs text-[#40493d] mt-1">Warm water & dim night light</p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}

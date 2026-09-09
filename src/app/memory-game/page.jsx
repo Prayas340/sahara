@@ -136,24 +136,13 @@ export default function MemoryMatchGamePage() {
             };
 
             // Atomically increment gameSessions, gameScore, append to gamesHistory, and record serverTimestamp
-            updateDoc(dailyLogRef, {
+            setDoc(dailyLogRef, {
               gameSessions: increment(1),
               gameScore: increment(score),
               gamesHistory: arrayUnion(gameEntry),
               updatedAt: serverTimestamp(),
-            }).catch(async () => {
-              // If document does not exist yet for today, initialize it
-              try {
-                await setDoc(dailyLogRef, {
-                  gameSessions: 1,
-                  gameScore: score,
-                  gamesHistory: [gameEntry],
-                  createdAt: serverTimestamp(),
-                  updatedAt: serverTimestamp(),
-                }, { merge: true });
-              } catch (setErr) {
-                console.warn('[MemoryGame] Firestore setDoc fallback error:', setErr);
-              }
+            }, { merge: true }).catch(err => {
+              console.warn('[MemoryGame] Firestore setDoc notice:', err);
             });
 
             setDoc(elderRef, {

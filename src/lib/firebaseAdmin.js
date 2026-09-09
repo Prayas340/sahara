@@ -51,7 +51,7 @@ export async function getGoogleAccessToken() {
   const header = { alg: 'RS256', typ: 'JWT' };
   const claims = {
     iss: CLIENT_EMAIL,
-    scope: 'https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/firebase',
+    scope: 'https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/firebase https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/cloud-platform',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now,

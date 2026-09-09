@@ -46,6 +46,10 @@ export default function AddReminderModal({ isOpen, onClose }) {
           medications: updatedList,
           routines: updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
         }, { merge: true }).catch(() => {});
+        setDoc(doc(db, 'elders', cleanElderId), {
+          medications: updatedList,
+          routines: updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
+        }, { merge: true }).catch(() => {});
       } catch (err) {
         console.warn('Firestore reminder sync warning:', err);
       }

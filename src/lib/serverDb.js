@@ -736,8 +736,7 @@ export async function getRemindersFromDb(args) {
   }
 
   if (!medicines) {
-    // Return default starter list
-    medicines = JSON.parse(JSON.stringify(DEFAULT_MEDICINES));
+    medicines = [];
   }
 
   // Check for midnight daily reset: if any reminder has takenDate from previous day, reset status

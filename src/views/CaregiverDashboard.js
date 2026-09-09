@@ -300,7 +300,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                   </div>
                   <span class="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold">Today</span>
                 </div>
-                <p class="text-2xl font-extrabold text-[#032109]">${dataStore.state.gamesPlayedCount || 1} Sessions</p>
+                <p class="text-2xl font-extrabold text-[#032109]">${dataStore.state.gamesPlayedCount || 0} Sessions</p>
                 <span class="text-xs text-[#40493d] mt-1">Familiar Treasures matched</span>
               </div>
 
@@ -633,45 +633,34 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               </div>
 
               <!-- Daily Rhythm Milestones (Morning, Afternoon, Evening, Night) -->
+              <!-- Daily Rhythm Milestones (Dynamic from live medicines) -->
               <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
                 <h3 class="text-xl font-extrabold text-[#032109]">Daily Activity Rhythm</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-                  <div class="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="text-xs font-bold text-[#0d631b] uppercase">Morning · 8:00 AM</span>
-                      <span class="material-symbols-outlined text-[#0d631b]">wb_sunny</span>
-                    </div>
-                    <p class="text-sm font-bold text-[#032109]">Warm Assam Chai & Donepezil</p>
-                    <p class="text-xs text-[#40493d] mt-1">Veranda garden walk & gentle music</p>
+                ${medicines.length === 0 ? `
+                  <div class="p-8 text-center rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] text-sm text-[#40493d]">
+                    No routine milestones scheduled yet. Add a new reminder to establish the daily rhythm.
                   </div>
-
-                  <div class="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="text-xs font-bold text-[#0d631b] uppercase">Noon · 1:00 PM</span>
-                      <span class="material-symbols-outlined text-[#0d631b]">restaurant</span>
-                    </div>
-                    <p class="text-sm font-bold text-[#032109]">Lunch & Hydration Check</p>
-                    <p class="text-xs text-[#40493d] mt-1">Light dal, rice & tender greens</p>
+                ` : `
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                    ${medicines.map((med, idx) => `
+                      <div class="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col justify-between">
+                        <div>
+                          <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-[#0d631b] uppercase">${med.scheduledTime || 'Scheduled'}</span>
+                            <span class="material-symbols-outlined text-[#0d631b]">${med.taken ? 'check_circle' : 'schedule'}</span>
+                          </div>
+                          <p class="text-sm font-bold text-[#032109]">${med.title || med.name}</p>
+                          <p class="text-xs text-[#40493d] mt-1">${med.detail || 'Scheduled daily routine'}</p>
+                        </div>
+                        <div class="pt-3 mt-2 border-t border-[#cdf2cb] flex items-center justify-between">
+                          <span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'}">
+                            ${med.taken ? `✓ Completed${med.takenAt ? ' (' + med.takenAt + ')' : ''}` : 'Pending Elder'}
+                          </span>
+                        </div>
+                      </div>
+                    `).join('')}
                   </div>
-
-                  <div class="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="text-xs font-bold text-[#0d631b] uppercase">Evening · 5:30 PM</span>
-                      <span class="material-symbols-outlined text-[#0d631b]">psychology</span>
-                    </div>
-                    <p class="text-sm font-bold text-[#032109]">Memory Match & Audio Memos</p>
-                    <p class="text-xs text-[#40493d] mt-1">Familiar treasures on tablet</p>
-                  </div>
-
-                  <div class="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="text-xs font-bold text-[#0d631b] uppercase">Night · 9:00 PM</span>
-                      <span class="material-symbols-outlined text-[#0d631b]">bedtime</span>
-                    </div>
-                    <p class="text-sm font-bold text-[#032109]">Night Calming & Bedtime</p>
-                    <p class="text-xs text-[#40493d] mt-1">Warm water & dim night light</p>
-                  </div>
-                </div>
+                `}
               </div>
             </div>
           ` : ''}
