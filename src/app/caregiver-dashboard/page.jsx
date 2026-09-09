@@ -733,7 +733,7 @@ export default function CaregiverDashboardPage() {
                         .then(sData => {
                           if (sData?.success && sData?.analytics) {
                             setGameAnalytics(sData.analytics);
-                            showToast('Scores synchronized from cloud database!', 'success', 2500);
+                            showToast('score synchronized', 'success', 2500);
                           }
                         })
                         .catch(() => showToast('Refreshed local analytics', 'info', 2000));
