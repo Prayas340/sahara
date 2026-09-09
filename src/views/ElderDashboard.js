@@ -358,10 +358,12 @@ export function renderElderDashboard(onNavigate) {
     });
 
     // Mark Medicine Taken
-    document.getElementById('elder-mark-med-taken-btn')?.addEventListener('click', () => {
-      dataStore.markMedicineTaken('med_morning');
-      showToast(`✨ Thank you, ${displayHonorific}! Morning medicine marked as taken.`, 'success', 5000);
-      speakText(`Wonderful ${displayHonorific}! Your morning medicine is recorded.`);
+    document.getElementById('elder-mark-med-taken-btn')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget || document.getElementById('elder-mark-med-taken-btn');
+      const medId = btn?.dataset?.medId || (currentMed && currentMed.id);
+      dataStore.markMedicineTaken(medId);
+      showToast(`✨ Thank you, ${displayHonorific}! Medicine marked as taken.`, 'success', 5000);
+      speakText(`Wonderful ${displayHonorific}! Your medicine is recorded.`);
       onNavigate('elder-dashboard'); // Re-render with celebration state
     });
 
@@ -393,6 +395,13 @@ export function renderElderDashboard(onNavigate) {
       showToast('Connecting direct call with Riya Borah (+91 98540 12345)...', 'heart');
       window.open('tel:+919854012345');
     });
+
+    // Live sync listener: re-render when medicines status updates
+    const onElderMedsChange = () => {
+      onNavigate('elder-dashboard');
+    };
+    window.addEventListener('sahara:medicines-change', onElderMedsChange, { once: true });
+    window.addEventListener('sahara:datastore-change', onElderMedsChange, { once: true });
   }, 0);
 
   return html;

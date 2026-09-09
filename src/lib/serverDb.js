@@ -872,29 +872,28 @@ export async function getRemindersFromDb(args) {
   const store = readLocalStore();
   if (!store.reminders) store.reminders = {};
 
+  const cleanElderId = elderId ? normalizeIdentifier(elderId) : null;
+  const cleanCg = caregiverEmail ? caregiverEmail.trim().toLowerCase() : null;
+
+  // Cross-lookup linked profile to ensure Elder & Caregiver portals access the identical reminders list
+  const resolvedElder = (elderId ? (store.elders?.[elderId] || store.elders?.[cleanElderId] || findElderInDb(elderId)) : null) ||
+                        (cleanCg ? findElderInDb(cleanCg) : null);
+
+  const candidateKeys = [
+    cleanElderId,
+    elderId,
+    cleanCg,
+    resolvedElder?.id,
+    resolvedElder?.phone ? normalizeIdentifier(resolvedElder.phone) : null,
+    resolvedElder?.email ? resolvedElder.email.toLowerCase() : null,
+    resolvedElder?.caregiverEmail ? resolvedElder.caregiverEmail.trim().toLowerCase() : null,
+  ].filter(Boolean);
+
   let medicines = null;
-
-  if (elderId) {
-    const cleanId = normalizeIdentifier(elderId);
-    if (store.reminders[cleanId]) {
-      medicines = store.reminders[cleanId];
-    } else {
-      const elder = store.elders?.[cleanId] || findElderInDb(cleanId);
-      if (elder?.caregiverEmail && store.reminders[elder.caregiverEmail.trim().toLowerCase()]) {
-        medicines = store.reminders[elder.caregiverEmail.trim().toLowerCase()];
-      }
-    }
-  }
-
-  if (!medicines && caregiverEmail) {
-    const cleanCg = caregiverEmail.trim().toLowerCase();
-    if (store.reminders[cleanCg]) {
-      medicines = store.reminders[cleanCg];
-    } else {
-      const cg = store.caregivers?.[cleanCg];
-      if (cg?.elderId && store.reminders[normalizeIdentifier(cg.elderId)]) {
-        medicines = store.reminders[normalizeIdentifier(cg.elderId)];
-      }
+  for (const k of candidateKeys) {
+    if (Array.isArray(store.reminders[k]) && store.reminders[k].length > 0) {
+      medicines = store.reminders[k];
+      break;
     }
   }
 
@@ -902,25 +901,30 @@ export async function getRemindersFromDb(args) {
     medicines = [];
   }
 
-  // Check for midnight daily reset: if any reminder has takenDate from previous day, reset status
-  const todayStr = getLocalDateString();
+  // Safe midnight daily reset: only reset if takenDate is distinctly from an older day (>20 hours ago)
+  const now = new Date();
+  const todayLocal = getLocalDateString(now);
+  const todayUtc = now.toISOString().split('T')[0];
+
   let needsDailyReset = false;
   medicines = medicines.map(m => {
-    if (m.taken && m.takenDate && m.takenDate !== todayStr) {
-      needsDailyReset = true;
-      return { ...m, taken: false, takenAt: null, takenDate: null };
+    if (m.taken) {
+      if (!m.takenDate) {
+        m.takenDate = todayLocal;
+      } else if (m.takenDate !== todayLocal && m.takenDate !== todayUtc) {
+        const takenD = new Date(m.takenDate);
+        if (!isNaN(takenD.getTime()) && (now.getTime() - takenD.getTime() > 20 * 3600 * 1000)) {
+          needsDailyReset = true;
+          return { ...m, taken: false, takenAt: null, takenDate: null };
+        }
+      }
     }
     return m;
   });
 
   if (needsDailyReset) {
-    if (elderId) {
-      const cleanId = normalizeIdentifier(elderId);
-      store.reminders[cleanId] = medicines;
-    }
-    if (caregiverEmail) {
-      const cleanCg = caregiverEmail.trim().toLowerCase();
-      store.reminders[cleanCg] = medicines;
+    for (const k of candidateKeys) {
+      store.reminders[k] = medicines;
     }
     writeLocalStore(store);
   }
@@ -956,46 +960,53 @@ export async function saveRemindersToDb({ elderId, caregiverEmail, medicines }) 
   let cleanElderId = elderId ? normalizeIdentifier(elderId) : null;
   let cleanCg = caregiverEmail ? caregiverEmail.trim().toLowerCase() : null;
 
-  // Resolve cross-links if one is missing
-  if (!cleanCg && cleanElderId) {
-    const elder = store.elders?.[cleanElderId] || findElderInDb(cleanElderId);
-    if (elder?.caregiverEmail) cleanCg = elder.caregiverEmail.trim().toLowerCase();
+  // Resolve cross-links
+  const resolvedElder = (cleanElderId ? (store.elders?.[cleanElderId] || findElderInDb(cleanElderId)) : null) ||
+                        (cleanCg ? findElderInDb(cleanCg) : null);
+
+  if (!cleanCg && resolvedElder?.caregiverEmail) {
+    cleanCg = resolvedElder.caregiverEmail.trim().toLowerCase();
   }
   if (!cleanElderId && cleanCg) {
     const cg = store.caregivers?.[cleanCg];
     if (cg?.elderId) cleanElderId = normalizeIdentifier(cg.elderId);
   }
 
-  if (cleanElderId) {
-    store.reminders[cleanElderId] = cleanList;
-  }
-  if (cleanCg) {
-    store.reminders[cleanCg] = cleanList;
-  }
+  const allTargetKeys = [
+    cleanElderId,
+    elderId,
+    cleanCg,
+    resolvedElder?.id,
+    resolvedElder?.phone ? normalizeIdentifier(resolvedElder.phone) : null,
+    resolvedElder?.caregiverEmail ? resolvedElder.caregiverEmail.trim().toLowerCase() : null,
+  ].filter(Boolean);
+
+  // Persist across ALL associated identity keys so Elder & Caregiver portals are 100% in sync
+  allTargetKeys.forEach(k => {
+    store.reminders[k] = cleanList;
+  });
 
   // Record completions in database under user accounts
   const todayStr = getLocalDateString();
   cleanList.forEach(m => {
     if (m.taken) {
-      const compKey = cleanElderId || cleanCg;
-      if (compKey) {
-        if (!store.routineCompletions[compKey]) store.routineCompletions[compKey] = [];
-        const alreadyLogged = store.routineCompletions[compKey].some(
-          c => c.reminderId === m.id && c.takenDate === (m.takenDate || todayStr)
-        );
-        if (!alreadyLogged) {
-          store.routineCompletions[compKey].unshift({
-            id: 'comp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-            elderId: cleanElderId,
-            caregiverEmail: cleanCg,
-            reminderId: m.id,
-            title: m.title,
-            scheduledTime: m.scheduledTime,
-            takenAt: m.takenAt || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            takenDate: m.takenDate || todayStr,
-            timestamp: new Date().toISOString(),
-          });
-        }
+      const compKey = cleanElderId || cleanCg || 'global';
+      if (!store.routineCompletions[compKey]) store.routineCompletions[compKey] = [];
+      const alreadyLogged = store.routineCompletions[compKey].some(
+        c => (c.reminderId === m.id || c.title === m.title) && c.takenDate === (m.takenDate || todayStr)
+      );
+      if (!alreadyLogged) {
+        store.routineCompletions[compKey].unshift({
+          id: 'comp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          elderId: cleanElderId,
+          caregiverEmail: cleanCg,
+          reminderId: m.id,
+          title: m.title,
+          scheduledTime: m.scheduledTime,
+          takenAt: m.takenAt || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          takenDate: m.takenDate || todayStr,
+          timestamp: new Date().toISOString(),
+        });
       }
     }
   });

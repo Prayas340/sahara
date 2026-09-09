@@ -17,6 +17,15 @@ const defaultState = {
 class DataStore {
   constructor() {
     this.state = this.loadState();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (e) => {
+        if (!e.key || e.key.includes('medicines') || e.key === STORAGE_KEY_DATA || e.key.includes('contacts') || e.key.includes('user')) {
+          this.state = this.loadState();
+          window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: this.getMedicines() } }));
+          window.dispatchEvent(new CustomEvent('sahara:datastore-change', { detail: this.state }));
+        }
+      });
+    }
   }
 
   loadState() {
@@ -527,6 +536,38 @@ class DataStore {
   deleteReminder(reminderId) {
     const list = this.getMedicines().filter(m => m.id !== reminderId);
     this.saveMedicines(list);
+  }
+
+  markMedicineTaken(identifier) {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const currentMeds = this.getMedicines();
+    let marked = false;
+    const list = currentMeds.map((m, idx) => {
+      const isTarget = (
+        !identifier ||
+        m.id === identifier ||
+        idx === identifier ||
+        String(m.id) === String(identifier) ||
+        m.title === identifier ||
+        m.name === identifier ||
+        (currentMeds.length === 1)
+      );
+      if (isTarget && !marked) {
+        marked = true;
+        return {
+          ...m,
+          taken: true,
+          isDue: false,
+          takenAt: m.takenAt || timeStr,
+          takenDate: todayStr,
+        };
+      }
+      return m;
+    });
+    this.saveMedicines(list);
+    return list;
   }
 
   toggleMedicineStatus(identifier) {

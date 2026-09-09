@@ -56,11 +56,11 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
     `;
   }
   const caregiver = activeUser;
-  const medicines = dataStore.state.medicines || [];
-  const contacts = dataStore.state.contacts || [];
+  const medicines = (dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state.medicines || []));
+  const contacts = (dataStore.getContacts ? dataStore.getContacts() : (dataStore.state.contacts || []));
   const takenCount = medicines.filter(m => m.taken).length;
   const totalMeds = medicines.length;
-  const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 100;
+  const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : (totalMeds === 0 ? 0 : 100);
 
   // Memory match card pool
   const cardPool = [
@@ -344,9 +344,15 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                         <p class="text-xs text-[#40493d]">${med.detail} • ${med.scheduledTime}</p>
                       </div>
                     </div>
-                    <span class="px-3 py-1 rounded-full text-xs font-bold ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'}">
-                      ${med.taken ? 'Completed (' + (med.takenAt || 'Taken') + ')' : 'Pending Due'}
-                    </span>
+                    <button 
+                      class="toggle-med-btn px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 cursor-pointer transition-all hover:scale-105 ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521] border border-[#cdf2cb]' : 'bg-amber-100 text-amber-900 border border-amber-300'}"
+                      data-id="${med.id || ''}"
+                      type="button"
+                      title="${med.taken ? 'Mark as pending' : 'Click to mark as completed'}"
+                    >
+                      <span class="material-symbols-outlined text-xs">${med.taken ? 'check_circle' : 'pending'}</span>
+                      <span>${med.taken ? '✓ Completed (' + (med.takenAt || 'Taken') + ')' : 'Pending Due (Tap to Done)'}</span>
+                    </button>
                   </div>
                 `).join('')}
               </div>
@@ -560,11 +566,16 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                       </div>
 
                       <div class="flex items-center gap-2 self-end sm:self-center">
-                        <!-- Read-only status — elder marks from their device -->
-                        <span class="px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'}">
+                        <!-- Interactive status toggle — syncs across Elder and Caregiver portals -->
+                        <button
+                          class="toggle-med-btn px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all hover:opacity-90 active:scale-95 shadow-xs ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521] border border-[#a3f69c]' : 'bg-amber-100 hover:bg-emerald-50 text-amber-900 hover:text-emerald-900 border border-amber-300'}"
+                          data-id="${med.id || idx}"
+                          title="${med.taken ? 'Click to mark as pending' : 'Click to mark as completed'}"
+                          type="button"
+                        >
                           <span class="material-symbols-outlined text-sm">${med.taken ? 'check_circle' : 'pending'}</span>
-                          ${med.taken ? '✓ Taken' + (med.takenAt ? ' (' + med.takenAt + ')' : '') : 'Pending (Elder marks)'}
-                        </span>
+                          <span>${med.taken ? '✓ Completed' + (med.takenAt ? ' (' + med.takenAt + ')' : '') : 'Pending (Tap to Mark Done)'}</span>
+                        </button>
                         <button
                           class="delete-med-btn p-2 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer"
                           data-id="${med.id || idx}"
@@ -718,6 +729,47 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
           onNavigate('caregiver-dashboard', { tab: activeTab });
         }
       }).catch(err => console.warn('Cloud sync error:', err));
+    }
+
+    // Real-time synchronization: listen for medicine changes from elder device or other tabs
+    const onMedsChange = () => {
+      onNavigate('caregiver-dashboard', { tab: activeTab });
+    };
+    window.addEventListener('sahara:medicines-change', onMedsChange, { once: true });
+    window.addEventListener('sahara:datastore-change', onMedsChange, { once: true });
+
+    // Background server polling for reminders to ensure cross-device consistency
+    const elderIdentifier = patient?.id || patient?.phone || patient?.email;
+    if (elderIdentifier) {
+      fetch(`/api/reminders?elderId=${encodeURIComponent(elderIdentifier)}`)
+        .then(r => r.json())
+        .then(res => {
+          if (res?.success && Array.isArray(res?.medicines)) {
+            const currentMeds = dataStore.getMedicines ? dataStore.getMedicines() : [];
+            let hasDiff = false;
+            if (res.medicines.length !== currentMeds.length) {
+              hasDiff = true;
+            } else {
+              for (const sm of res.medicines) {
+                const lm = currentMeds.find(c => String(c.id) === String(sm.id) || c.title === sm.title);
+                if (!lm || Boolean(lm.taken) !== Boolean(sm.taken)) {
+                  hasDiff = true;
+                  break;
+                }
+              }
+            }
+            if (hasDiff) {
+              // Merge preserving taken status
+              const merged = res.medicines.map(sm => {
+                const lm = currentMeds.find(c => String(c.id) === String(sm.id) || c.title === sm.title);
+                if (lm?.taken && !sm.taken) return lm;
+                return sm;
+              });
+              dataStore.saveMedicines?.(merged);
+            }
+          }
+        })
+        .catch(() => {});
     }
 
     // Navigation handlers (re-renders within Caregiver Portal with tab param so sidebar never vanishes)

@@ -116,25 +116,25 @@ export default function ElderDashboardPage() {
     };
 
     const resetIfNewDay = (meds) => {
-      // If any medicine was taken on a previous day, reset all taken statuses
-      const hasStaleEntry = meds.some(m => m.taken && m.takenDate && m.takenDate !== todayStr);
-      if (hasStaleEntry) {
-        const reset = meds.map(m => ({ ...m, taken: false, takenAt: null, takenDate: null }));
-        dataStore.saveMedicines(reset);
-        // Persist the reset to server DB
-        try {
-          const { elderId, caregiverEmail } = resolveElderAndCaregiver();
-          if (elderId) {
-            fetch('/api/reminders', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'save', elderId, caregiverEmail, medicines: reset }),
-            }).catch(() => {});
+      if (!Array.isArray(meds)) return [];
+      const now = new Date();
+      const todayLocal = getTodayDateString(now);
+      const todayUtc = now.toISOString().split('T')[0];
+
+      return meds.map(m => {
+        if (m.taken) {
+          if (!m.takenDate) {
+            return { ...m, takenDate: todayLocal };
           }
-        } catch (e) {}
-        return reset;
-      }
-      return meds;
+          if (m.takenDate !== todayLocal && m.takenDate !== todayUtc) {
+            const d = new Date(m.takenDate);
+            if (!isNaN(d.getTime()) && (now.getTime() - d.getTime() > 20 * 3600 * 1000)) {
+              return { ...m, taken: false, takenAt: null, takenDate: null };
+            }
+          }
+        }
+        return m;
+      });
     };
 
     syncData();
@@ -337,20 +337,18 @@ export default function ElderDashboardPage() {
         }),
       }).then(r => r.json()).then(res => {
         if (res?.success && Array.isArray(res?.medicines)) {
-          const anyTaken = res.medicines.some(m => m.taken);
-          if (anyTaken) {
-            setMedicines(prev => {
-              const current = prev || [];
-              return res.medicines.map(rm => {
-                const prevItem = current.find(p => p.id === rm.id || p.title === rm.title || p.name === rm.name);
-                if (prevItem?.taken && prevItem?.takenDate === todayStr && !rm.taken) {
-                  return { ...rm, taken: true, takenAt: prevItem.takenAt, takenDate: todayStr };
-                }
-                return rm;
-              });
+          setMedicines(prev => {
+            const current = prev || [];
+            const merged = res.medicines.map(rm => {
+              const prevItem = current.find(p => p.id === rm.id || p.title === rm.title || p.name === rm.name);
+              if (prevItem?.taken && !rm.taken) {
+                return { ...rm, taken: true, takenAt: prevItem.takenAt || takenAtTime, takenDate: prevItem.takenDate || todayStr };
+              }
+              return rm;
             });
-            if (dataStore.saveMedicines) dataStore.saveMedicines(res.medicines);
-          }
+            if (dataStore.saveMedicines) dataStore.saveMedicines(merged);
+            return merged;
+          });
         }
       }).catch(err => {
         console.warn('[ElderDashboard] Reminders save notice:', err);

@@ -72,6 +72,20 @@ class SaharaApp {
       }
     });
 
+    // Real-time synchronization: re-render dashboard views when data changes
+    const onLiveSync = () => {
+      if (this.currentView === 'elder-dashboard' || this.currentView === 'caregiver-dashboard' || (typeof this.currentView === 'string' && this.currentView.startsWith('caregiver-'))) {
+        this.render();
+      }
+    };
+    window.addEventListener('sahara:medicines-change', onLiveSync);
+    window.addEventListener('sahara:datastore-change', onLiveSync);
+    window.addEventListener('storage', (e) => {
+      if (!e.key || e.key.includes('medicines') || e.key.includes('sahara_app_state') || e.key.includes('contacts')) {
+        onLiveSync();
+      }
+    });
+
     this.render();
   }
 

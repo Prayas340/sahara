@@ -355,10 +355,23 @@ export default function CaregiverDashboardPage() {
       fetch(`/api/reminders?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}`)
         .then(r => r.json())
         .then(rData => {
-          if (rData?.success && rData?.medicines) {
-            dataStore.state.medicines = rData.medicines;
-            dataStore.saveState();
-            setMedicines([...rData.medicines]);
+          if (rData?.success && Array.isArray(rData?.medicines)) {
+            setMedicines(prev => {
+              const current = prev || [];
+              const merged = rData.medicines.map(rm => {
+                const prevItem = current.find(p => p.id === rm.id || p.title === rm.title || p.name === rm.name);
+                if (rm.taken) return rm;
+                if (prevItem?.taken) {
+                  return { ...rm, taken: true, takenAt: prevItem.takenAt, takenDate: prevItem.takenDate };
+                }
+                return rm;
+              });
+              if (dataStore?.state) {
+                dataStore.state.medicines = merged;
+                dataStore.saveState?.();
+              }
+              return merged;
+            });
           }
         })
         .catch(() => {});
@@ -743,6 +756,49 @@ export default function CaregiverDashboardPage() {
     }).catch(() => {});
 
     showToast(`🗑️ Removed reminder "${reminderTitle || 'Reminder'}"`, 'info', 3000);
+  };
+
+  const handleToggleMedStatus = (medId, medTitle) => {
+    const todayStr = getTodayDateString();
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    let targetNewTaken = false;
+    const updated = (medicines || []).map(m => {
+      if (m.id === medId || m.title === medTitle) {
+        targetNewTaken = !m.taken;
+        return {
+          ...m,
+          taken: targetNewTaken,
+          takenAt: targetNewTaken ? timeStr : null,
+          takenDate: targetNewTaken ? todayStr : null,
+        };
+      }
+      return m;
+    });
+
+    setMedicines([...updated]);
+    dataStore.saveMedicines?.(updated);
+
+    const elderId = patient?.id || patient?.phone || patient?.email;
+    const caregiverEmail = caregiver?.email;
+
+    // Direct server toggle & sync
+    fetch('/api/reminders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save',
+        elderId,
+        caregiverEmail,
+        medicines: updated,
+        reminderId: medId,
+        taken: targetNewTaken,
+        takenAt: targetNewTaken ? timeStr : null,
+        takenDate: targetNewTaken ? todayStr : null,
+      }),
+    }).catch(() => {});
+
+    showToast(targetNewTaken ? `✓ Marked "${medTitle}" as completed!` : `Marked "${medTitle}" as pending.`, 'success', 3000);
   };
 
   const handleOpenAddContact = () => {
@@ -1543,21 +1599,26 @@ export default function CaregiverDashboardPage() {
                       </div>
 
                       <div className="flex items-center gap-2 self-end sm:self-center">
-                        {/* Status badge — read only, elder marks from their device */}
-                        <span
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 ${
+                        {/* Interactive Status badge — synced across Elder and Caregiver portals */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleMedStatus(med.id, med.title)}
+                          title={med.taken ? "Click to mark as pending" : "Click to mark as completed"}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all hover:opacity-90 active:scale-95 shadow-xs ${
                             med.taken
-                              ? 'bg-[#d9fdd6] text-[#0c7521]'
-                              : 'bg-amber-100 text-amber-900'
+                              ? 'bg-[#d9fdd6] text-[#0c7521] border border-[#cdf2cb]'
+                              : 'bg-amber-100 hover:bg-emerald-50 text-amber-900 hover:text-emerald-900 border border-amber-300'
                           }`}
                         >
                           <span className="material-symbols-outlined text-sm">
                             {med.taken ? 'check_circle' : 'pending'}
                           </span>
-                          {med.taken
-                            ? `✓ Taken${med.takenAt ? ' (' + med.takenAt + ')' : ''}`
-                            : 'Pending (Elder marks)'}
-                        </span>
+                          <span>
+                            {med.taken
+                              ? `✓ Taken${med.takenAt ? ' (' + med.takenAt + ')' : ''}`
+                              : 'Pending (Tap to Mark Done)'}
+                          </span>
+                        </button>
 
                         <button
                           onClick={() => handleDeleteReminder(med.id, med.title)}
