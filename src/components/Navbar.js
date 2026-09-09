@@ -15,15 +15,17 @@ export function renderNavbar(activeView, onNavigate) {
     <header class="fixed top-0 left-0 right-0 w-full z-50 bg-[#ebffe7]/90 backdrop-blur-xl border-b border-[#cdf2cb] shadow-[0_2px_12px_rgba(23,53,27,0.06)]">
       <div class="h-20 max-w-[80rem] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
         <!-- Brand Logo & Name -->
-        <div class="flex items-center gap-3 shrink-0 cursor-pointer" id="nav-brand-btn">
-          <img 
-            alt="Sahara Brand Logo" 
-            class="h-9 w-9 object-contain rounded-full bg-white shadow-sm p-1" 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuADfY8uUCdflx3PxgJV8n5Rdy5e1UqyJi1RpuX07Bmc9r6hn23Klt8mhC0O57Dlsy0AoO2Zfur4kxn9yueS6kMU1-B3o_rUnCtsYE80rKVOILi3Gl6wxP62ffyGjvNMaoafsux-4Nu3YfcznSLtBj71fvQApLWucdiSJyE4VD5KSm1AryUPF0ooW09SbgA3OdWj_0EfL0E3tOmeMY4frF7WwHEp3O9blDcLXakfekbdhrlgiYNNcO0c2Q"
-          />
-          <div class="flex flex-col">
-            <span class="font-extrabold text-xl text-[#0d631b] leading-tight tracking-tight">Sahara</span>
-            <span class="hidden sm:inline-block text-xs text-[#40493d] font-semibold leading-none">Everyday Cognitive & Caregiver Companion</span>
+        <div class="flex items-center gap-3.5 shrink-0 cursor-pointer select-none py-1" id="nav-brand-btn">
+          <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white shadow-md border border-[#cdf2cb] p-1.5 flex items-center justify-center shrink-0">
+            <img 
+              alt="Sahara Brand Logo" 
+              class="w-full h-full object-contain rounded-xl" 
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuADfY8uUCdflx3PxgJV8n5Rdy5e1UqyJi1RpuX07Bmc9r6hn23Klt8mhC0O57Dlsy0AoO2Zfur4kxn9yueS6kMU1-B3o_rUnCtsYE80rKVOILi3Gl6wxP62ffyGjvNMaoafsux-4Nu3YfcznSLtBj71fvQApLWucdiSJyE4VD5KSm1AryUPF0ooW09SbgA3OdWj_0EfL0E3tOmeMY4frF7WwHEp3O9blDcLXakfekbdhrlgiYNNcO0c2Q"
+            />
+          </div>
+          <div class="flex flex-col justify-center">
+            <span class="font-black text-2xl sm:text-3xl text-[#0d631b] leading-none tracking-tight">Sahara</span>
+            <span class="hidden sm:inline-block text-xs font-bold text-[#40493d] tracking-normal mt-1 leading-tight">Everyday Cognitive & Caregiver Companion</span>
           </div>
         </div>
 

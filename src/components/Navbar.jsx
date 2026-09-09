@@ -130,16 +130,18 @@ export default function Navbar({ activeView = 'elder' }) {
           {/* Brand Logo & Name */}
           <div
             onClick={handleBrandClick}
-            className="flex items-center gap-3 shrink-0 cursor-pointer select-none"
+            className="flex items-center gap-3.5 shrink-0 cursor-pointer select-none py-1"
           >
-            <img
-              alt="Sahara Brand Logo"
-              className="h-9 w-9 object-contain rounded-full bg-white shadow-sm p-1"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuADfY8uUCdflx3PxgJV8n5Rdy5e1UqyJi1RpuX07Bmc9r6hn23Klt8mhC0O57Dlsy0AoO2Zfur4kxn9yueS6kMU1-B3o_rUnCtsYE80rKVOILi3Gl6wxP62ffyGjvNMaoafsux-4Nu3YfcznSLtBj71fvQApLWucdiSJyE4VD5KSm1AryUPF0ooW09SbgA3OdWj_0EfL0E3tOmeMY4frF7WwHEp3O9blDcLXakfekbdhrlgiYNNcO0c2Q"
-            />
-            <div className="flex flex-col">
-              <span className="font-extrabold text-xl text-[#0d631b] leading-tight tracking-tight">Sahara</span>
-              <span className="hidden sm:inline-block text-xs text-[#40493d] font-semibold leading-none">
+            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white shadow-md border border-[#cdf2cb] p-1.5 flex items-center justify-center shrink-0 transition-transform hover:scale-105">
+              <img
+                alt="Sahara Brand Logo"
+                className="w-full h-full object-contain rounded-xl"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuADfY8uUCdflx3PxgJV8n5Rdy5e1UqyJi1RpuX07Bmc9r6hn23Klt8mhC0O57Dlsy0AoO2Zfur4kxn9yueS6kMU1-B3o_rUnCtsYE80rKVOILi3Gl6wxP62ffyGjvNMaoafsux-4Nu3YfcznSLtBj71fvQApLWucdiSJyE4VD5KSm1AryUPF0ooW09SbgA3OdWj_0EfL0E3tOmeMY4frF7WwHEp3O9blDcLXakfekbdhrlgiYNNcO0c2Q"
+              />
+            </div>
+            <div className="flex flex-col justify-center">
+              <span className="font-black text-2xl sm:text-3xl text-[#0d631b] leading-none tracking-tight">Sahara</span>
+              <span className="hidden sm:inline-block text-xs font-bold text-[#40493d] tracking-normal mt-1 leading-tight">
                 Everyday Cognitive & Caregiver Companion
               </span>
             </div>
