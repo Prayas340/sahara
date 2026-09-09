@@ -346,29 +346,21 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               <!-- Right Col: Guwahati Care Team & Emergency Dispatch -->
               <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4 flex flex-col justify-between">
                 <div>
-                  <h3 class="text-xl font-extrabold text-[#032109]">${patient.city || 'Kolkata'} Care Team</h3>
+                  <h3 class="text-xl font-extrabold text-[#032109]">${patient.city || 'Local'} Care Team</h3>
                   <p class="text-xs sm:text-sm text-[#40493d] mb-4">Direct hotlines on standby</p>
 
                   <div class="space-y-3">
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
-                      <div>
-                        <p class="text-sm font-bold text-[#032109]">Dr. B. Das</p>
-                        <p class="text-xs text-[#40493d]">Family Physician · Primary Clinic</p>
+                    ${contacts.slice(0, 2).map(c => `
+                      <div class="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
+                        <div>
+                          <p class="text-sm font-bold text-[#032109]">${c.name} ${c.relation ? `(${c.relation})` : ''}</p>
+                          <p class="text-xs text-[#40493d]">${c.phone || c.location || 'Direct Line'}</p>
+                        </div>
+                        <a href="tel:${c.phone || '108'}" class="p-2 bg-white text-[#0d631b] rounded-full shadow-sm hover:bg-[#ebffe7]">
+                          <span class="material-symbols-outlined text-lg">call</span>
+                        </a>
                       </div>
-                      <a href="tel:+919864099887" class="p-2 bg-white text-[#0d631b] rounded-full shadow-sm hover:bg-[#ebffe7]">
-                        <span class="material-symbols-outlined text-lg">call</span>
-                      </a>
-                    </div>
-
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-[#d9fdd6]">
-                      <div>
-                        <p class="text-sm font-bold text-[#032109]">Anil Borah (Family)</p>
-                        <p class="text-xs text-[#40493d]">Emergency Contact · +91 98640 54321</p>
-                      </div>
-                      <a href="tel:+919864054321" class="p-2 bg-white text-[#0d631b] rounded-full shadow-sm hover:bg-[#ebffe7]">
-                        <span class="material-symbols-outlined text-lg">call</span>
-                      </a>
-                    </div>
+                    `).join('')}
 
                     <div class="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-200">
                       <div>
@@ -530,7 +522,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
                 <div class="flex items-center justify-between flex-wrap gap-2">
                   <div>
-                    <h3 class="text-xl font-extrabold text-[#032109]">Asha Devi's Memory Anchor Album</h3>
+                    <h3 class="text-xl font-extrabold text-[#032109]">${patient.name ? patient.name.split(' ')[0] : 'Elder'}'s Memory Anchor Album</h3>
                     <p class="text-xs sm:text-sm text-[#40493d]">Personal photographs tied to voice narrations that help evoke comfort and orientation.</p>
                   </div>
                   <button class="btn-tactile btn-primary px-4 py-2 rounded-full text-xs font-bold cursor-pointer" id="cg-album-add-btn">
@@ -584,7 +576,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                     Medication & Daily Care Timeline
                   </h1>
                   <p class="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Manage smart reminders, sync with pillbox sensors, and adjust dosage alerts for ${patient.name || 'Asha Devi'}.
+                    Manage smart reminders, sync with pillbox sensors, and adjust dosage alerts for ${patient.name || 'Elder'}.
                   </p>
                 </div>
 
@@ -708,18 +700,18 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                     Emergency Contacts & Loved Ones
                   </h1>
                   <p class="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Direct access to primary doctors, family members, and immediate ambulance dispatch in Guwahati.
+                    Direct access to primary doctors, family members, and immediate ambulance dispatch in ${patient.city || 'your area'}.
                   </p>
                 </div>
 
                 <div class="flex items-center gap-3 shrink-0 flex-wrap">
                   <button 
-                    class="btn-tactile btn-primary flex items-center gap-2 px-5 py-3 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
-                    id="contacts-broadcast-all-btn"
+                    class="btn-tactile btn-primary flex items-center gap-2 px-5 py-3 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer" 
+                    id="contacts-broadcast-all-btn" 
                     type="button"
                   >
                     <span class="material-symbols-outlined text-lg">volunteer_activism</span>
-                    <span>Send "Asha is Safe" to Everyone</span>
+                    <span>Send "${patient.name ? patient.name.split(' ')[0] : 'Elder'} is Safe" to Everyone</span>
                   </button>
                 </div>
               </div>
@@ -729,35 +721,27 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                 <div class="p-5 bg-red-50 border border-red-200 rounded-3xl flex items-center justify-between shadow-sm">
                   <div>
                     <span class="text-xs font-bold text-red-700 uppercase">Emergency Service</span>
-                    <h3 class="text-lg font-extrabold text-red-900">108 Ambulance</h3>
-                    <p class="text-xs text-red-600">Assam Emergency Network</p>
+                    <h3 class="text-lg font-extrabold text-red-900">${patient.city || 'Local'} 108 Ambulance</h3>
+                    <p class="text-xs text-red-600">${patient.state || 'National'} Emergency Network</p>
                   </div>
                   <a href="tel:108" class="p-3 bg-red-600 text-white rounded-full shadow-md hover:bg-red-700 transition-colors">
                     <span class="material-symbols-outlined text-xl">emergency</span>
                   </a>
                 </div>
 
-                <div class="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
-                  <div>
-                    <span class="text-xs font-bold text-[#0d631b] uppercase">Primary Physician</span>
-                    <h3 class="text-lg font-extrabold text-[#032109]">Dr. B. Das</h3>
-                    <p class="text-xs text-[#40493d]">Dispur Medical · +91 98640 99887</p>
+                ${contacts.slice(0, 2).map(c => `
+                  <div class="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
+                    <div>
+                      <span class="text-xs font-bold text-[#0d631b] uppercase">${c.relation || 'Emergency Contact'}</span>
+                      <h3 class="text-lg font-extrabold text-[#032109]">${c.name}</h3>
+                      <p class="text-xs text-[#40493d]">${c.location || patient.city || ''} · ${c.phone || ''}</p>
+                    </div>
+                    <a href="tel:${c.phone || ''}" class="p-3 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors">
+                      <span class="material-symbols-outlined text-xl">call</span>
+                    </a>
                   </div>
-                  <a href="tel:+919864099887" class="p-3 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors">
-                    <span class="material-symbols-outlined text-xl">call</span>
-                  </a>
-                </div>
-
-                <div class="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
-                  <div>
-                    <span class="text-xs font-bold text-[#0d631b] uppercase">Primary Relative</span>
-                    <h3 class="text-lg font-extrabold text-[#032109]">Anil Borah (Son)</h3>
-                    <p class="text-xs text-[#40493d]">Bangalore · +91 98640 54321</p>
-                  </div>
-                  <a href="tel:+919864054321" class="p-3 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors">
-                    <span class="material-symbols-outlined text-xl">call</span>
-                  </a>
-                </div>
+                `).join('')}
+              </div>
               </div>
 
               <!-- Full Loved Ones & Family Grid -->
@@ -806,6 +790,16 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
 
   // Attach event handlers
   setTimeout(() => {
+    // Cross-device cloud sync on mount
+    const curUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
+    if (curUser?.role === 'caregiver' && curUser?.email && authService.syncCaregiverElderData) {
+      authService.syncCaregiverElderData(curUser.email).then(synced => {
+        if (synced && synced.patient && synced.patient.name !== patient.name) {
+          onNavigate('caregiver-dashboard', { tab: activeTab });
+        }
+      }).catch(err => console.warn('Cloud sync error:', err));
+    }
+
     // Navigation handlers (re-renders within Caregiver Portal with tab param so sidebar never vanishes)
     const switchTab = (tab) => {
       onNavigate('caregiver-dashboard', { tab });

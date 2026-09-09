@@ -633,7 +633,7 @@ export const authService = {
       if (result && result.success && result.user) {
         // DIRECTLY FETCH & LOAD LINKED ELDER PROFILE INTO DATASTORE!
         if (result.elderProfile) {
-          dataStore.loadLinkedPatient(result.elderProfile);
+          dataStore.loadLinkedPatient(result.elderProfile, result.user);
         }
         if (dataStore.updateCaregiverProfile) {
           dataStore.updateCaregiverProfile(result.user);
@@ -679,7 +679,7 @@ export const authService = {
           name: fbUser.displayName || cleanEmail.split('@')[0] || 'Caregiver',
           email: cleanEmail,
           role: 'caregiver',
-          relation: 'Primary Caregiver',
+          relation: claims.relation || 'Primary Caregiver',
           elderPatient: linkedElder?.name || 'Elder Patient',
           elderPatientId: linkedElder?.id || '',
           linkedElder: linkedElder,
@@ -688,7 +688,7 @@ export const authService = {
         };
 
         if (linkedElder) {
-          dataStore.loadLinkedPatient(linkedElder);
+          dataStore.loadLinkedPatient(linkedElder, caregiverUser);
         }
         if (dataStore.updateCaregiverProfile) {
           dataStore.updateCaregiverProfile(caregiverUser);
@@ -718,7 +718,7 @@ export const authService = {
       }
     }
 
-    // 2. Client-side local fallback
+    // 3. Client-side local fallback
     const caregivers = this.getRegisteredCaregivers();
     let matched = caregivers.find(c => c.email.toLowerCase() === cleanEmail);
 
@@ -744,7 +744,7 @@ export const authService = {
     if (!matched) {
       return {
         success: false,
-        message: `No caregiver registered with "${cleanEmail}". Please register during Elder View Step 3.`
+        message: `No caregiver account found for "${cleanEmail}". Please check your email or register during Elder View Step 3.`
       };
     }
 
@@ -756,16 +756,13 @@ export const authService = {
       };
     }
 
-    if (matched.patientData) {
-      dataStore.loadLinkedPatient(matched.patientData);
-    }
     const elderProfile = matched.patientData || dataStore.getPatient();
-
     const caregiverUser = {
       id: matched.id || 'caregiver_' + Date.now().toString(36),
       name: matched.name || 'Caregiver',
       email: matched.email,
       role: 'caregiver',
+      relation: matched.relation || 'Primary Caregiver',
       elderPatient: elderProfile.name,
       elderPatientId: elderProfile.id,
       linkedElder: elderProfile,
@@ -773,6 +770,12 @@ export const authService = {
       avatar: matched.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
     };
 
+    if (elderProfile) {
+      dataStore.loadLinkedPatient(elderProfile, caregiverUser);
+    }
+    if (dataStore.updateCaregiverProfile) {
+      dataStore.updateCaregiverProfile(caregiverUser);
+    }
     this.setCurrentUser(caregiverUser);
     return {
       success: true,
@@ -780,6 +783,52 @@ export const authService = {
       elderProfile,
       message: `Welcome back, ${caregiverUser.name}! Connected to ${elderProfile.name}'s care overview.`
     };
+  },
+
+  // Synchronize Caregiver and Elder profiles across devices from Cloud
+  async syncCaregiverElderData(caregiverEmail) {
+    if (!caregiverEmail) return null;
+    try {
+      const res = await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: caregiverEmail, role: 'caregiver' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success && data.elderProfile) {
+          dataStore.loadLinkedPatient(data.elderProfile, data.user || data.caregiver);
+          if (data.user) {
+            this.setCurrentUser(data.user);
+          }
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('[authService] syncCaregiverElderData notice:', e);
+    }
+    return null;
+  },
+
+  async syncElderData(elderIdentifier) {
+    if (!elderIdentifier) return null;
+    try {
+      const res = await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: elderIdentifier, role: 'elder' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success && data.elder) {
+          dataStore.loadLinkedPatient(data.elder, data.caregiver);
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('[authService] syncElderData notice:', e);
+    }
+    return null;
   },
 
   // Alias for backward compatibility

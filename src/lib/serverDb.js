@@ -127,6 +127,12 @@ export async function getElderFromDb(rawIdentifier) {
     if (fbUser?.customAttributes?.elder) {
       return fbUser.customAttributes.elder;
     }
+    if (fbUser?.customClaims?.linkedElder) {
+      return fbUser.customClaims.linkedElder;
+    }
+    if (fbUser?.customAttributes?.linkedElder) {
+      return fbUser.customAttributes.linkedElder;
+    }
   } catch (fbErr) {
     // Continue to next checks
   }
@@ -135,21 +141,27 @@ export async function getElderFromDb(rawIdentifier) {
   const store = readLocalStore();
   const elders = { ...(DEFAULT_STORE.elders || {}), ...(store.elders || {}) };
 
+  // Check caregiver record in local store if input is an email
+  if (normalized.includes('@') && store.caregivers?.[normalized]?.linkedElder) {
+    return store.caregivers[normalized].linkedElder;
+  }
+
   // Exact key match
   if (elders[normalized]) {
     return elders[normalized];
   }
 
-  // Search across all elder records for matching email or phone
+  // Search across all elder records for matching email, phone, or caregiverEmail
   const cleanSearchDigits = normalized.replace(/\D/g, '');
   for (const key of Object.keys(elders)) {
     const elder = elders[key];
     if (!elder) continue;
 
-    // Email match
+    // Email or caregiver email match
     if (normalized.includes('@')) {
       if (elder.email && elder.email.toLowerCase() === normalized) return elder;
       if (elder.identifier && elder.identifier.toLowerCase() === normalized) return elder;
+      if (elder.caregiverEmail && elder.caregiverEmail.toLowerCase() === normalized) return elder;
     }
 
     // Phone match

@@ -388,30 +388,119 @@ class DataStore {
     }
   }
 
-  loadLinkedPatient(patientData) {
+  loadLinkedPatient(patientData, caregiverData = null) {
     if (patientData && typeof patientData === 'object') {
       const rawName = patientData.name || 'Sahara Member';
       const cleanHonorific = patientData.honorific || `${rawName.split(' ')[0]} ji`;
       const status = patientData.status || patientData.problemStatement || 'Mild Cognitive Support Mode';
+      const city = patientData.city || 'Kolkata';
+      const state = patientData.state || 'West Bengal';
+      const location = patientData.location || `${city}, ${state}`;
+
       this.state.patient = {
-        id: patientData.id || patientData.identifier || patientData.email || patientData.phone,
+        id: patientData.id || patientData.identifier || patientData.email || patientData.phone || 'linked_elder',
         name: rawName,
         honorific: cleanHonorific,
         age: parseInt(patientData.age, 10) || 74,
-        city: patientData.city || 'Guwahati',
-        state: patientData.state || 'Assam',
-        wing: patientData.wing || 'Garden Terrace Wing',
-        location: patientData.location || `${patientData.city || 'Guwahati'}, ${patientData.state || 'Assam'}`,
+        city: city,
+        state: state,
+        wing: patientData.wing || location,
+        location: location,
         status: status,
         problemStatement: status,
         tabletBattery: patientData.tabletBattery || 94,
         deviceConnected: true,
-        lastActive: 'Just now',
+        lastActive: patientData.lastActive || 'Just now',
         avatar: patientData.avatar || '/avatar.png',
         phone: patientData.phone || '',
         email: patientData.email || '',
-        caregiverEmail: patientData.caregiverEmail || '',
+        caregiverEmail: patientData.caregiverEmail || caregiverData?.email || '',
+        updatedAt: patientData.updatedAt || new Date().toISOString(),
       };
+
+      if (caregiverData && typeof caregiverData === 'object') {
+        const cgName = caregiverData.name || 'Caregiver Companion';
+        const cgEmail = caregiverData.email || patientData.caregiverEmail || '';
+        const cgPhone = caregiverData.phone || patientData.phone || '+91 98540 12345';
+        const cgRelation = caregiverData.relation || 'Primary Caregiver';
+
+        this.state.caregiver = {
+          name: cgName,
+          email: cgEmail,
+          phone: cgPhone,
+          relation: cgRelation,
+          avatar: caregiverData.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
+          status: 'Active · Connected',
+          location: city,
+        };
+
+        // Update contacts dynamically to match this connected caregiver and elder!
+        this.state.contacts = [
+          {
+            id: 'primary_caregiver',
+            name: cgName,
+            relation: cgRelation,
+            location: `Lives with you · ${city}`,
+            status: 'Connected · Available',
+            phone: cgPhone,
+            email: cgEmail,
+            avatar: this.state.caregiver.avatar,
+          },
+          {
+            id: 'dr_physician',
+            name: `Dr. ${city.slice(0, 8)} Clinic`,
+            relation: `Family Physician · ${city} Health Center`,
+            location: `${city} Medical Center`,
+            status: 'Clinic hours 9 AM - 6 PM',
+            phone: '+91 98640 99887',
+            avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80',
+          },
+          {
+            id: 'emergency_108',
+            name: '108 Ambulance SOS',
+            relation: `${state} Emergency Response`,
+            location: `${city}, ${state}`,
+            status: '24/7 Rapid Response',
+            phone: '108',
+            avatar: 'https://images.unsplash.com/photo-1587745416684-47953f16f02f?w=300&auto=format&fit=crop&q=80',
+          }
+        ];
+      }
+
+      // Update medicines tailored to this elder
+      this.state.medicines = [
+        {
+          id: 'med_morning',
+          title: status.includes('Alzheimer') || status.includes('Cognitive') ? 'Donepezil & Morning Rhythm' : 'Morning Vitality Dose',
+          detail: `Blood pressure tablet & warm hydration after breakfast for ${cleanHonorific}`,
+          instruction: 'Take with warm water or light tea.',
+          scheduledTime: '08:00 AM',
+          isDue: false,
+          taken: true,
+          takenAt: '08:15 AM',
+        },
+        {
+          id: 'med_afternoon',
+          title: 'Afternoon Digestive Tonic',
+          detail: '10ml digestive syrup with lukewarm water after lunch',
+          instruction: 'Take after midday rest.',
+          scheduledTime: '01:30 PM',
+          isDue: true,
+          taken: false,
+          takenAt: null,
+        },
+        {
+          id: 'med_night',
+          title: 'Night Calm Routine',
+          detail: 'Joint mobility tablet with warm turmeric milk',
+          instruction: 'Take before sleep.',
+          scheduledTime: '08:30 PM',
+          isDue: false,
+          taken: false,
+          takenAt: null,
+        }
+      ];
+
       this.saveState();
       this.notifyChange();
     }

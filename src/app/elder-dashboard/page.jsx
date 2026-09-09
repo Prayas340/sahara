@@ -19,12 +19,23 @@ export default function ElderDashboardPage() {
       setActiveUser(u);
       const p = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state.patient || {});
       setPatient(p || {});
-      setMedicines([...(dataStore.state.medicines || [])]);
+      setMedicines([...(dataStore.state?.medicines || [])]);
     };
 
     syncData();
     window.addEventListener('sahara:datastore-change', syncData);
     window.addEventListener('sahara:auth-change', syncData);
+
+    // Multi-Device Cloud Sync for Elder
+    const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
+    const identifier = u?.phone || u?.email || u?.id;
+    if (identifier) {
+      authService.syncElderData(identifier).then((res) => {
+        if (res?.elder) {
+          syncData();
+        }
+      });
+    }
 
     return () => {
       window.removeEventListener('sahara:datastore-change', syncData);
@@ -32,10 +43,13 @@ export default function ElderDashboardPage() {
     };
   }, []);
 
-  const displayName = patient?.name || activeUser?.name || 'Sahara Member';
-  const displayHonorific = patient?.honorific || activeUser?.honorific || (displayName ? `${displayName.split(' ')[0]} ji` : 'Elder');
+  const displayName = (activeUser?.role === 'elder' ? activeUser.name : null) || patient?.name || 'Sahara Member';
+  const displayHonorific = (activeUser?.role === 'elder' ? activeUser.honorific : null) || patient?.honorific || (displayName ? `${displayName.split(' ')[0]} ji` : 'Elder');
+  const caregiverObj = dataStore.getCaregiver ? dataStore.getCaregiver() : null;
+  const caregiverName = caregiverObj?.name || patient?.caregiverName || 'Your caregiver';
+
   const morningMed = medicines[0] || {
-    title: 'Donepezil 5mg',
+    title: 'Donepezil 5mg & Morning Routine',
     detail: 'After breakfast with a warm cup of Assam tea',
     scheduledTime: '08:00 AM',
     taken: true,
@@ -49,7 +63,7 @@ export default function ElderDashboardPage() {
   }).format(new Date());
 
   const handleListenPlan = () => {
-    const planText = `Good morning ${displayHonorific}. Today is ${currentDateStr}. Your morning Donepezil has been taken with warm tea. Later this afternoon, Riya will call from Bangalore.`;
+    const planText = `Good morning ${displayHonorific}. Today is ${currentDateStr}. In ${patient?.city || 'your area'}, the morning is peaceful. Your morning routine is ready, and ${caregiverName} is connected with your care today.`;
     speakText(planText);
     showToast('🔊 ' + planText, 'info', 6000);
   };
@@ -60,7 +74,7 @@ export default function ElderDashboardPage() {
       med.taken = !med.taken;
       med.takenAt = med.taken ? 'Just now' : null;
       dataStore.notifyChange();
-      showToast(med.taken ? '✓ Marked Donepezil as taken!' : 'Pending morning dose', 'info');
+      showToast(med.taken ? `✓ Marked "${med.title}" as taken!` : 'Pending morning dose', 'info');
     }
   };
 
@@ -104,7 +118,7 @@ export default function ElderDashboardPage() {
                   Good morning, {displayHonorific} <span className="inline-block hover:scale-110 transition-transform">🌿</span>
                 </h1>
                 <p className="text-sm sm:text-base text-[#40493d] max-w-xl">
-                  The morning air in the tea hills is crisp and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.
+                  The morning air in {patient?.city || 'your area'} is calm and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.
                 </p>
 
                 <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3">

@@ -11,7 +11,14 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState([]);
 
   useEffect(() => {
-    setContacts(dataStore.state.contacts || []);
+    const syncContacts = () => {
+      setContacts([...(dataStore.state?.contacts || [])]);
+    };
+    syncContacts();
+    window.addEventListener('sahara:datastore-change', syncContacts);
+    return () => {
+      window.removeEventListener('sahara:datastore-change', syncContacts);
+    };
   }, []);
 
   const handleBroadcast = () => {

@@ -95,6 +95,17 @@ export default function CaregiverDashboardPage() {
     window.addEventListener('sahara:datastore-change', syncData);
     window.addEventListener('sahara:auth-change', syncData);
 
+    // Multi-Device Cloud Sync: automatically fetch connected elder profile
+    const activeUser = authService.getCurrentUser ? authService.getCurrentUser() : null;
+    const cgEmail = activeUser?.email;
+    if (cgEmail) {
+      authService.syncCaregiverElderData(cgEmail).then((res) => {
+        if (res?.elderProfile) {
+          syncData();
+        }
+      });
+    }
+
     // Read initial tab from URL if present
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -206,7 +217,7 @@ export default function CaregiverDashboardPage() {
                     Hello, {caregiver?.name?.split(' ')[0] || 'Caregiver'}
                   </h1>
                   <p className="text-sm text-[#40493d]">
-                    Here is {patient?.honorific || patient?.name}&apos;s day at a glance · {patient?.city || 'Kolkata'}, {patient?.state || 'West Bengal'}
+                    Here is {patient?.honorific || patient?.name}&apos;s day at a glance · {patient?.city ? `${patient.city}, ${patient.state || ''}` : 'Live Connected'}
                   </p>
                 </div>
 
@@ -240,27 +251,27 @@ export default function CaregiverDashboardPage() {
                     </div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h2 className="text-xl sm:text-2xl font-extrabold text-[#032109]">{patient?.name}</h2>
+                        <h2 className="text-xl sm:text-2xl font-extrabold text-[#032109]">{patient?.name || 'Elder Patient'}</h2>
                         <span className="px-2.5 py-0.5 rounded-full bg-[#d3f8d0] text-[#40493d] text-xs font-bold">
-                          {patient?.age} years
+                          {patient?.age || 74} years
                         </span>
                         <span className="px-3 py-1 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-[#006e1c] animate-pulse"></span>
-                          Active today · Last active {patient?.lastActive}
+                          Active today · Last active {patient?.lastActive || 'Just now'}
                         </span>
                       </div>
                       <p className="text-xs sm:text-sm text-[#40493d] mb-2">
-                        {(patient?.status || patient?.problemStatement || 'Mild Cognitive Support Mode')} · {(patient?.wing || patient?.location || 'Garden Terrace Wing')}
+                        {(patient?.status || patient?.problemStatement || 'Mild Cognitive Support Mode')} · {(patient?.location || patient?.wing || 'Residence Sanctuary')}
                       </p>
                       <div className="flex items-center gap-3 text-[#40493d] text-xs font-semibold flex-wrap">
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-[#0d631b] text-base">wifi_tethering</span>
-                          Device Connected
+                          Device Connected (Battery {patient?.tabletBattery || 94}%)
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-[#724f00] text-base">home_pin</span>
-                          {patient?.location}
+                          {patient?.location || (patient?.city ? `${patient.city}, ${patient.state || ''}` : 'Home')}
                         </span>
                       </div>
                     </div>
@@ -270,14 +281,15 @@ export default function CaregiverDashboardPage() {
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <button
                       onClick={() => {
-                        showToast(`Calling room intercom (+91 98540 12345)...`, 'heart');
-                        window.open('tel:+919854012345');
+                        const targetPhone = patient?.phone || '+91 98540 12345';
+                        showToast(`Calling ${patient?.honorific || patient?.name} (${targetPhone})...`, 'heart');
+                        window.open(`tel:${targetPhone.replace(/\s+/g, '')}`);
                       }}
                       type="button"
                       className="btn-tactile btn-primary flex items-center gap-2 h-11 px-4 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-xl">call</span>
-                      <span>Call {patient?.honorific || patient?.name}</span>
+                      <span>Call {patient?.honorific || patient?.name || 'Elder'}</span>
                     </button>
                     <button
                       onClick={() => handleSelectTab('memories')}
@@ -288,9 +300,10 @@ export default function CaregiverDashboardPage() {
                       <span>Memories Deck</span>
                     </button>
                     <button
-                      onClick={() =>
-                        showToast('🚨 Dispatching emergency response to Garden Terrace Wing, Guwahati...', 'error', 6000)
-                      }
+                      onClick={() => {
+                        const emergencyLoc = patient?.location || (patient?.city ? `${patient.city}, ${patient.state || ''}` : 'residence sanctuary');
+                        showToast(`🚨 Dispatching emergency response to ${emergencyLoc}...`, 'error', 6000);
+                      }}
                       type="button"
                       className="btn-tactile btn-sos flex items-center gap-1.5 h-11 px-4 rounded-full text-xs sm:text-sm font-bold cursor-pointer"
                     >
@@ -515,7 +528,7 @@ export default function CaregiverDashboardPage() {
                     Memory Match & Familiar Treasures
                   </h1>
                   <p className="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Caregiver monitoring and live game companion for {patient?.name || 'Asha Devi'}. Tap cards below to test or guide through the session.
+                    Caregiver monitoring and live game companion for {patient?.name || 'Elder'}. Tap cards below to test or guide through the session.
                   </p>
                 </div>
 
@@ -652,7 +665,7 @@ export default function CaregiverDashboardPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <h3 className="text-xl font-extrabold text-[#032109]">
-                      {patient?.name || 'Asha Devi'}&apos;s Memory Anchor Album
+                      {(patient?.name ? patient.name.split(' ')[0] : 'Elder')}&apos;s Memory Anchor Album
                     </h3>
                     <p className="text-xs sm:text-sm text-[#40493d]">
                       Personal photographs tied to voice narrations that help evoke comfort and orientation.
@@ -732,7 +745,7 @@ export default function CaregiverDashboardPage() {
                     Medication & Daily Care Timeline
                   </h1>
                   <p className="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Manage smart reminders, sync with pillbox sensors, and adjust dosage alerts for {patient?.name || 'Asha Devi'}.
+                    Manage smart reminders, sync with pillbox sensors, and adjust dosage alerts for {patient?.name || 'Elder'}.
                   </p>
                 </div>
 
@@ -873,7 +886,7 @@ export default function CaregiverDashboardPage() {
                     Emergency Contacts & Loved Ones
                   </h1>
                   <p className="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Direct access to primary doctors, family members, and immediate ambulance dispatch in Guwahati.
+                    Direct access to primary doctors, family members, and immediate ambulance dispatch in {patient?.city || 'your elder’s location'}.
                   </p>
                 </div>
 
@@ -901,7 +914,7 @@ export default function CaregiverDashboardPage() {
                   <div>
                     <span className="text-xs font-bold text-red-700 uppercase">Emergency Service</span>
                     <h3 className="text-lg font-extrabold text-red-900">108 Ambulance</h3>
-                    <p className="text-xs text-red-600">Assam Emergency Network</p>
+                    <p className="text-xs text-red-600">{patient?.state || 'National'} Emergency Network</p>
                   </div>
                   <a
                     href="tel:108"
@@ -914,8 +927,8 @@ export default function CaregiverDashboardPage() {
                 <div className="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
                   <div>
                     <span className="text-xs font-bold text-[#0d631b] uppercase">Primary Physician</span>
-                    <h3 className="text-lg font-extrabold text-[#032109]">Dr. B. Das</h3>
-                    <p className="text-xs text-[#40493d]">Dispur Medical · +91 98640 99887</p>
+                    <h3 className="text-lg font-extrabold text-[#032109]">Dr. {(patient?.city || 'Health').slice(0, 8)} Clinic</h3>
+                    <p className="text-xs text-[#40493d]">{patient?.city || 'Local'} Health Center · +91 98640 99887</p>
                   </div>
                   <a
                     href="tel:+919864099887"
@@ -927,12 +940,12 @@ export default function CaregiverDashboardPage() {
 
                 <div className="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
                   <div>
-                    <span className="text-xs font-bold text-[#0d631b] uppercase">Primary Relative</span>
-                    <h3 className="text-lg font-extrabold text-[#032109]">Anil Borah (Son)</h3>
-                    <p className="text-xs text-[#40493d]">Bangalore · +91 98640 54321</p>
+                    <span className="text-xs font-bold text-[#0d631b] uppercase">Primary Caregiver</span>
+                    <h3 className="text-lg font-extrabold text-[#032109]">{caregiver?.name || 'Family Caregiver'}</h3>
+                    <p className="text-xs text-[#40493d]">{caregiver?.relation || 'Primary Caregiver'} · {caregiver?.phone || '+91 98540 12345'}</p>
                   </div>
                   <a
-                    href="tel:+919864054321"
+                    href={`tel:${(caregiver?.phone || '+91 98540 12345').replace(/\s+/g, '')}`}
                     className="p-3 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors"
                   >
                     <span className="material-symbols-outlined text-xl">call</span>
