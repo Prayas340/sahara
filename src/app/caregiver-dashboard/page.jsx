@@ -15,6 +15,11 @@ import { showToast } from '../../components/Toast.jsx';
 import { db, normalizeElderId } from '../../lib/firebaseClient.js';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
+function getTodayDateString() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 export default function CaregiverDashboardPage() {
   const router = useRouter();
   const { t, lang } = useTranslation();
@@ -111,7 +116,7 @@ export default function CaregiverDashboardPage() {
     // References for data listeners and timers
     let _elderId = curUser?.linkedElder?.id || curUser?.linkedElder?.phone || curUser?.linkedElder?.email || null;
     let _caregiverEmail = curUser?.email || null;
-    const todayDate = new Date().toISOString().split('T')[0];
+    const todayDate = getTodayDateString();
     let unsubDailyLog = null;
     let unsubElderDoc = null;
 
@@ -520,6 +525,7 @@ export default function CaregiverDashboardPage() {
   const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 0;
   const displayTodaySessions = Math.max(todayGameSessions, gameAnalytics?.todaySessions || 0);
   const displayTodayScore = Math.max(todayGameScore, gameAnalytics?.todayScore || 0);
+  const displayWeeklyScore = Math.max(gameAnalytics?.weeklyScore || 0, displayTodayScore);
 
   const handleSelectTab = (tab) => {
     setActiveTab(tab);
@@ -532,7 +538,7 @@ export default function CaregiverDashboardPage() {
     setMedicines([...updated]);
     if (db) {
       const cleanElderId = normalizeElderId(patient?.id || patient?.phone || patient?.email || '+919854012345');
-      const todayDate = new Date().toISOString().split('T')[0];
+      const todayDate = getTodayDateString();
       setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate), {
         medications: updated,
         routines: updated.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
@@ -1114,7 +1120,7 @@ export default function CaregiverDashboardPage() {
                   </div>
                   <div>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-3xl font-extrabold text-[#032109]">{gameAnalytics.weeklyScore || 0}</span>
+                      <span className="text-3xl font-extrabold text-[#032109]">{displayWeeklyScore}</span>
                       <span className="text-sm font-bold text-[#0d631b]">{t.pointsLabel || 'pts'}</span>
                     </div>
                     <p className="text-xs text-[#40493d] mt-1">Rolling 7-day cumulative points</p>
@@ -1197,13 +1203,18 @@ export default function CaregiverDashboardPage() {
                         d.setDate(d.getDate() - i);
                         const dayLabel = i === 0 ? 'Today' : dayNames[d.getDay()];
                         const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-                        days.push({ day: dayLabel, dateStr, score: 0, sessions: 0 });
+                        const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                        days.push({ day: dayLabel, dateStr, score: 0, sessions: 0, isToday: i === 0, date: dStr });
                       }
                       return days;
                     })()).map((dayData, idx) => {
-                      const score = dayData.score || 0;
+                      const isToday = idx === 6 || dayData.day === 'Today' || dayData.isToday;
+                      const score = isToday ? Math.max(dayData.score || 0, displayTodayScore) : (dayData.score || 0);
                       const heightPercent = score > 0 ? Math.max(16, Math.min(100, Math.round((score / 350) * 100))) : 8;
-                      const isToday = idx === 6 || dayData.day === 'Today';
+                      const displayDayLabel = isToday ? 'Today' : dayData.day;
+                      const displayDateLabel = isToday
+                        ? `${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getDate()).padStart(2, '0')}`
+                        : (dayData.dateStr || '');
                       return (
                         <div key={idx} className="flex flex-col items-center gap-2 group h-full justify-end">
                           {/* Score Pill */}
@@ -1230,9 +1241,9 @@ export default function CaregiverDashboardPage() {
                           {/* Day & Date Labels */}
                           <div className="text-center">
                             <p className={`text-xs font-extrabold ${isToday ? 'text-[#006e1c]' : 'text-[#032109]'}`}>
-                              {dayData.day}
+                              {displayDayLabel}
                             </p>
-                            <p className="text-[10px] text-[#40493d]">{dayData.dateStr || ''}</p>
+                            <p className="text-[10px] text-[#40493d]">{displayDateLabel}</p>
                           </div>
                         </div>
                       );

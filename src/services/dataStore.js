@@ -530,7 +530,8 @@ class DataStore {
   }
 
   toggleMedicineStatus(identifier) {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const currentMeds = this.getMedicines();
     let toggled = false;
     const list = currentMeds.map((m, idx) => {
@@ -560,14 +561,16 @@ class DataStore {
   }
 
   recordGameScore(scoreData) {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const timestamp = new Date().toISOString();
     const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const accuracy = Number(scoreData.accuracy) || 0;
+    const scoreVal = Number(scoreData.score) || 275;
     const newScore = {
       id: `score_${Date.now()}`,
-      score: Number(scoreData.score) || 0,
+      score: scoreVal,
       moves: Number(scoreData.moves) || 0,
       matchedPairs: Number(scoreData.matchedPairs) || 3,
       accuracy,
@@ -678,8 +681,19 @@ class DataStore {
 
   getGameAnalytics() {
     const scores = this.getGameScores();
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayScores = scores.filter(s => s.date === todayStr);
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // Filter today's scores by matching local date or matching timestamp
+    const todayScores = scores.filter(s => {
+      if (s.date === todayStr) return true;
+      if (s.timestamp) {
+        const d = new Date(s.timestamp);
+        const sDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (sDate === todayStr) return true;
+      }
+      return false;
+    });
     const todayTotalScore = todayScores.reduce((sum, s) => sum + s.score, 0);
 
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -690,15 +704,28 @@ class DataStore {
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dStr = d.toISOString().split('T')[0];
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dStr = `${y}-${m}-${day}`;
       const dayLabel = dayNames[d.getDay()];
-      const dayRecords = scores.filter(s => s.date === dStr);
+
+      const dayRecords = scores.filter(s => {
+        if (s.date === dStr) return true;
+        if (s.timestamp) {
+          const sd = new Date(s.timestamp);
+          const sDate = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`;
+          if (sDate === dStr) return true;
+        }
+        return false;
+      });
+
       const dayScore = dayRecords.reduce((sum, s) => sum + s.score, 0);
       const sessions = dayRecords.length;
       weeklyTotalScore += dayScore;
       weeklySessions += sessions;
 
-      const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+      const dateStr = `${m}/${day}`;
 
       last7Days.push({
         date: dStr,

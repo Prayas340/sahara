@@ -146,14 +146,16 @@ export default function MemoryMatchGamePage() {
         if (allMatched) {
           const duration = startTime ? Math.max(10, Math.round((Date.now() - startTime) / 1000)) : 30;
           const accuracy = Math.min(100, Math.round((3 / Math.max(3, updatedMoves)) * 100));
-          const score = Math.max(120, 300 - Math.max(0, updatedMoves - 3) * 25);
+          // Exactly 275 points awarded per completed round as required
+          const score = 275;
           
           setLastScoreEarned(score);
           setRoundCompleted(true);
 
           // Resolve identities reliably for cross-device sync
           const { elderId, caregiverEmail, cleanElderId } = resolveElderAndCaregiver();
-          const todayDate = new Date().toISOString().split('T')[0];
+          const now = new Date();
+          const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
           // 1. Real-time Firestore Mutation
           if (db && cleanElderId) {
@@ -169,11 +171,13 @@ export default function MemoryMatchGamePage() {
               completedAt: new Date().toISOString(),
             };
 
-            // Atomically increment gameSessions, gameScore, append to gamesHistory, and record serverTimestamp
+            // Atomically increment gameSessions, gameScore (+275 pts), append to gamesHistory, and record serverTimestamp
             setDoc(dailyLogRef, {
               gameSessions: increment(1),
               gameScore: increment(score),
               gamesHistory: arrayUnion(gameEntry),
+              lastGameScore: score,
+              lastGameAt: new Date().toISOString(),
               updatedAt: serverTimestamp(),
             }, { merge: true }).catch(err => {
               console.warn('[MemoryGame] Firestore setDoc notice:', err);
@@ -181,6 +185,10 @@ export default function MemoryMatchGamePage() {
 
             setDoc(elderRef, {
               id: cleanElderId,
+              lastGameScore: score,
+              todayGameScore: increment(score),
+              todayGameSessions: increment(1),
+              lastGameAt: new Date().toISOString(),
               lastActive: serverTimestamp(),
               updatedAt: serverTimestamp(),
             }, { merge: true }).catch(() => {});
@@ -235,7 +243,7 @@ export default function MemoryMatchGamePage() {
             }));
           }
 
-          showToast(`🌟 Round Complete! Score: ${score} pts (${accuracy}% Recall)`, 'success', 5000);
+          showToast(`🌟 Round Complete! +${score} Points Earned! (${accuracy}% Recall)`, 'success', 5000);
           speakText(`Round Complete! You scored ${score} points!`);
         } else {
           showToast(`🎉 Wonderful! You matched ${first.title}!`, 'success', 3000);

@@ -531,6 +531,13 @@ export async function getContactsFromDb(args) {
   return null;
 }
 
+export function getLocalDateString(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /**
  * Save a game score session to the database
  */
@@ -559,14 +566,14 @@ export async function saveGameScoreToDb(scoreData) {
 
   if (!elderId) elderId = 'default_elder';
 
-  const dateStr = scoreData.date || new Date().toISOString().split('T')[0];
+  const dateStr = scoreData.date || getLocalDateString();
   const timestamp = scoreData.timestamp || new Date().toISOString();
 
   const record = {
     id,
     elderId,
     caregiverEmail: caregiverEmail || '',
-    score: Number(scoreData.score) || 300,
+    score: Number(scoreData.score) || 275,
     moves: Number(scoreData.moves) || 6,
     matchedPairs: Number(scoreData.matchedPairs) || 3,
     accuracy: Number(scoreData.accuracy) || 100,
@@ -649,13 +656,25 @@ export async function getGameScoresFromDb(args) {
     }
   }
 
-  // Calculate daily & weekly analytics
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayScores = scores.filter(s => s.date === todayStr);
+  // Calculate daily & weekly analytics using local calendar date
+  const now = new Date();
+  const todayStr = getLocalDateString(now);
+
+  const todayScores = scores.filter(s => {
+    if (s.date === todayStr) return true;
+    if (s.timestamp) {
+      const tsD = new Date(s.timestamp);
+      if (!isNaN(tsD.getTime())) {
+        return getLocalDateString(tsD) === todayStr;
+      }
+    }
+    return false;
+  });
+
   const todayTotalScore = todayScores.reduce((sum, s) => sum + s.score, 0);
   const todayAvgScore = todayScores.length > 0 ? Math.round(todayTotalScore / todayScores.length) : 0;
 
-  // Last 7 days breakdown
+  // Last 7 days breakdown in local timezone
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const last7Days = [];
   let weeklyTotalScore = 0;
@@ -664,9 +683,20 @@ export async function getGameScoresFromDb(args) {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dStr = d.toISOString().split('T')[0];
+    const dStr = getLocalDateString(d);
     const dayLabel = dayNames[d.getDay()];
-    const dayRecords = scores.filter(s => s.date === dStr);
+
+    const dayRecords = scores.filter(s => {
+      if (s.date === dStr) return true;
+      if (s.timestamp) {
+        const tsD = new Date(s.timestamp);
+        if (!isNaN(tsD.getTime())) {
+          return getLocalDateString(tsD) === dStr;
+        }
+      }
+      return false;
+    });
+
     const dayScore = dayRecords.reduce((sum, s) => sum + s.score, 0);
     const sessions = dayRecords.length;
     weeklyTotalScore += dayScore;
@@ -787,7 +817,7 @@ export async function getRemindersFromDb(args) {
   }
 
   // Check for midnight daily reset: if any reminder has takenDate from previous day, reset status
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   let needsDailyReset = false;
   medicines = medicines.map(m => {
     if (m.taken && m.takenDate && m.takenDate !== todayStr) {
@@ -858,7 +888,7 @@ export async function saveRemindersToDb({ elderId, caregiverEmail, medicines }) 
   }
 
   // Record completions in database under user accounts
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   cleanList.forEach(m => {
     if (m.taken) {
       const compKey = cleanElderId || cleanCg;
@@ -952,7 +982,7 @@ export async function toggleReminderStatusInDb({ elderId, caregiverEmail, remind
     );
     if (isTarget && !toggledItem) {
       const isTaken = taken !== undefined ? Boolean(taken) : !m.taken;
-      const todayStr = takenDate || new Date().toISOString().split('T')[0];
+      const todayStr = takenDate || getLocalDateString();
       const updated = {
         ...m,
         taken: isTaken,
