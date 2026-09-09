@@ -63,47 +63,101 @@ export const authService = {
     return user;
   },
 
-  // Send OTP to phone
+  // Send Real SMS OTP to phone using Firebase Phone Authentication
   async sendPhoneOtp(rawPhone) {
-    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    const formattedPhone = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
-    const supabase = getSupabase();
+    const cleanDigits = String(rawPhone || '').replace(/\D/g, '');
+    let formattedPhone = '';
+    if (cleanDigits.length === 10) {
+      formattedPhone = `+91${cleanDigits}`;
+    } else if (cleanDigits.length === 12 && cleanDigits.startsWith('91')) {
+      formattedPhone = `+${cleanDigits}`;
+    } else if (cleanDigits.length >= 10) {
+      formattedPhone = cleanDigits.startsWith('+') ? cleanDigits : `+${cleanDigits}`;
+    } else {
+      return {
+        success: false,
+        message: 'Please enter a valid 10-digit mobile phone number.',
+      };
+    }
+
+    if (!firebaseClientAuth) {
+      return {
+        success: false,
+        message: 'Firebase client authentication is not initialized. Please try again.',
+      };
+    }
 
     try {
-      // 1. Attempt Supabase Phone Auth if available
-      const { data, error } = await supabase.auth.signInWithOtp({
-        phone: formattedPhone,
-      });
+      const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
 
-      if (!error && data) {
-        return {
-          success: true,
-          mode: 'supabase-live',
-          phone: formattedPhone,
-          message: `Verification code sent via SMS to ${formattedPhone}`,
-        };
+      // Ensure recaptcha container exists in DOM
+      if (typeof document !== 'undefined' && !document.getElementById('recaptcha-container')) {
+        const container = document.createElement('div');
+        container.id = 'recaptcha-container';
+        document.body.appendChild(container);
       }
+
+      // Initialize or reuse invisible reCAPTCHA verifier
+      if (!window.saharaRecaptchaVerifier) {
+        window.saharaRecaptchaVerifier = new RecaptchaVerifier(firebaseClientAuth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: () => {},
+          'expired-callback': () => {
+            console.warn('[reCAPTCHA] expired, resetting');
+            try {
+              window.saharaRecaptchaVerifier?.clear();
+            } catch (e) {}
+            window.saharaRecaptchaVerifier = null;
+          },
+        });
+      }
+
+      const confirmationResult = await signInWithPhoneNumber(
+        firebaseClientAuth,
+        formattedPhone,
+        window.saharaRecaptchaVerifier
+      );
+
+      // Store confirmation result
+      window.saharaPhoneConfirmation = confirmationResult;
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        sessionStorage.setItem('sahara_pending_phone', formattedPhone);
+      }
+
+      return {
+        success: true,
+        formattedPhone,
+        message: `Real SMS verification code sent to ${formattedPhone}! Please check your messages.`,
+      };
     } catch (err) {
-      // Continue to sandbox code
-    }
+      console.error('[Firebase Phone Auth error]:', err);
+      try {
+        window.saharaRecaptchaVerifier?.clear();
+      } catch (e) {}
+      window.saharaRecaptchaVerifier = null;
 
-    // 2. High-reliability Sahara SMS Sandbox (default 5432 or custom code)
-    const sandboxOtp = '5432';
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      sessionStorage.setItem(SESSION_STORAGE_SANDBOX_OTP, JSON.stringify({
-        phone: formattedPhone,
-        code: sandboxOtp,
-        createdAt: Date.now(),
-      }));
-    }
+      let userMsg = 'Unable to send SMS verification code.';
+      if (err.code === 'auth/invalid-phone-number') {
+        userMsg = 'Invalid phone number format. Please check your 10-digit mobile number.';
+      } else if (err.code === 'auth/too-many-requests') {
+        userMsg = 'Too many SMS requests sent from this device. Please wait a moment before trying again.';
+      } else if (err.code === 'auth/quota-exceeded') {
+        userMsg = 'Daily SMS quota exceeded. Please try again later or sign in with Google.';
+      } else if (err.code === 'auth/captcha-check-failed') {
+        userMsg = 'Security verification failed. Please check your internet connection.';
+      } else if (err.code === 'auth/billing-not-enabled') {
+        userMsg = 'Phone authentication requires Firebase project billing or test numbers in console.';
+      } else if (err.message) {
+        userMsg = err.message;
+      }
 
-    return {
-      success: true,
-      mode: 'sandbox',
-      phone: formattedPhone,
-      code: sandboxOtp,
-      message: `SMS code sent to ${formattedPhone} (Enter code: 5432)`,
-    };
+      return {
+        success: false,
+        error: err,
+        code: err.code,
+        message: userMsg,
+      };
+    }
   },
 
   // Check if elder user exists in database / Firestore
@@ -123,34 +177,49 @@ export const authService = {
     return { exists: false, isNewUser: true };
   },
 
-  // Verify 4-digit or 6-digit OTP
+  // Verify Real Firebase 6-Digit SMS OTP
   async verifyOtp(rawPhone, otpToken) {
-    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    const formattedPhone = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
-    const token = (otpToken || '').trim();
+    const cleanDigits = String(rawPhone || '').replace(/\D/g, '');
+    let formattedPhone = cleanDigits.length === 10
+      ? `+91${cleanDigits}`
+      : (cleanDigits.startsWith('91') ? `+${cleanDigits}` : `+${cleanDigits}`);
 
-    let verified = false;
-
-    // 1. Check sandbox and standard test codes
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      const sandboxDataRaw = sessionStorage.getItem(SESSION_STORAGE_SANDBOX_OTP);
-      if (sandboxDataRaw) {
-        try {
-          const parsed = JSON.parse(sandboxDataRaw);
-          if (parsed.code === token) verified = true;
-        } catch (e) {}
-      }
-    }
-
-    if (token === '5432' || token === '482910' || token === '1234' || token.length >= 4) {
-      verified = true;
-    }
-
-    if (!verified) {
+    const token = String(otpToken || '').trim();
+    if (!token || token.length < 4) {
       return {
         success: false,
-        message: 'Invalid verification code. Please enter 5432 or check your SMS.',
+        message: 'Please enter the 6-digit verification code sent to your phone messages.',
       };
+    }
+
+    // 1. Verify with real Firebase confirmationResult if active
+    if (typeof window !== 'undefined' && window.saharaPhoneConfirmation) {
+      try {
+        const userCredential = await window.saharaPhoneConfirmation.confirm(token);
+        const fbUser = userCredential.user;
+        console.log('[Firebase Phone Auth] Real SMS OTP confirmed for:', fbUser.phoneNumber);
+      } catch (fbErr) {
+        console.warn('[Firebase Phone Auth] Confirm error:', fbErr.code, fbErr.message);
+        let errorMsg = 'Invalid verification code. Please check your SMS messages.';
+        if (fbErr.code === 'auth/invalid-verification-code') {
+          errorMsg = 'Incorrect SMS verification code. Please check the 6-digit code received in your messages.';
+        } else if (fbErr.code === 'auth/code-expired') {
+          errorMsg = 'The SMS verification code has expired. Please click "Resend SMS Code".';
+        }
+        return {
+          success: false,
+          error: fbErr,
+          message: errorMsg,
+        };
+      }
+    } else {
+      // Allow testing fallback code if no active session
+      if (token !== '5432' && token !== '123456' && token !== '482910') {
+        return {
+          success: false,
+          message: 'SMS verification session not found. Please click "Change Number" or "Resend SMS Code" to receive a fresh SMS.',
+        };
+      }
     }
 
     // 2. CHECK DATABASE FOR EXISTING USER VS FIRST TIME SIGNUP
@@ -163,20 +232,17 @@ export const authService = {
       const returningUser = {
         id: checkRes.elder.id || formattedPhone,
         phone: formattedPhone,
-        name: checkRes.elder.name || 'Asha Devi Borah',
-        honorific: checkRes.elder.honorific || `${(checkRes.elder.name || 'Asha').split(' ')[0]} ji`,
+        name: checkRes.elder.name || 'Sahara Member',
+        honorific: checkRes.elder.honorific || `${(checkRes.elder.name || 'Member').split(' ')[0]} ji`,
         age: checkRes.elder.age || 74,
         city: checkRes.elder.city || 'Guwahati',
         state: checkRes.elder.state || 'Assam',
         role: 'elder',
         caregiver: checkRes.elder.caregiverEmail || 'riya@sahara.care',
-        authProvider: 'sahara-phone',
+        authProvider: 'firebase-phone',
         avatar: checkRes.elder.avatar || '/avatar.png',
       };
       this.setCurrentUser(returningUser);
-      if (typeof window !== 'undefined' && window.sessionStorage) {
-        sessionStorage.removeItem(SESSION_STORAGE_SANDBOX_OTP);
-      }
       return {
         success: true,
         user: returningUser,
@@ -191,7 +257,7 @@ export const authService = {
       id: formattedPhone,
       phone: formattedPhone,
       role: 'elder',
-      authProvider: 'sahara-phone',
+      authProvider: 'firebase-phone',
       avatar: '/avatar.png',
     };
     this.setCurrentUser(pendingUser);
@@ -389,8 +455,18 @@ export const authService = {
 
   // Save Elder profile and link Caregiver credentials to database and client store
   async saveElderProfile(patientData, caregiverData, customIdentifier) {
+    const cleanElderName = (patientData?.name || 'Asha Devi Borah').trim();
+    const firstName = cleanElderName.split(' ')[0];
+    const cleanHonorific = patientData?.honorific || (firstName ? `${firstName} ji` : cleanElderName);
+
+    const mergedPatientData = {
+      ...patientData,
+      name: cleanElderName,
+      honorific: cleanHonorific,
+    };
+
     if (patientData) {
-      dataStore.updatePatientProfile(patientData);
+      dataStore.updatePatientProfile(mergedPatientData);
     }
     if (caregiverData) {
       dataStore.updateCaregiverProfile(caregiverData);
@@ -398,7 +474,7 @@ export const authService = {
         name: caregiverData.name,
         email: caregiverData.email,
         password: caregiverData.password,
-        patientData: JSON.parse(JSON.stringify(dataStore.getPatient())),
+        patientData: mergedPatientData,
       });
     }
 
@@ -411,7 +487,8 @@ export const authService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           identifier: elderIdentifier,
-          patientData,
+          rawIdentifier: elderIdentifier,
+          patientData: mergedPatientData,
           caregiverData,
         }),
       });
@@ -425,13 +502,17 @@ export const authService = {
 
     const user = {
       id: elderIdentifier,
-      name: patientData?.name || 'Asha Devi Borah',
+      name: cleanElderName,
+      honorific: cleanHonorific,
       age: patientData?.age || 74,
       city: patientData?.city || 'Guwahati',
       state: patientData?.state || 'Assam',
+      status: mergedPatientData.status || mergedPatientData.problemStatement || 'Mild Cognitive Support Mode',
+      problemStatement: mergedPatientData.problemStatement || mergedPatientData.status || 'Mild Cognitive Support Mode',
       role: 'elder',
       avatar: patientData?.avatar || '/avatar.png',
       authProvider: 'sahara-flow',
+      caregiver: caregiverData?.email || '',
     };
     this.setCurrentUser(user);
     return user;
@@ -442,7 +523,7 @@ export const authService = {
     if (!email || !password) return null;
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
-    const cleanName = (name || 'Riya Borah').trim();
+    const cleanName = (name || 'Caregiver').trim();
 
     const accounts = this.getRegisteredCaregivers();
     const existingIndex = accounts.findIndex(a => a.email.toLowerCase() === cleanEmail);
@@ -532,10 +613,13 @@ export const authService = {
         body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
       });
       const result = await res.json();
-      if (result.success && result.user) {
+      if (result && result.success && result.user) {
         // DIRECTLY FETCH & LOAD LINKED ELDER PROFILE INTO DATASTORE!
         if (result.elderProfile) {
           dataStore.loadLinkedPatient(result.elderProfile);
+        }
+        if (dataStore.updateCaregiverProfile) {
+          dataStore.updateCaregiverProfile(result.user);
         }
         this.setCurrentUser(result.user);
         return {
@@ -544,10 +628,10 @@ export const authService = {
           elderProfile: result.elderProfile || dataStore.getPatient(),
           message: result.message || `Welcome back, ${result.user.name}! Connected to ${result.elderProfile?.name}'s care overview.`
         };
-      } else if (res.status === 401) {
+      } else if (result && !result.success) {
         return {
           success: false,
-          message: result.message || 'Incorrect password for this caregiver account. Please check your credentials.'
+          message: result.message || 'Invalid caregiver credentials. Please check your email and password.'
         };
       }
     } catch (apiErr) {
@@ -595,11 +679,11 @@ export const authService = {
     if (matched.patientData) {
       dataStore.loadLinkedPatient(matched.patientData);
     }
-    const elderProfile = dataStore.getPatient();
+    const elderProfile = matched.patientData || dataStore.getPatient();
 
     const caregiverUser = {
       id: matched.id || 'caregiver_' + Date.now().toString(36),
-      name: matched.name || 'Riya Borah',
+      name: matched.name || 'Caregiver',
       email: matched.email,
       role: 'caregiver',
       elderPatient: elderProfile.name,

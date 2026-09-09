@@ -250,6 +250,39 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
                 </div>
               </div>
 
+              <!-- Problem Statement / Clinical Condition Support Mode -->
+              <div class="flex flex-col gap-1.5 pt-1">
+                <label class="text-xs sm:text-sm font-bold text-[#032109] flex items-center justify-between" for="profile-problem-select">
+                  <span class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-base text-[#0d631b]">psychology</span>
+                    <span>Problem Statement / Condition Support Mode</span>
+                  </span>
+                  <span class="text-[10px] text-[#0d631b] font-bold bg-[#d3f8d0] px-2 py-0.5 rounded-full">Caregiver Sync</span>
+                </label>
+                <div class="relative flex items-center w-full rounded-2xl bg-white border-2 border-[#cdf2cb] focus-within:border-[#2e7d32] shadow-sm transition-all">
+                  <select 
+                    id="profile-problem-select" 
+                    class="w-full h-12 px-4 text-xs sm:text-sm font-bold text-[#032109] bg-transparent outline-none cursor-pointer"
+                  >
+                    <option value="Mild Cognitive Support Mode">Mild Cognitive Support Mode</option>
+                    <option value="Memory Loss & Daily Recall Assistance">Memory Loss & Daily Recall Assistance</option>
+                    <option value="Early-Stage Alzheimer's Care">Early-Stage Alzheimer's Care</option>
+                    <option value="Dementia & Confusion Management">Dementia & Confusion Management</option>
+                    <option value="Independent Senior Care & Medicine Tracking">Independent Senior Care & Medicine Tracking</option>
+                    <option value="custom">Other / Custom Problem Statement...</option>
+                  </select>
+                </div>
+                <input 
+                  id="profile-custom-problem-input" 
+                  type="text" 
+                  placeholder="Type elder's condition or support requirement..." 
+                  class="hidden w-full h-11 px-4 rounded-xl border border-[#cdf2cb] text-xs sm:text-sm font-bold text-[#032109] bg-white outline-none focus:border-[#0d631b] shadow-xs"
+                />
+                <p class="text-[11px] text-[#40493d] px-1">
+                  This problem statement will be synchronized directly to your caregiver's portal.
+                </p>
+              </div>
+
               <!-- Family Caregiver Portal Login Setup Section -->
               <div class="mt-4 pt-4 border-t-2 border-[#cdf2cb] space-y-3">
                 <div class="flex items-center justify-between">
@@ -748,6 +781,18 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
       }
     });
 
+    // Problem statement toggle
+    const problemSelect = document.getElementById('profile-problem-select');
+    const customProblemInput = document.getElementById('profile-custom-problem-input');
+    problemSelect?.addEventListener('change', () => {
+      if (problemSelect.value === 'custom') {
+        customProblemInput?.classList.remove('hidden');
+        customProblemInput?.focus();
+      } else {
+        customProblemInput?.classList.add('hidden');
+      }
+    });
+
     // Submit button
     submitBtn?.addEventListener('click', () => {
       const name = nameInput?.value.trim();
@@ -755,9 +800,15 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
       const location = locationInput?.value.trim();
       const city = cityInput?.value.trim();
       const state = stateInput?.value.trim();
-      const caregiverName = caregiverNameInput?.value.trim() || 'Riya Borah';
-      const caregiverEmail = caregiverEmailInput?.value.trim() || 'riya@sahara.care';
-      const caregiverPassword = caregiverPasswordInput?.value.trim() || 'care1234';
+      const caregiverName = caregiverNameInput?.value.trim();
+      const caregiverEmail = caregiverEmailInput?.value.trim().toLowerCase();
+      const caregiverPassword = caregiverPasswordInput?.value.trim();
+
+      const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+      const problemStatement = (problemSelect?.value === 'custom'
+        ? customProblemInput?.value.trim()
+        : problemSelect?.value) || 'Mild Cognitive Support Mode';
 
       if (!name) {
         showToast('Please enter your name to complete setup.', 'error');
@@ -765,14 +816,32 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
         return;
       }
 
+      if (!caregiverName || caregiverName.length < 2) {
+        showToast('Please enter the caregiver’s name (at least 2 characters).', 'error');
+        caregiverNameInput?.focus();
+        return;
+      }
+
       if (!caregiverEmail) {
-        showToast('Please enter an email for your caregiver portal login.', 'error');
+        showToast('Please enter an email address for your caregiver portal login.', 'error');
+        caregiverEmailInput?.focus();
+        return;
+      }
+
+      if (!EMAIL_REGEX.test(caregiverEmail)) {
+        showToast('Please enter a valid caregiver email address format (e.g. name@domain.com).', 'error');
         caregiverEmailInput?.focus();
         return;
       }
 
       if (!caregiverPassword) {
         showToast('Please set a password for your caregiver portal.', 'error');
+        caregiverPasswordInput?.focus();
+        return;
+      }
+
+      if (caregiverPassword.length < 6) {
+        showToast('Caregiver password must be at least 6 characters long.', 'error');
         caregiverPasswordInput?.focus();
         return;
       }
@@ -784,6 +853,8 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
         location: location || 'Room 2, Garden Terrace Wing',
         city: city || 'Guwahati',
         state: state || 'Assam',
+        status: problemStatement,
+        problemStatement: problemStatement,
       });
 
       // 2. Update caregiver in dataStore
@@ -801,6 +872,8 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
           location: location || 'Room 2, Garden Terrace Wing',
           city: city || 'Guwahati',
           state: state || 'Assam',
+          status: problemStatement,
+          problemStatement: problemStatement,
           phone: params?.phone || '',
           email: params?.email || '',
         },
@@ -819,6 +892,8 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
         location: location || 'Room 2, Garden Terrace Wing',
         city: city || 'Guwahati',
         state: state || 'Assam',
+        status: problemStatement,
+        problemStatement: problemStatement,
         role: 'elder',
       });
 

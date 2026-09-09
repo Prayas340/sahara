@@ -6,45 +6,102 @@ import { authService } from '../../services/authService.js';
 import { dataStore } from '../../services/dataStore.js';
 import { showToast } from '../../components/Toast.jsx';
 
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 export default function CaregiverLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [touched, setTouched] = useState({ email: false, password: false });
   const [patient, setPatient] = useState({});
   const [caregiver, setCaregiver] = useState({});
 
   useEffect(() => {
-    const currentPatient = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {});
-    setPatient(currentPatient);
-
     const latestCg = authService.getLatestRegisteredCaregiver ? authService.getLatestRegisteredCaregiver() : null;
     const storeCg = dataStore.getCaregiver ? dataStore.getCaregiver() : null;
     const activeCg = latestCg || storeCg || { email: 'riya@sahara.care', password: 'care123', name: 'Riya Borah' };
 
+    const currentPatient = latestCg?.patientData || (dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {}));
+    setPatient(currentPatient);
     setCaregiver(activeCg);
-    if (activeCg.email) setEmail(activeCg.email);
-    if (activeCg.password) setPassword(activeCg.password);
+    // Inputs remain empty by default so credentials must be provided explicitly
   }, []);
+
+  const validateEmail = (val) => {
+    const clean = (val || '').trim();
+    if (!clean) return 'Caregiver email address is required.';
+    if (!EMAIL_REGEX.test(clean)) {
+      return 'Please enter a valid email address (e.g. name@domain.com).';
+    }
+    return '';
+  };
+
+  const validatePassword = (val) => {
+    const clean = (val || '').trim();
+    if (!clean) return 'Caregiver password is required.';
+    if (clean.length < 4) {
+      return 'Password must be at least 4 characters.';
+    }
+    return '';
+  };
+
+  const handleAutofillDemo = () => {
+    const targetEmail = caregiver.email || 'riya@sahara.care';
+    const targetPassword = caregiver.password || 'care123';
+    setEmail(targetEmail);
+    setPassword(targetPassword);
+    setLoginError('');
+    setFieldErrors({ email: '', password: '' });
+    setTouched({ email: true, password: true });
+    showToast('Loaded registered caregiver credentials.', 'info');
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoginError('');
+
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
+
+    const emailErr = validateEmail(cleanEmail);
+    const passwordErr = validatePassword(cleanPassword);
+
+    setTouched({ email: true, password: true });
+    setFieldErrors({ email: emailErr, password: passwordErr });
+
+    if (emailErr || passwordErr) {
+      if (emailErr) {
+        showToast(emailErr, 'error');
+      } else if (passwordErr) {
+        showToast(passwordErr, 'error');
+      }
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const res = await authService.loginCaregiver({ email: email.trim(), password });
+      const res = await authService.loginCaregiver({ email: cleanEmail, password: cleanPassword });
       setIsLoading(false);
 
       if (res?.success) {
         showToast(res.message || `Welcome back, ${res.user?.name || 'Caregiver'}! Caregiver portal synchronized.`, 'success', 4000);
-        router.push('/caregiver-dashboard');
+        window.location.href = '/caregiver-dashboard';
       } else {
-        showToast(res?.message || 'Invalid credentials. Please check your email and password.', 'error');
+        const errorMsg = res?.message || 'Access denied. The email or password entered does not match this elder’s registered caregiver.';
+        setLoginError(errorMsg);
+        showToast(errorMsg, 'error', 5000);
       }
     } catch (err) {
       setIsLoading(false);
       console.error(err);
-      showToast('Login error: ' + (err.message || 'Please try again'), 'error');
+      const serverErr = 'Authentication service error: ' + (err.message || 'Please check your connection and try again.');
+      setLoginError(serverErr);
+      showToast(serverErr, 'error');
     }
   };
 
@@ -108,6 +165,11 @@ export default function CaregiverLoginPage() {
                     <span className="w-2.5 h-2.5 rounded-full bg-[#0d631b] animate-pulse"></span>
                     <p className="text-xs sm:text-sm font-bold text-[#0d631b]">Caregiver Companion Portal</p>
                   </div>
+                  {patient?.name && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb]">
+                      Linked: {patient.name.split(' ')[0]}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -123,51 +185,163 @@ export default function CaregiverLoginPage() {
           </div>
 
           {/* Right Side: Login Form */}
-          <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-6">
+          <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-5">
             <div>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <span className="text-xs font-extrabold text-[#0d631b] uppercase tracking-wider bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
                   Caregiver Portal Authentication
                 </span>
+                {caregiver?.email && (
+                  <button
+                    type="button"
+                    onClick={handleAutofillDemo}
+                    className="text-xs font-bold text-[#0d631b] hover:text-[#032109] bg-[#ebffe7] hover:bg-[#d9fdd6] px-2.5 py-1 rounded-full border border-[#cdf2cb] transition-colors cursor-pointer flex items-center gap-1"
+                    title="Fill registered demo caregiver credentials"
+                  >
+                    <span className="material-symbols-outlined text-sm">key</span>
+                    <span>Quick Autofill</span>
+                  </button>
+                )}
               </div>
 
               <h2 className="text-2xl font-extrabold text-[#032109] mb-1">Welcome, Caregiver</h2>
-              <p className="text-xs sm:text-sm text-[#40493d] mb-6">
+              <p className="text-xs sm:text-sm text-[#40493d] mb-5">
                 Sign in with the email & password configured during the Elder View setup to load synchronized care overview.
               </p>
 
-              <form onSubmit={handleLogin} className="space-y-4">
+              {/* Error Alert Box */}
+              {loginError && (
+                <div className="mb-4 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-start gap-2.5 animate-shake">
+                  <span className="material-symbols-outlined text-lg text-red-600 shrink-0 mt-0.5">error</span>
+                  <div className="flex-1">
+                    <p className="font-bold text-red-900">Access Denied</p>
+                    <p className="text-red-700 mt-0.5">{loginError}</p>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleLogin} className="space-y-4" noValidate>
+                {/* Email Field */}
                 <div>
-                  <label className="block text-xs font-bold text-[#032109] mb-1.5">Caregiver Email</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="riya@sahara.care"
-                    className="w-full px-4 py-3 rounded-2xl border-2 border-[#cdf2cb] focus:border-[#006e1c] bg-[#ebffe7]/30 text-sm font-bold text-[#032109] focus:outline-none"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-[#032109]" htmlFor="cg-login-email">
+                      Caregiver Email <span className="text-red-600">*</span>
+                    </label>
+                    <span className="text-[11px] text-[#40493d]">e.g. riya@sahara.care</span>
+                  </div>
+                  <div className="relative flex items-center">
+                    <span className="material-symbols-outlined absolute left-3.5 text-gray-400 text-lg pointer-events-none">
+                      mail
+                    </span>
+                    <input
+                      id="cg-login-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setLoginError('');
+                        if (touched.email) {
+                          setFieldErrors((prev) => ({ ...prev, email: validateEmail(e.target.value) }));
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, email: true }));
+                        setFieldErrors((prev) => ({ ...prev, email: validateEmail(email) }));
+                      }}
+                      placeholder="riya@sahara.care"
+                      className={`w-full pl-10 pr-4 py-3 rounded-2xl border-2 text-sm font-bold text-[#032109] focus:outline-none transition-all ${
+                        fieldErrors.email
+                          ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-200'
+                          : touched.email && !fieldErrors.email && email.trim()
+                          ? 'border-emerald-500 bg-white focus:ring-2 focus:ring-emerald-200'
+                          : 'border-[#cdf2cb] bg-[#ebffe7]/30 focus:border-[#006e1c]'
+                      }`}
+                    />
+                    {touched.email && !fieldErrors.email && email.trim() && (
+                      <span className="material-symbols-outlined absolute right-3 text-emerald-600 text-lg pointer-events-none">
+                        check_circle
+                      </span>
+                    )}
+                  </div>
+                  {fieldErrors.email && (
+                    <p className="text-xs text-red-600 font-semibold flex items-center gap-1 mt-1">
+                      <span className="material-symbols-outlined text-sm">error</span>
+                      <span>{fieldErrors.email}</span>
+                    </p>
+                  )}
                 </div>
 
+                {/* Password Field */}
                 <div>
-                  <label className="block text-xs font-bold text-[#032109] mb-1.5">Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="care123"
-                    className="w-full px-4 py-3 rounded-2xl border-2 border-[#cdf2cb] focus:border-[#006e1c] bg-[#ebffe7]/30 text-sm font-bold text-[#032109] focus:outline-none"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-[#032109]" htmlFor="cg-login-password">
+                      Password <span className="text-red-600">*</span>
+                    </label>
+                    <span className="text-[11px] text-[#40493d]">Direct elder security key</span>
+                  </div>
+                  <div className="relative flex items-center">
+                    <span className="material-symbols-outlined absolute left-3.5 text-gray-400 text-lg pointer-events-none">
+                      lock
+                    </span>
+                    <input
+                      id="cg-login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setLoginError('');
+                        if (touched.password) {
+                          setFieldErrors((prev) => ({ ...prev, password: validatePassword(e.target.value) }));
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, password: true }));
+                        setFieldErrors((prev) => ({ ...prev, password: validatePassword(password) }));
+                      }}
+                      placeholder="Enter password"
+                      className={`w-full pl-10 pr-11 py-3 rounded-2xl border-2 text-sm font-bold text-[#032109] focus:outline-none transition-all ${
+                        fieldErrors.password
+                          ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-200'
+                          : touched.password && !fieldErrors.password && password.trim()
+                          ? 'border-emerald-500 bg-white focus:ring-2 focus:ring-emerald-200'
+                          : 'border-[#cdf2cb] bg-[#ebffe7]/30 focus:border-[#006e1c]'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 p-1 text-gray-400 hover:text-[#0d631b] transition-colors cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <span className="material-symbols-outlined text-lg">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                  {fieldErrors.password && (
+                    <p className="text-xs text-red-600 font-semibold flex items-center gap-1 mt-1">
+                      <span className="material-symbols-outlined text-sm">error</span>
+                      <span>{fieldErrors.password}</span>
+                    </p>
+                  )}
                 </div>
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="btn-tactile btn-primary w-full py-4 rounded-2xl text-base font-extrabold shadow-md cursor-pointer flex items-center justify-center gap-2 mt-2"
+                  className="btn-tactile btn-primary w-full py-4 rounded-2xl text-base font-extrabold shadow-md cursor-pointer flex items-center justify-center gap-2 mt-2 transition-all disabled:opacity-60"
                 >
-                  <span>{isLoading ? 'Signing In...' : 'Sign In to Caregiver Portal'}</span>
-                  <span className="material-symbols-outlined text-xl">arrow_forward</span>
+                  {isLoading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>Verifying Caregiver Access...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign In to Caregiver Portal</span>
+                      <span className="material-symbols-outlined text-xl">arrow_forward</span>
+                    </>
+                  )}
                 </button>
               </form>
             </div>
@@ -180,7 +354,7 @@ export default function CaregiverLoginPage() {
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-bold text-[#032109]">Secure Caregiver Portal</span>
                 <span className="text-[11px] text-[#40493d] leading-tight">
-                  End-to-end synchronized health reminders, routines, and family emergency response.
+                  Protected by end-to-end authentication. Only authorized caregivers can monitor this elder.
                 </span>
               </div>
             </div>
@@ -190,3 +364,4 @@ export default function CaregiverLoginPage() {
     </div>
   );
 }
+

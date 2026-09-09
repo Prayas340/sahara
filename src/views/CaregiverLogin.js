@@ -174,7 +174,7 @@ export function renderCaregiverLogin(onNavigate) {
                       id="caregiver-login-email" 
                       type="email" 
                       placeholder="e.g. riya@sahara.care" 
-                      value="${latestCaregiver.email || 'riya@sahara.care'}"
+                      value=""
                       required 
                     />
                   </div>
@@ -193,7 +193,7 @@ export function renderCaregiverLogin(onNavigate) {
                       id="caregiver-login-password" 
                       type="password" 
                       placeholder="Enter password" 
-                      value="${latestCaregiver.password || 'care1234'}"
+                      value=""
                       required 
                     />
                     <button 
@@ -263,7 +263,7 @@ export function renderCaregiverLogin(onNavigate) {
     quickAutofillBtn?.addEventListener('click', () => {
       const latest = authService.getLatestRegisteredCaregiver();
       if (emailInput) emailInput.value = latest?.email || 'riya@sahara.care';
-      if (passwordInput) passwordInput.value = latest?.password || 'care1234';
+      if (passwordInput) passwordInput.value = latest?.password || 'care123';
       if (errorBox) errorBox.classList.add('hidden');
       showToast('Autofilled registered caregiver credentials.', 'info');
     });
@@ -282,14 +282,38 @@ export function renderCaregiverLogin(onNavigate) {
     // Form submit
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = emailInput?.value.trim();
+      const email = emailInput?.value.trim().toLowerCase();
       const password = passwordInput?.value.trim();
 
-      if (!email || !password) {
+      const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+      if (!email) {
         if (errorBox && errorMsg) {
-          errorMsg.innerText = 'Please enter both email and password.';
+          errorMsg.innerText = 'Please enter your caregiver email address.';
           errorBox.classList.remove('hidden');
         }
+        showToast('Please enter your caregiver email address.', 'error');
+        emailInput?.focus();
+        return;
+      }
+
+      if (!EMAIL_REGEX.test(email)) {
+        if (errorBox && errorMsg) {
+          errorMsg.innerText = 'Please enter a valid email address (e.g. name@domain.com).';
+          errorBox.classList.remove('hidden');
+        }
+        showToast('Please enter a valid email format.', 'error');
+        emailInput?.focus();
+        return;
+      }
+
+      if (!password) {
+        if (errorBox && errorMsg) {
+          errorMsg.innerText = 'Please enter your caregiver portal password.';
+          errorBox.classList.remove('hidden');
+        }
+        showToast('Please enter your password.', 'error');
+        passwordInput?.focus();
         return;
       }
 
@@ -306,11 +330,12 @@ export function renderCaregiverLogin(onNavigate) {
         showToast(`Welcome, ${res.user.name}! Connected to ${res.elderProfile.name}'s profile.`, 'success', 5000);
         onNavigate('caregiver-dashboard');
       } else {
+        const msg = res.message || 'Access denied. The email or password entered does not match this elder’s registered caregiver.';
         if (errorBox && errorMsg) {
-          errorMsg.innerText = res.message || 'Login failed. Please check your credentials.';
+          errorMsg.innerText = msg;
           errorBox.classList.remove('hidden');
         }
-        showToast(res.message, 'error');
+        showToast(msg, 'error');
       }
     });
 

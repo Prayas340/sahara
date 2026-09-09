@@ -19,7 +19,9 @@ export default function HomePage() {
   const [googleEmail, setGoogleEmail] = useState('');
   const [activeLanguage, setActiveLanguage] = useState('English');
   const [phone, setPhone] = useState('98540 12345');
-  const [otpDigits, setOtpDigits] = useState(['5', '4', '3', '2']);
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
 
@@ -40,6 +42,42 @@ export default function HomePage() {
   const [cgName, setCgName] = useState('');
   const [cgEmail, setCgEmail] = useState('');
   const [cgPassword, setCgPassword] = useState('');
+  const [showCgPassword, setShowCgPassword] = useState(false);
+  const [cgErrors, setCgErrors] = useState({ name: '', email: '', password: '' });
+  const [cgTouched, setCgTouched] = useState({ name: false, email: false, password: false });
+
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  const validateCgEmail = (val) => {
+    const clean = (val || '').trim();
+    if (!clean) return 'Caregiver email is required.';
+    if (!EMAIL_REGEX.test(clean)) {
+      return 'Please enter a valid email address (e.g. name@domain.com).';
+    }
+    return '';
+  };
+
+  const validateCgPassword = (val) => {
+    const clean = (val || '').trim();
+    if (!clean) return 'Caregiver password is required.';
+    if (clean.length < 6) {
+      return 'Password must be at least 6 characters long.';
+    }
+    return '';
+  };
+
+  const validateCgName = (val) => {
+    const clean = (val || '').trim();
+    if (!clean) return 'Caregiver name is required.';
+    if (clean.length < 2) {
+      return 'Name must be at least 2 characters.';
+    }
+    return '';
+  };
+
+  // Step 3 Problem Statement / Support Mode
+  const [problemStatement, setProblemStatement] = useState('Mild Cognitive Support Mode');
+  const [customProblem, setCustomProblem] = useState('');
 
   useEffect(() => {
     const lang = dataStore.getLanguage ? dataStore.getLanguage() : 'English';
@@ -161,15 +199,59 @@ export default function HomePage() {
     showToast(`🔊 ${text}`, 'info');
   };
 
-  const handleSendOtp = (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleSendOtp = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      showToast('Please enter a valid 10-digit mobile number', 'error');
+      showToast('Please enter a valid 10-digit mobile phone number', 'error');
       return;
     }
-    showToast(`SMS OTP sent to +91 ${phone}!`, 'success');
-    setStep(2);
+    setIsSendingOtp(true);
+    showToast('Sending SMS verification code to your phone...', 'info', 3000);
+
+    try {
+      const res = await authService.sendPhoneOtp(phone);
+      setIsSendingOtp(false);
+      if (res?.success) {
+        showToast(`SMS code sent to +91 ${cleanPhone.slice(-10)}! Please check your messages.`, 'success', 5000);
+        setOtpDigits(['', '', '', '', '', '']);
+        setStep(2);
+        setResendCooldown(30);
+      } else {
+        showToast(res?.message || 'Unable to send SMS code. Please try again.', 'error', 6000);
+      }
+    } catch (err) {
+      setIsSendingOtp(false);
+      console.error(err);
+      showToast('Notice: ' + err.message, 'error');
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || isSendingOtp) return;
+    setIsSendingOtp(true);
+    showToast('Resending SMS code to your phone...', 'info');
+    try {
+      const res = await authService.sendPhoneOtp(phone);
+      setIsSendingOtp(false);
+      if (res?.success) {
+        showToast('New SMS verification code sent! Check your messages.', 'success', 4000);
+        setResendCooldown(30);
+      } else {
+        showToast(res?.message || 'Unable to resend SMS.', 'error');
+      }
+    } catch (err) {
+      setIsSendingOtp(false);
+      showToast('Error: ' + err.message, 'error');
+    }
   };
 
   const [isSavingSetup, setIsSavingSetup] = useState(false);
@@ -293,9 +375,9 @@ export default function HomePage() {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    const entered = otpDigits.join('');
-    if (entered.length < 4) {
-      showToast('Please enter the 4-digit verification code', 'error');
+    const entered = otpDigits.join('').trim();
+    if (entered.length < 6) {
+      showToast('Please enter the full 6-digit SMS verification code', 'error');
       return;
     }
     setIsVerifying(true);
@@ -313,15 +395,15 @@ export default function HomePage() {
           setCgName('');
           setCgEmail('');
           setCgPassword('');
-          showToast('Phone verified! Please complete your profile and caregiver login details.', 'info', 4500);
+          showToast('Phone verified! Please complete your companion & caregiver details.', 'info', 4500);
           setStep(3);
         } else {
           // 2ND TIME RETURNING USER: Skips Step 3 and opens Sanctuary directly!
           showToast(res.message || `Welcome back, ${res.user?.name || 'Member'}! Loading your Sanctuary...`, 'success', 4000);
-          router.push('/elder-dashboard');
+          window.location.href = '/elder-dashboard';
         }
       } else {
-        showToast(res?.message || 'Invalid verification code. Please enter 5432 or check your phone.', 'error');
+        showToast(res?.message || 'Invalid verification code. Please check your SMS messages.', 'error', 6000);
       }
     } catch (err) {
       setIsVerifying(false);
@@ -332,8 +414,34 @@ export default function HomePage() {
 
   const handleCompleteSetup = async (e) => {
     e.preventDefault();
-    if (!fullName.trim()) {
-      showToast('Please enter your full name', 'error');
+    const cleanElderName = (fullName || '').trim();
+    if (!cleanElderName) {
+      showToast("Please enter the elder's full name", 'error');
+      return;
+    }
+
+    const cleanElderAge = parseInt(age, 10);
+    if (!age || isNaN(cleanElderAge) || cleanElderAge < 40 || cleanElderAge > 120) {
+      showToast("Please enter a valid age for the elder (40–120 years)", 'error');
+      return;
+    }
+
+    // STRICT Caregiver Email and Password validation
+    const nameErr = validateCgName(cgName);
+    const emailErr = validateCgEmail(cgEmail);
+    const passwordErr = validateCgPassword(cgPassword);
+
+    setCgTouched({ name: true, email: true, password: true });
+    setCgErrors({ name: nameErr, email: emailErr, password: passwordErr });
+
+    if (nameErr || emailErr || passwordErr) {
+      if (emailErr) {
+        showToast(emailErr, 'error');
+      } else if (passwordErr) {
+        showToast(passwordErr, 'error');
+      } else if (nameErr) {
+        showToast(nameErr, 'error');
+      }
       return;
     }
 
@@ -343,16 +451,26 @@ export default function HomePage() {
     const formattedPhone = cleanDigits.length >= 10
       ? (cleanDigits.startsWith('91') ? `+${cleanDigits}` : `+91${cleanDigits}`)
       : '';
-    const targetIdentifier = authMethod === 'google' && googleEmail ? googleEmail : (formattedPhone || `user_${Date.now().toString(36)}`);
+    const targetIdentifier = (authMethod === 'google' && googleEmail)
+      ? googleEmail
+      : (formattedPhone || `user_${Date.now().toString(36)}`);
+
+    const firstName = cleanElderName.split(' ')[0];
+    const elderHonorific = `${firstName} ji`;
+
+    const finalProblem = problemStatement === 'custom'
+      ? (customProblem.trim() || 'Mild Cognitive Support Mode')
+      : (problemStatement || 'Mild Cognitive Support Mode');
 
     const patientData = {
-      name: fullName.trim(),
-      age: parseInt(age, 10) || 72,
+      name: cleanElderName,
+      honorific: elderHonorific,
+      age: cleanElderAge || 72,
       state: selectedState,
       city: selectedCity,
       avatar: '/avatar.png',
-      honorific: `${fullName.trim().split(' ')[0]} ji`,
-      status: 'Mild Cognitive Support Mode',
+      status: finalProblem,
+      problemStatement: finalProblem,
       wing: 'Garden Terrace Wing',
       location: `${selectedCity}, ${selectedState}`,
       tabletBattery: 94,
@@ -361,30 +479,37 @@ export default function HomePage() {
       email: authMethod === 'google' && googleEmail ? googleEmail : '',
     };
 
+    const cleanCgName = cgName.trim();
+    const cleanCgEmail = cgEmail.trim().toLowerCase();
+    const cleanCgPassword = cgPassword.trim();
+
     const caregiverData = {
-      name: cgName.trim() || 'Caregiver Companion',
-      email: cgEmail.trim().toLowerCase() || 'caregiver@sahara.care',
-      password: cgPassword || 'care123',
+      name: cleanCgName,
+      email: cleanCgEmail,
+      password: cleanCgPassword,
       relation: 'Primary Caregiver',
       phone: '+91 98540 12345',
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80',
+      avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
     };
 
     try {
       await authService.saveElderProfile(patientData, caregiverData, targetIdentifier);
       setIsSavingSetup(false);
-      showToast(`Welcome ${fullName}! Your details and caregiver login are saved to the database.`, 'success', 5000);
-      router.push('/elder-dashboard');
+      showToast(`Welcome ${cleanElderName}! Your profile and caregiver login are saved to the database.`, 'success', 5000);
+      window.location.href = '/elder-dashboard';
     } catch (err) {
       setIsSavingSetup(false);
       console.error(err);
       showToast('Saved profile. Entering Sanctuary...', 'info');
-      router.push('/elder-dashboard');
+      window.location.href = '/elder-dashboard';
     }
   };
 
   return (
     <div className="min-h-screen bg-[#ebffe7] flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-y-auto">
+      {/* Firebase Phone Authentication Invisible reCAPTCHA Anchor */}
+      <div id="recaptcha-container"></div>
+
       <main className="w-full max-w-lg lg:max-w-5xl xl:max-w-6xl mx-auto my-auto py-2 sm:py-4">
         {/* Top Switcher Bar */}
         <div className="flex items-center justify-between mb-3 px-1">
@@ -526,10 +651,11 @@ export default function HomePage() {
                   {/* Primary Send OTP Button */}
                   <button
                     type="submit"
+                    disabled={isSendingOtp}
                     className="btn-tactile btn-primary w-full py-3.5 sm:py-4 rounded-2xl text-base sm:text-lg font-extrabold shadow-md flex items-center justify-center gap-2.5 cursor-pointer hover:shadow-lg transition-all"
                   >
-                    <span>{t.sendOtp || 'Send OTP'}</span>
-                    <span className="material-symbols-outlined text-2xl">arrow_forward</span>
+                    <span>{isSendingOtp ? 'Sending SMS Code via Firebase...' : (t.sendOtp || 'Send SMS Code')}</span>
+                    {!isSendingOtp && <span className="material-symbols-outlined text-2xl">arrow_forward</span>}
                   </button>
 
                   {/* Divider */}
@@ -588,7 +714,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* STEP 2: OTP VERIFICATION */}
+        {/* STEP 2: REAL FIREBASE SMS OTP VERIFICATION */}
         {step === 2 && (
           <div className="card-tactile max-w-xl mx-auto bg-white rounded-3xl p-6 sm:p-10 shadow-xl border border-[#cdf2cb] space-y-6">
             <div className="flex items-center justify-between">
@@ -609,32 +735,52 @@ export default function HomePage() {
               <div className="w-14 h-14 rounded-2xl bg-[#d9fdd6] text-[#006e1c] flex items-center justify-center mx-auto shadow-sm">
                 <span className="material-symbols-outlined text-3xl">sms</span>
               </div>
-              <h2 className="text-2xl font-extrabold text-[#032109]">Enter 4-Digit Code</h2>
+              <h2 className="text-2xl font-extrabold text-[#032109]">Enter 6-Digit SMS Code</h2>
               <p className="text-xs sm:text-sm text-[#40493d]">
-                We sent a gentle verification code to <strong>+91 {phone}</strong>
+                We sent a real verification code to your messages at <strong>+91 {phone}</strong>
               </p>
             </div>
 
-            {/* 4-digit tactile inputs */}
+            {/* 6-digit tactile inputs with paste & backspace navigation */}
             <form onSubmit={handleVerifyOtp} className="space-y-6">
-              <div className="flex justify-center gap-3 sm:gap-4">
+              <div className="flex justify-center gap-2 sm:gap-3">
                 {otpDigits.map((digit, index) => (
                   <input
                     key={index}
                     id={`otp-box-${index}`}
                     type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
                     maxLength={1}
                     value={digit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace' && !digit && index > 0) {
+                        document.getElementById(`otp-box-${index - 1}`)?.focus();
+                      }
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+                      if (pasted) {
+                        const next = [...otpDigits];
+                        for (let i = 0; i < 6; i++) {
+                          next[i] = pasted[i] || '';
+                        }
+                        setOtpDigits(next);
+                        const focusIdx = Math.min(pasted.length, 5);
+                        document.getElementById(`otp-box-${focusIdx}`)?.focus();
+                      }
+                    }}
                     onChange={(e) => {
-                      const val = e.target.value;
+                      const val = e.target.value.replace(/\D/g, '');
                       const next = [...otpDigits];
-                      next[index] = val;
+                      next[index] = val ? val[val.length - 1] : '';
                       setOtpDigits(next);
-                      if (val && index < 3) {
+                      if (val && index < 5) {
                         document.getElementById(`otp-box-${index + 1}`)?.focus();
                       }
                     }}
-                    className="w-12 h-14 sm:w-14 sm:h-16 rounded-2xl text-center text-2xl font-extrabold bg-[#ebffe7]/50 border-2 border-[#cdf2cb] focus:border-[#006e1c] text-[#032109] focus:outline-none"
+                    className="w-10 h-13 sm:w-12 sm:h-15 rounded-2xl text-center text-xl sm:text-2xl font-extrabold bg-[#ebffe7]/50 border-2 border-[#cdf2cb] focus:border-[#006e1c] text-[#032109] focus:outline-none transition-all"
                   />
                 ))}
               </div>
@@ -644,22 +790,21 @@ export default function HomePage() {
                 disabled={isVerifying}
                 className="btn-tactile btn-primary w-full py-4 rounded-2xl text-base font-extrabold shadow-md cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>{isVerifying ? 'Verifying...' : 'Confirm Code & Continue'}</span>
-                <span className="material-symbols-outlined text-xl">arrow_forward</span>
+                <span>{isVerifying ? 'Verifying SMS Code...' : 'Confirm Code & Continue'}</span>
+                {!isVerifying && <span className="material-symbols-outlined text-xl">arrow_forward</span>}
               </button>
             </form>
 
-            <div className="text-center">
+            <div className="flex items-center justify-between pt-2 border-t border-[#cdf2cb]">
+              <span className="text-xs text-[#40493d]">Didn&apos;t receive the SMS code?</span>
               <button
                 type="button"
-                onClick={() => {
-                  setOtpDigits(['5', '4', '3', '2']);
-                  showToast('Filled sandbox verification code: 5432', 'info');
-                }}
-                className="text-xs font-bold text-[#0d631b] hover:underline cursor-pointer inline-flex items-center gap-1"
+                disabled={resendCooldown > 0 || isSendingOtp}
+                onClick={handleResendOtp}
+                className={`text-xs font-bold ${resendCooldown > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-[#0d631b] hover:underline cursor-pointer'} inline-flex items-center gap-1`}
               >
-                <span className="material-symbols-outlined text-sm">auto_fix_high</span>
-                <span>Auto-fill Demo Code (5432)</span>
+                <span className="material-symbols-outlined text-sm">refresh</span>
+                <span>{resendCooldown > 0 ? `Resend SMS in ${resendCooldown}s` : 'Resend SMS Code'}</span>
               </button>
             </div>
           </div>
@@ -699,13 +844,13 @@ export default function HomePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-[#032109] mb-1">Full Name</label>
+                    <label className="block text-xs font-bold text-[#032109] mb-1">Elder&apos;s Full Name</label>
                     <input
                       type="text"
                       required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Ramesh Chandra"
+                      placeholder="e.g. Ramesh Chandra (or elder's name)"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c]"
                     />
                   </div>
@@ -754,51 +899,215 @@ export default function HomePage() {
                     </select>
                   </div>
                 </div>
+
+                {/* Problem Statement / Condition Mode */}
+                <div>
+                  <label className="block text-xs font-bold text-[#032109] mb-1">
+                    Problem Statement / Cognitive Condition Mode
+                  </label>
+                  <select
+                    value={problemStatement}
+                    onChange={(e) => setProblemStatement(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c] cursor-pointer"
+                  >
+                    <option value="Mild Cognitive Support Mode">Mild Cognitive Support Mode</option>
+                    <option value="Memory Loss & Daily Recall Assistance">Memory Loss & Daily Recall Assistance</option>
+                    <option value="Early-Stage Alzheimer's Care">Early-Stage Alzheimer&apos;s Care</option>
+                    <option value="Dementia & Confusion Management">Dementia & Confusion Management</option>
+                    <option value="Independent Senior Care & Medicine Tracking">Independent Senior Care & Medicine Tracking</option>
+                    <option value="custom">Other / Custom Problem Statement...</option>
+                  </select>
+
+                  {problemStatement === 'custom' && (
+                    <input
+                      type="text"
+                      value={customProblem}
+                      onChange={(e) => setCustomProblem(e.target.value)}
+                      placeholder="Type elder's condition or support requirement..."
+                      className="mt-2 w-full px-3.5 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c]"
+                    />
+                  )}
+                  <p className="text-[11px] text-[#40493d] mt-1">
+                    This condition mode synchronizes directly with your caregiver portal overview.
+                  </p>
+                </div>
               </div>
 
               {/* Caregiver Section */}
               <div className="p-4 sm:p-5 rounded-2xl bg-[#d9fdd6] border border-[#cdf2cb] space-y-4">
-                <div className="flex items-center gap-2 text-sm font-bold text-[#0d631b]">
-                  <span className="material-symbols-outlined">health_and_safety</span>
-                  <span>Caregiver Account Login Details (Directly Linked)</span>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#0d631b]">
+                    <span className="material-symbols-outlined">health_and_safety</span>
+                    <span>Caregiver Account Login Details (Directly Linked)</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-[#0d631b] bg-white px-2.5 py-0.5 rounded-full border border-[#cdf2cb]">
+                    Required for Portal Access
+                  </span>
                 </div>
                 <p className="text-xs text-[#40493d]">
                   These credentials will allow the caregiver to log in directly through the Caregiver Portal and view this elder profile.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Caregiver Name */}
                   <div>
-                    <label className="block text-xs font-bold text-[#032109] mb-1">Caregiver Name</label>
-                    <input
-                      type="text"
-                      value={cgName}
-                      onChange={(e) => setCgName(e.target.value)}
-                      placeholder="e.g. Priya Sharma"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c]"
-                    />
+                    <label className="block text-xs font-bold text-[#032109] mb-1">
+                      Caregiver Name <span className="text-red-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={cgName}
+                        onChange={(e) => {
+                          setCgName(e.target.value);
+                          if (cgTouched.name) {
+                            setCgErrors((prev) => ({ ...prev, name: validateCgName(e.target.value) }));
+                          }
+                        }}
+                        onBlur={() => {
+                          setCgTouched((prev) => ({ ...prev, name: true }));
+                          setCgErrors((prev) => ({ ...prev, name: validateCgName(cgName) }));
+                        }}
+                        placeholder="e.g. Priya Sharma"
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-bold text-[#032109] focus:outline-none transition-all ${
+                          cgTouched.name && cgErrors.name
+                            ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-200'
+                            : cgTouched.name && !cgErrors.name && cgName.trim()
+                            ? 'border-emerald-500 bg-white focus:ring-2 focus:ring-emerald-200'
+                            : 'border-[#cdf2cb] bg-white focus:ring-2 focus:ring-[#006e1c]'
+                        }`}
+                      />
+                      {cgTouched.name && !cgErrors.name && cgName.trim() && (
+                        <span className="material-symbols-outlined absolute right-2.5 top-2.5 text-emerald-600 text-lg pointer-events-none">
+                          check_circle
+                        </span>
+                      )}
+                    </div>
+                    {cgTouched.name && cgErrors.name ? (
+                      <p className="text-xs text-red-600 font-semibold flex items-center gap-1 mt-1">
+                        <span className="material-symbols-outlined text-sm">error</span>
+                        <span>{cgErrors.name}</span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-[#40493d] mt-1">Primary caregiver or family member</p>
+                    )}
                   </div>
 
+                  {/* Caregiver Email */}
                   <div>
-                    <label className="block text-xs font-bold text-[#032109] mb-1">Caregiver Email</label>
-                    <input
-                      type="email"
-                      value={cgEmail}
-                      onChange={(e) => setCgEmail(e.target.value)}
-                      placeholder="priya@gmail.com"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c]"
-                    />
+                    <label className="block text-xs font-bold text-[#032109] mb-1">
+                      Caregiver Email <span className="text-red-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        value={cgEmail}
+                        onChange={(e) => {
+                          setCgEmail(e.target.value);
+                          if (cgTouched.email) {
+                            setCgErrors((prev) => ({ ...prev, email: validateCgEmail(e.target.value) }));
+                          }
+                        }}
+                        onBlur={() => {
+                          setCgTouched((prev) => ({ ...prev, email: true }));
+                          setCgErrors((prev) => ({ ...prev, email: validateCgEmail(cgEmail) }));
+                        }}
+                        placeholder="priya@gmail.com"
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-bold text-[#032109] focus:outline-none transition-all ${
+                          cgTouched.email && cgErrors.email
+                            ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-200'
+                            : cgTouched.email && !cgErrors.email && cgEmail.trim()
+                            ? 'border-emerald-500 bg-white focus:ring-2 focus:ring-emerald-200'
+                            : 'border-[#cdf2cb] bg-white focus:ring-2 focus:ring-[#006e1c]'
+                        }`}
+                      />
+                      {cgTouched.email && !cgErrors.email && cgEmail.trim() && (
+                        <span className="material-symbols-outlined absolute right-2.5 top-2.5 text-emerald-600 text-lg pointer-events-none">
+                          check_circle
+                        </span>
+                      )}
+                    </div>
+                    {cgTouched.email && cgErrors.email ? (
+                      <p className="text-xs text-red-600 font-semibold flex items-center gap-1 mt-1">
+                        <span className="material-symbols-outlined text-sm">error</span>
+                        <span>{cgErrors.email}</span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-[#40493d] mt-1">Valid email format (e.g. name@domain.com)</p>
+                    )}
                   </div>
 
+                  {/* Caregiver Password */}
                   <div>
-                    <label className="block text-xs font-bold text-[#032109] mb-1">Caregiver Password</label>
-                    <input
-                      type="password"
-                      value={cgPassword}
-                      onChange={(e) => setCgPassword(e.target.value)}
-                      placeholder="Create secure password"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c]"
-                    />
+                    <label className="block text-xs font-bold text-[#032109] mb-1">
+                      Caregiver Password <span className="text-red-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showCgPassword ? 'text' : 'password'}
+                        value={cgPassword}
+                        onChange={(e) => {
+                          setCgPassword(e.target.value);
+                          if (cgTouched.password) {
+                            setCgErrors((prev) => ({ ...prev, password: validateCgPassword(e.target.value) }));
+                          }
+                        }}
+                        onBlur={() => {
+                          setCgTouched((prev) => ({ ...prev, password: true }));
+                          setCgErrors((prev) => ({ ...prev, password: validateCgPassword(cgPassword) }));
+                        }}
+                        placeholder="Create secure password"
+                        className={`w-full pl-3.5 pr-10 py-2.5 rounded-xl border text-sm font-bold text-[#032109] focus:outline-none transition-all ${
+                          cgTouched.password && cgErrors.password
+                            ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-200'
+                            : cgTouched.password && !cgErrors.password && cgPassword.trim()
+                            ? 'border-emerald-500 bg-white focus:ring-2 focus:ring-emerald-200'
+                            : 'border-[#cdf2cb] bg-white focus:ring-2 focus:ring-[#006e1c]'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCgPassword(!showCgPassword)}
+                        className="absolute right-2.5 top-2.5 text-[#40493d] hover:text-[#0d631b] transition-colors cursor-pointer"
+                        title={showCgPassword ? 'Hide password' : 'Show password'}
+                      >
+                        <span className="material-symbols-outlined text-lg">
+                          {showCgPassword ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
+                    {cgTouched.password && cgErrors.password ? (
+                      <p className="text-xs text-red-600 font-semibold flex items-center gap-1 mt-1">
+                        <span className="material-symbols-outlined text-sm">error</span>
+                        <span>{cgErrors.password}</span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-[#40493d] mt-1">Minimum 6 characters required</p>
+                    )}
                   </div>
+                </div>
+
+                {/* Password Requirement / Security Hints */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                    cgPassword.length >= 6 ? 'bg-emerald-100 text-emerald-800' : 'bg-white/80 text-[#40493d] border border-[#cdf2cb]'
+                  }`}>
+                    <span className="material-symbols-outlined text-xs">
+                      {cgPassword.length >= 6 ? 'check' : 'lock'}
+                    </span>
+                    <span>Min 6 characters</span>
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                    EMAIL_REGEX.test((cgEmail || '').trim()) ? 'bg-emerald-100 text-emerald-800' : 'bg-white/80 text-[#40493d] border border-[#cdf2cb]'
+                  }`}>
+                    <span className="material-symbols-outlined text-xs">
+                      {EMAIL_REGEX.test((cgEmail || '').trim()) ? 'check' : 'alternate_email'}
+                    </span>
+                    <span>Valid email format</span>
+                  </span>
+                  <span className="text-[10px] text-[#40493d] italic ml-auto">
+                    🔒 Credentials securely link to this elder's profile
+                  </span>
                 </div>
               </div>
 
