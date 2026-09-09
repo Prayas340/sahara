@@ -4,15 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '../services/authService.js';
 import { dataStore } from '../services/dataStore.js';
+import { useTranslation } from '../utils/i18n.js';
 import { showToast } from './Toast.jsx';
 
 export default function Navbar({ activeView = 'elder' }) {
   const router = useRouter();
   const fileInputRef = useRef(null);
+  const { t, lang: currentLang } = useTranslation();
   const [user, setUser] = useState(null);
   const [patient, setPatient] = useState({});
   const [caregiver, setCaregiver] = useState({});
-  const [currentLang, setCurrentLang] = useState('English');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -20,7 +21,6 @@ export default function Navbar({ activeView = 'elder' }) {
       setUser(authService.getCurrentUser());
       setPatient(dataStore.getPatient ? dataStore.getPatient() : (dataStore.state.patient || {}));
       setCaregiver(dataStore.getCaregiver ? dataStore.getCaregiver() : (dataStore.state.caregiver || {}));
-      setCurrentLang(dataStore.getLanguage ? dataStore.getLanguage() : 'English');
     };
 
     syncData();
@@ -34,14 +34,13 @@ export default function Navbar({ activeView = 'elder' }) {
   }, []);
 
   const isCaregiver = activeView === 'caregiver' || user?.role === 'caregiver';
-  const effectiveName = isCaregiver ? (user?.name || 'Caregiver') : (patient?.name || user?.name || '');
-  const elderDisplayName = !isCaregiver && patient?.honorific ? patient.honorific : (patient?.name ? `${patient.name.split(' ')[0]} ji` : (user?.honorific || (effectiveName ? `${effectiveName.split(' ')[0]} ji` : 'Sanctuary')));
+  const effectiveName = isCaregiver ? (user?.name || t.caregiverCompanion || 'Caregiver') : (patient?.name || user?.name || '');
+  const elderDisplayName = !isCaregiver && patient?.honorific ? patient.honorific : (patient?.name ? `${patient.name.split(' ')[0]} ji` : (user?.honorific || (effectiveName ? `${effectiveName.split(' ')[0]} ji` : t.sanctuary)));
 
   const handleLanguageChange = (e) => {
     const newLang = e.target.value;
-    setCurrentLang(newLang);
     dataStore.setLanguage(newLang);
-    showToast(`Language set to: ${newLang}`, 'info');
+    showToast(`🌐 Language: ${newLang}`, 'info');
   };
 
   const handleBrandClick = () => {
@@ -151,12 +150,12 @@ export default function Navbar({ activeView = 'elder' }) {
             <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
               <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
               <span className="material-symbols-outlined text-base">health_and_safety</span>
-              <span>Caregiver Portal · Monitoring {patient?.name || 'Loved One'}</span>
+              <span>{t.caregiverPortal || 'Caregiver Portal'} · {t.monitoring || 'Monitoring'} {patient?.name || 'Loved One'}</span>
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
               <span className="material-symbols-outlined text-base text-[#0d631b]">spa</span>
-              <span>{elderDisplayName}&apos;s Sanctuary</span>
+              <span>{elderDisplayName} · {t.sanctuary || 'Sanctuary'}</span>
             </div>
           )}
 
@@ -203,9 +202,9 @@ export default function Navbar({ activeView = 'elder' }) {
                       />
                     </div>
                     <div className="overflow-hidden">
-                      <p className="font-bold text-gray-800 truncate">{isCaregiver ? (user?.name || 'Caregiver') : (patient?.name || user?.name || 'Sahara Member')}</p>
+                      <p className="font-bold text-gray-800 truncate">{isCaregiver ? (user?.name || t.caregiverCompanion || 'Caregiver') : (patient?.name || user?.name || 'Sahara Member')}</p>
                       <p className="text-xs text-gray-500">
-                        {isCaregiver ? 'Caregiver Companion' : 'Mild Cognitive Support'}
+                        {isCaregiver ? (t.caregiverCompanion || 'Caregiver Companion') : (t.mildCognitiveSupport || 'Mild Cognitive Support')}
                       </p>
                     </div>
                   </div>
@@ -218,7 +217,7 @@ export default function Navbar({ activeView = 'elder' }) {
                     className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-[#ebffe7] text-[#0d631b] font-semibold flex items-center gap-2 cursor-pointer mt-1"
                   >
                     <span className="material-symbols-outlined text-lg text-[#0d631b]">add_a_photo</span>
-                    Upload Profile Photo
+                    {t.uploadProfilePhoto || 'Upload Profile Photo'}
                   </button>
 
                   <button
@@ -233,7 +232,7 @@ export default function Navbar({ activeView = 'elder' }) {
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ebffe7] text-[#0d631b] font-medium flex items-center gap-2 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-lg">family_restroom</span>
-                    Family Contacts
+                    {t.familyContacts || 'Family Contacts'}
                   </button>
 
                   <button
@@ -241,7 +240,7 @@ export default function Navbar({ activeView = 'elder' }) {
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-600 font-medium flex items-center gap-2 cursor-pointer border-t border-gray-100 mt-1 pt-2"
                   >
                     <span className="material-symbols-outlined text-lg">logout</span>
-                    Sign Out
+                    {t.signOut || 'Sign Out'}
                   </button>
                 </div>
               )}

@@ -6,10 +6,12 @@ import Navbar from '../../components/Navbar.jsx';
 import ContactModal from '../../components/ContactModal.jsx';
 import SendSafeMessageModal from '../../components/SendSafeMessageModal.jsx';
 import { dataStore } from '../../services/dataStore.js';
+import { useTranslation } from '../../utils/i18n.js';
 import { showToast } from '../../components/Toast.jsx';
 
 export default function ContactsPage() {
   const router = useRouter();
+  const { t, lang } = useTranslation();
   const [contacts, setContacts] = useState([]);
   const [patient, setPatient] = useState(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -113,7 +115,7 @@ export default function ContactsPage() {
               type="button"
             >
               <span className="material-symbols-outlined text-lg">arrow_back</span>
-              <span>Back to Home</span>
+              <span>{t.backToHome || 'Back to Home'}</span>
             </button>
 
             <button
@@ -122,7 +124,7 @@ export default function ContactsPage() {
               type="button"
             >
               <span className="material-symbols-outlined text-lg">person_add</span>
-              <span>+ Add Loved One</span>
+              <span>+ {t.addContact || 'Add Loved One'}</span>
             </button>
           </div>
 
@@ -133,14 +135,14 @@ export default function ContactsPage() {
                 <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white text-[#0d631b] mb-3 shadow-sm border border-[#cdf2cb]">
                   <span className="material-symbols-outlined text-xl text-[#0d631b]">family_restroom</span>
                   <span className="text-xs font-bold uppercase tracking-wide">
-                    Aapnar Aapon Manuh · Your Loved Ones
+                    {t.familyContacts || 'Your Loved Ones'}
                   </span>
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-[#032109] tracking-tight mb-2">
-                  People who care for you
+                  {t.lovedOnesEmergencyTitle || 'People who care for you'}
                 </h1>
                 <p className="text-base sm:text-xl text-[#40493d]">
-                  Tap WhatsApp to send instant safe message, or call directly anytime
+                  {t.lovedOnesEmergencyDesc || 'Tap WhatsApp to send instant safe message, or call directly anytime'}
                 </p>
               </div>
 
@@ -152,7 +154,7 @@ export default function ContactsPage() {
                   type="button"
                 >
                   <span className="material-symbols-outlined text-2xl">volunteer_activism</span>
-                  <span>Send &ldquo;I am doing well&rdquo; to Everyone</span>
+                  <span>{t.sendDoingWellBtn || 'Send “I am doing well” to Everyone'}</span>
                   <span className="flex h-3 w-3 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#a3f69c] opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-[#a3f69c]"></span>
@@ -168,9 +170,9 @@ export default function ContactsPage() {
               <div className="w-20 h-20 rounded-3xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center mx-auto text-3xl font-extrabold shadow-sm">
                 <span className="material-symbols-outlined text-4xl">contacts_product</span>
               </div>
-              <h2 className="text-2xl font-extrabold text-[#032109]">No Loved Ones or Emergency Contacts Added Yet</h2>
+              <h2 className="text-2xl font-extrabold text-[#032109]">{t.noContactsYet || 'No Loved Ones or Emergency Contacts Added Yet'}</h2>
               <p className="text-sm text-[#40493d]">
-                Customize your contacts list with family members, your personal caregiver, and doctors to enable 1-tap WhatsApp updates and direct emergency calling.
+                {t.noContactsSubtitle || 'Customize your contacts list with family members, your personal caregiver, and doctors to enable 1-tap WhatsApp updates and direct emergency calling.'}
               </p>
               <button
                 onClick={handleOpenAddContact}
@@ -178,7 +180,7 @@ export default function ContactsPage() {
                 className="btn-tactile btn-primary inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold shadow-md cursor-pointer"
               >
                 <span className="material-symbols-outlined text-xl">person_add</span>
-                <span>+ Add First Contact</span>
+                <span>+ {t.addFirstContact || 'Add First Contact'}</span>
               </button>
             </div>
           ) : (
@@ -214,7 +216,7 @@ export default function ContactsPage() {
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => handleOpenEditContact(contact)}
-                        title="Edit Contact"
+                        title={t.edit || "Edit Contact"}
                         type="button"
                         className="p-2 rounded-xl bg-white text-[#0d631b] hover:bg-[#d9fdd6] border border-[#cdf2cb] shadow-xs transition-colors cursor-pointer"
                       >
@@ -222,7 +224,7 @@ export default function ContactsPage() {
                       </button>
                       <button
                         onClick={() => handleDeleteContact(contact.id, contact.name)}
-                        title="Delete Contact"
+                        title={t.delete || "Delete Contact"}
                         type="button"
                         className="p-2 rounded-xl bg-white text-red-600 hover:bg-red-50 border border-red-200 shadow-xs transition-colors cursor-pointer"
                       >
@@ -237,7 +239,7 @@ export default function ContactsPage() {
                       className="btn-tactile btn-primary py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1 shadow-sm"
                     >
                       <span className="material-symbols-outlined text-base sm:text-lg">call</span>
-                      <span>Call</span>
+                      <span>{t.callDirect || 'Call'}</span>
                     </a>
 
                     <button
@@ -246,7 +248,7 @@ export default function ContactsPage() {
                       className="btn-tactile py-3 rounded-2xl bg-[#25D366] hover:bg-[#128C7E] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1 shadow-sm cursor-pointer transition-colors"
                     >
                       <span className="material-symbols-outlined text-base sm:text-lg">chat</span>
-                      <span>WhatsApp</span>
+                      <span>{t.whatsApp || 'WhatsApp'}</span>
                     </button>
 
                     <button
@@ -255,7 +257,7 @@ export default function ContactsPage() {
                       className="btn-tactile btn-secondary py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1 bg-[#d3f8d0] text-[#032109] cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-base sm:text-lg">mic</span>
-                      <span>Voice</span>
+                      <span>{t.voiceNote || 'Voice'}</span>
                     </button>
                   </div>
                 </div>

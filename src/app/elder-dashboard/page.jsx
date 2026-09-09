@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar.jsx';
 import { dataStore } from '../../services/dataStore.js';
 import { authService } from '../../services/authService.js';
-import { speakText } from '../../utils/speech.js';
+import { useTranslation } from '../../utils/i18n.js';
 import { showToast } from '../../components/Toast.jsx';
 
 export default function ElderDashboardPage() {
   const router = useRouter();
+  const { t, lang } = useTranslation();
   const [patient, setPatient] = useState({});
   const [activeUser, setActiveUser] = useState(null);
   const [medicines, setMedicines] = useState([]);
@@ -191,15 +192,15 @@ export default function ElderDashboardPage() {
                     {currentDateStr}
                   </span>
                   <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#ffdeaa]/60 text-xs font-bold text-[#724f00]">
-                    {dataStore.getLanguage ? dataStore.getLanguage() : 'English'}
+                    {lang || 'English'}
                   </span>
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109] leading-tight">
-                  Good morning, {displayHonorific} <span className="inline-block hover:scale-110 transition-transform">🌿</span>
+                  {t.goodMorning || 'Good morning'}, {displayHonorific} <span className="inline-block hover:scale-110 transition-transform">🌿</span>
                 </h1>
                 <p className="text-sm sm:text-base text-[#40493d] max-w-xl">
-                  The morning air in {patient?.city || 'your area'} is calm and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.
+                  {t.elderGreetingDesc || `The morning air in ${patient?.city || 'your area'} is calm and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.`}
                 </p>
               </div>
             </div>
@@ -218,10 +219,10 @@ export default function ElderDashboardPage() {
                   <div>
                     <span className="text-xs sm:text-sm text-[#40493d] flex items-center gap-1">
                       <span className="material-symbols-outlined text-sm text-[#0d631b]">schedule</span>
-                      Scheduled for {morningMed.scheduledTime}
+                      {t.metricNextMed || 'Scheduled'}: {morningMed.scheduledTime}
                     </span>
                     <h2 className="text-xl sm:text-2xl font-extrabold text-[#032109]">
-                      {morningMed.title}
+                      {morningMed.title === 'Donepezil 5mg & Morning Routine' ? (t.donepezilDetail || morningMed.title) : morningMed.title}
                     </h2>
                   </div>
                 </div>
@@ -234,12 +235,12 @@ export default function ElderDashboardPage() {
                   <span className="material-symbols-outlined text-base">
                     {morningMed.taken ? 'check_circle' : 'pending'}
                   </span>
-                  {morningMed.taken ? 'Completed for Today' : 'Scheduled Soon'}
+                  {morningMed.taken ? (t.takenJustNow || 'Taken on time') : (t.pendingDose || 'Pending morning dose')}
                 </span>
               </div>
 
               <p className="text-sm sm:text-base text-[#40493d] bg-[#ebffe7] p-3 rounded-2xl border border-[#cdf2cb]">
-                {morningMed.detail}
+                {morningMed.detail === 'After breakfast with a warm cup of Assam tea' ? (t.afterBreakfastDesc || morningMed.detail) : morningMed.detail}
               </p>
 
               <div className="flex items-center justify-end pt-2">
@@ -248,7 +249,7 @@ export default function ElderDashboardPage() {
                   type="button"
                   className="btn-tactile btn-primary px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold cursor-pointer"
                 >
-                  {morningMed.taken ? '✓ Marked Taken' : 'Mark as Taken'}
+                  {morningMed.taken ? (t.markedTakenSuccess || '✓ Marked Taken') : (t.markAsTaken || 'Mark as Taken')}
                 </button>
               </div>
             </div>
@@ -265,13 +266,13 @@ export default function ElderDashboardPage() {
               </div>
               <div>
                 <span className="text-xs font-bold uppercase text-[#0d631b] tracking-wider">
-                  Gentle Mind Game
+                  {t.metricMindGames || 'Gentle Mind Game'}
                 </span>
                 <h3 className="text-xl sm:text-2xl font-extrabold text-[#032109] mt-0.5">
-                  Familiar Treasures Match
+                  {t.memoryMatchCardTitle || 'Familiar Treasures Match'}
                 </h3>
                 <p className="text-xs sm:text-sm text-[#40493d] mt-1">
-                  Enjoy finding matching morning chai, tea leaves, and gentle cat cards.
+                  {t.memoryMatchDesc || 'Gentle picture match with morning tea, flowers, and family memories.'}
                 </p>
               </div>
             </div>
@@ -280,7 +281,7 @@ export default function ElderDashboardPage() {
               type="button"
               className="btn-tactile btn-primary px-6 py-3 rounded-full text-sm font-bold shrink-0 cursor-pointer shadow-md"
             >
-              Play Match Game →
+              {t.tapToPlayCards || 'Play Match Game →'}
             </button>
           </section>
 
@@ -295,13 +296,13 @@ export default function ElderDashboardPage() {
               </div>
               <div>
                 <span className="text-xs font-bold uppercase text-[#0d631b] tracking-wider">
-                  People Who Care for You
+                  {t.familyContacts || 'People Who Care for You'}
                 </span>
                 <h3 className="text-xl sm:text-2xl font-extrabold text-[#032109] mt-0.5">
-                  Your Loved Ones & Family
+                  {t.lovedOnesEmergencyTitle || 'Your Loved Ones & Family'}
                 </h3>
                 <p className="text-xs sm:text-sm text-[#40493d] mt-1">
-                  Tap to call {caregiverName} or family with 1 gentle tap.
+                  {t.lovedOnesEmergencyDesc || `Tap to call ${caregiverName} or family with 1 gentle tap.`}
                 </p>
               </div>
             </div>
@@ -310,7 +311,7 @@ export default function ElderDashboardPage() {
               type="button"
               className="btn-tactile btn-secondary px-6 py-3 rounded-full text-sm font-bold shrink-0 cursor-pointer bg-[#d3f8d0] text-[#032109]"
             >
-              View Contacts →
+              {t.openContactsButton || 'View Contacts →'}
             </button>
           </section>
         </div>

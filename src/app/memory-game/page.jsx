@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar.jsx';
 import { dataStore } from '../../services/dataStore.js';
+import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
 
 export default function MemoryMatchGamePage() {
   const router = useRouter();
+  const { t, lang } = useTranslation();
 
   const cardPool = [
     {
@@ -113,12 +115,12 @@ export default function MemoryMatchGamePage() {
               type="button"
             >
               <span className="material-symbols-outlined text-2xl font-bold">arrow_back</span>
-              <span>Back to Home</span>
+              <span>{t.backToHome || 'Back to Home'}</span>
             </button>
             <div className="flex items-center justify-between sm:justify-end gap-3">
               <div className="flex items-center gap-2 bg-[#d3f8d0] px-3.5 py-1.5 rounded-full">
                 <span className="material-symbols-outlined text-[#006e1c] text-lg">spa</span>
-                <span className="text-xs sm:text-sm font-semibold text-[#032109]">Pace: Gentle & Free</span>
+                <span className="text-xs sm:text-sm font-semibold text-[#032109]">{t.paceGentle || 'Pace: Gentle & Free'}</span>
               </div>
             </div>
           </div>
@@ -127,13 +129,13 @@ export default function MemoryMatchGamePage() {
           <div className="flex flex-col items-center text-center gap-2 mt-1">
             <div className="inline-flex items-center gap-2 bg-[#cdf2cb] text-[#0d631b] px-4 py-1 rounded-full text-xs sm:text-sm font-bold shadow-sm">
               <span className="material-symbols-outlined text-base">verified</span>
-              <span>Round 1 of 3 · Take all the time you need</span>
+              <span>{t.round1of3 || 'Round 1 of 3 · Take all the time you need'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109] tracking-tight">
-              Memory Match: <span className="text-[#0d631b] font-extrabold">Familiar Treasures</span>
+              {t.memoryMatchTitle || 'Memory Match: Familiar Treasures'}
             </h1>
             <p className="text-sm sm:text-base text-[#40493d] max-w-xl">
-              Every gentle effort is a victory. Find the pictures that belong together.
+              {t.memoryMatchSubtitle || 'Every gentle effort is a victory. Find the pictures that belong together.'}
             </p>
           </div>
 
@@ -143,14 +145,14 @@ export default function MemoryMatchGamePage() {
               <span className="material-symbols-outlined text-2xl sm:text-3xl">touch_app</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-extrabold text-[#0d631b] uppercase tracking-wide">Easy Steps</span>
+              <span className="text-xs font-extrabold text-[#0d631b] uppercase tracking-wide">{t.easySteps || 'Easy Steps'}</span>
               <p className="text-sm sm:text-base font-bold text-[#032109] leading-snug">
-                Find the two matching pictures. Tap any card to flip it over softly.
+                {t.easyStepsDesc || 'Find the two matching pictures. Tap any card to flip it over softly.'}
               </p>
             </div>
             <div className="hidden md:flex ml-auto shrink-0 items-center text-[#40493d] text-xs font-semibold gap-1">
               <span className="material-symbols-outlined text-[#006e1c]">self_improvement</span>
-              <span>No clock · No scoring</span>
+              <span>{t.noClock || 'No clock · No scoring'}</span>
             </div>
           </div>
 
@@ -166,7 +168,7 @@ export default function MemoryMatchGamePage() {
                   <div className="card-tactile relative flex flex-col items-center justify-between p-4 bg-white rounded-3xl shadow-[0_6px_0_#2e7d32] border border-[#cdf2cb] min-h-[200px] sm:min-h-[240px]">
                     <div className="w-full flex items-center justify-between">
                       <span className="text-xs bg-[#a3f69c] text-[#002204] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">check_circle</span> Matched
+                        <span className="material-symbols-outlined text-sm">check_circle</span> {t.matchedPill || 'Matched'}
                       </span>
                       <span className="material-symbols-outlined text-[#0d631b] text-xl">favorite</span>
                     </div>
@@ -182,7 +184,7 @@ export default function MemoryMatchGamePage() {
                   <div className="card-tactile relative flex flex-col items-center justify-center p-4 bg-[#cdf2cb] hover:bg-[#d3f8d0] rounded-3xl shadow-[0_6px_0_#1b6d24] border border-[#bfcaba] min-h-[200px] sm:min-h-[240px] group">
                     <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/90 flex flex-col items-center justify-center text-[#0d631b] shadow-sm group-hover:scale-105 transition-transform border border-[#d9fdd6]">
                       <span className="material-symbols-outlined text-4xl sm:text-5xl">{card.icon}</span>
-                      <span className="text-[11px] font-bold text-[#40493d] mt-1">Tap to Open</span>
+                      <span className="text-[11px] font-bold text-[#40493d] mt-1">{t.tapToOpen || 'Tap to Open'}</span>
                     </div>
                     <span className="mt-3 text-xs sm:text-sm font-bold text-[#032109]">Card {idx + 1}</span>
                   </div>
@@ -195,10 +197,10 @@ export default function MemoryMatchGamePage() {
           <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] text-center space-y-3">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs sm:text-sm font-bold">
               <span className="material-symbols-outlined text-lg">celebration</span>
-              <span>Aadarna Joy · You matched the morning tea pair!</span>
+              <span>{t.memoryVictoryPraise || 'Aadarna Joy · You matched the morning tea pair!'}</span>
             </div>
             <p className="text-sm sm:text-base text-[#40493d]">
-              Gentle mental exercise stimulates happy memories and clarity.
+              {t.tagline || 'Gentle mental exercise stimulates happy memories and clarity.'}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
@@ -207,7 +209,7 @@ export default function MemoryMatchGamePage() {
                 className="btn-tactile btn-primary px-6 py-3 rounded-full text-sm sm:text-base font-bold shadow-md cursor-pointer"
               >
                 <span className="material-symbols-outlined mr-1">replay</span>
-                <span>Shuffle & Play Next Round</span>
+                <span>{t.shuffleNextRound || 'Shuffle & Play Next Round'}</span>
               </button>
             </div>
           </div>

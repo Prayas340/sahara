@@ -1,8 +1,11 @@
 'use client';
 
+import { useTranslation } from '../utils/i18n.js';
 import { showToast } from './Toast.jsx';
 
 export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
+  const { t } = useTranslation();
+
   const getSidebarLinkClass = (tabName) => {
     const isActive = activeTab === tabName;
     return isActive
@@ -18,7 +21,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
   };
 
   const handleEmergencyAlert = () => {
-    showToast('🚨 Emergency alert dispatched to Dr. B. Das and primary family members!', 'error', 6000);
+    showToast('🚨 Emergency alert dispatched to primary family members and doctors!', 'error', 6000);
   };
 
   return (
@@ -32,7 +35,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('overview')}
           >
             <span className="material-symbols-outlined text-xl">space_dashboard</span>
-            <span>Overview</span>
+            <span>{t.tabOverview || 'Overview'}</span>
           </button>
           <button
             type="button"
@@ -40,7 +43,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('memories')}
           >
             <span className="material-symbols-outlined text-xl">photo_library</span>
-            <span>Memories</span>
+            <span>{t.tabMemories || 'Memories'}</span>
           </button>
           <button
             type="button"
@@ -48,7 +51,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('routine')}
           >
             <span className="material-symbols-outlined text-xl">schedule</span>
-            <span>Routine</span>
+            <span>{t.tabRoutine || 'Routine'}</span>
           </button>
           <button
             type="button"
@@ -56,7 +59,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('contacts')}
           >
             <span className="material-symbols-outlined text-xl">contact_phone</span>
-            <span>SOS & Family</span>
+            <span>{t.tabContacts || 'SOS & Family'}</span>
           </button>
         </div>
       </div>

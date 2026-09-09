@@ -9,11 +9,13 @@ import ContactModal from '../../components/ContactModal.jsx';
 import SendSafeMessageModal from '../../components/SendSafeMessageModal.jsx';
 import { authService } from '../../services/authService.js';
 import { dataStore } from '../../services/dataStore.js';
+import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
 
 export default function CaregiverDashboardPage() {
   const router = useRouter();
+  const { t, lang } = useTranslation();
   const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'memories' | 'routine' | 'contacts'
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
@@ -443,14 +445,14 @@ export default function CaregiverDashboardPage() {
                   <div className="flex items-center gap-2 mb-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
                     <span className="text-xs font-bold text-[#0d631b] uppercase tracking-wider">
-                      Live Synchronized Caregiver Portal
+                      {t.monitoringHeader || 'Live Synchronized Caregiver Portal'}
                     </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109]">
-                    Hello, {caregiver?.name?.split(' ')[0] || 'Caregiver'}
+                    {t.goodMorning || 'Hello'}, {caregiver?.name?.split(' ')[0] || 'Caregiver'}
                   </h1>
                   <p className="text-sm text-[#40493d]">
-                    Here is {patient?.honorific || patient?.name}&apos;s day at a glance · {patient?.city ? `${patient.city}, ${patient.state || ''}` : 'Live Connected'}
+                    {patient?.honorific || patient?.name} · {patient?.city ? `${patient.city}, ${patient.state || ''}` : t.residenceSanctuary || 'Live Connected'}
                   </p>
                 </div>
 
@@ -461,7 +463,7 @@ export default function CaregiverDashboardPage() {
                     className="btn-tactile btn-primary flex items-center gap-2 h-11 px-5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-xl">add_alarm</span>
-                    <span>Add Reminder</span>
+                    <span>{t.addReminder || 'Add Reminder'}</span>
                   </button>
                 </div>
               </div>
@@ -509,25 +511,25 @@ export default function CaregiverDashboardPage() {
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h2 className="text-xl sm:text-2xl font-extrabold text-[#032109]">{patient?.name || 'Elder Patient'}</h2>
                         <span className="px-2.5 py-0.5 rounded-full bg-[#d3f8d0] text-[#40493d] text-xs font-bold">
-                          {patient?.age || 74} years
+                          {patient?.age || 74}
                         </span>
                         <span className="px-3 py-1 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-[#006e1c] animate-pulse"></span>
-                          Active today · Last active {patient?.lastActive || 'Just now'}
+                          {t.activeToday || 'Active today'} · {t.lastActive || 'Last active'} {patient?.lastActive || 'Just now'}
                         </span>
                       </div>
                       <p className="text-xs sm:text-sm text-[#40493d] mb-2">
-                        {(patient?.status || patient?.problemStatement || 'Mild Cognitive Support Mode')} · {(patient?.location || patient?.wing || 'Residence Sanctuary')}
+                        {(patient?.status || patient?.problemStatement || t.mildCognitiveSupport || 'Mild Cognitive Support Mode')} · {(patient?.location || patient?.wing || t.residenceSanctuary || 'Residence Sanctuary')}
                       </p>
                       <div className="flex items-center gap-3 text-[#40493d] text-xs font-semibold flex-wrap">
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-[#0d631b] text-base">wifi_tethering</span>
-                          Device Connected (Battery {patient?.tabletBattery || 94}%)
+                          {t.deviceConnected || 'Device Connected'} ({patient?.tabletBattery || 94}%)
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-[#724f00] text-base">home_pin</span>
-                          {patient?.location || (patient?.city ? `${patient.city}, ${patient.state || ''}` : 'Home')}
+                          {patient?.location || (patient?.city ? `${patient.city}, ${patient.state || ''}` : t.residenceSanctuary || 'Home')}
                         </span>
                       </div>
                     </div>
@@ -545,7 +547,7 @@ export default function CaregiverDashboardPage() {
                       className="btn-tactile btn-primary flex items-center gap-2 h-11 px-4 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-xl">call</span>
-                      <span>Call {patient?.honorific || patient?.name || 'Elder'}</span>
+                      <span>{t.callDirect || 'Call'} {patient?.honorific || patient?.name?.split(' ')[0] || 'Elder'}</span>
                     </button>
                     <button
                       onClick={() => handleSelectTab('memories')}
@@ -553,7 +555,7 @@ export default function CaregiverDashboardPage() {
                       className="btn-tactile btn-secondary flex items-center gap-2 h-11 px-4 rounded-full text-xs sm:text-sm font-bold bg-[#d3f8d0] text-[#032109] cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-xl">photo_library</span>
-                      <span>Memories Deck</span>
+                      <span>{t.tabMemories || 'Memories Deck'}</span>
                     </button>
                     <button
                       onClick={() => {
@@ -564,7 +566,7 @@ export default function CaregiverDashboardPage() {
                       className="btn-tactile btn-sos flex items-center gap-1.5 h-11 px-4 rounded-full text-xs sm:text-sm font-bold cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-xl">emergency</span>
-                      <span>Dispatch</span>
+                      <span>{t.dispatchTeam || 'Dispatch'}</span>
                     </button>
                   </div>
                 </div>
@@ -581,13 +583,13 @@ export default function CaregiverDashboardPage() {
                       <span className="w-10 h-10 rounded-full bg-[#d9fdd6] flex items-center justify-center text-[#0d631b]">
                         <span className="material-symbols-outlined text-2xl">medication</span>
                       </span>
-                      <span className="text-sm font-bold text-[#032109]">Medicines</span>
+                      <span className="text-sm font-bold text-[#032109]">{t.metricMedicines || 'Medicines'}</span>
                     </div>
                     <div className="text-right">
                       <span className="text-lg font-extrabold text-[#0d631b]">
                         {takenCount}/{totalMeds}
                       </span>
-                      <span className="text-xs text-[#40493d] block">Taken</span>
+                      <span className="text-xs text-[#40493d] block">{t.metricTaken || 'Taken'}</span>
                     </div>
                   </div>
                   <div className="w-full bg-[#d3f8d0] h-2.5 rounded-full overflow-hidden">
@@ -598,8 +600,8 @@ export default function CaregiverDashboardPage() {
                   </div>
                   <span className="text-xs text-[#40493d] mt-2">
                     {medicines.find((m) => !m.taken)
-                      ? 'Next: ' + medicines.find((m) => !m.taken).scheduledTime
-                      : 'All medicines completed for today'}
+                      ? `${t.metricNextMed || 'Next'}: ` + medicines.find((m) => !m.taken).scheduledTime
+                      : (t.metricAllMedsDone || 'All medicines completed for today')}
                   </span>
                 </div>
 
@@ -612,14 +614,14 @@ export default function CaregiverDashboardPage() {
                       <span className="w-10 h-10 rounded-full bg-[#98f994] flex items-center justify-center text-[#0c7521]">
                         <span className="material-symbols-outlined text-2xl">psychology</span>
                       </span>
-                      <span className="text-sm font-bold text-[#032109]">Mind Games</span>
+                      <span className="text-sm font-bold text-[#032109]">{t.metricMindGames || 'Mind Games'}</span>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold">Today</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold">{t.activeToday || 'Today'}</span>
                   </div>
                   <p className="text-2xl font-extrabold text-[#032109]">
-                    {dataStore.state.gamesPlayedCount || 1} Sessions
+                    {dataStore.state.gamesPlayedCount || 1} {t.metricSessions || 'Sessions'}
                   </p>
-                  <span className="text-xs text-[#40493d] mt-1">Familiar Treasures matched</span>
+                  <span className="text-xs text-[#40493d] mt-1">{t.metricFamiliarTreasures || 'Familiar Treasures matched'}</span>
                 </div>
 
                 <div className="card-tactile bg-white rounded-2xl p-5 shadow-sm border border-[#cdf2cb] flex flex-col justify-between">
@@ -628,14 +630,14 @@ export default function CaregiverDashboardPage() {
                       <span className="w-10 h-10 rounded-full bg-[#ffdeaa] flex items-center justify-center text-[#724f00]">
                         <span className="material-symbols-outlined text-2xl">mood</span>
                       </span>
-                      <span className="text-sm font-bold text-[#032109]">Mood & Comfort</span>
+                      <span className="text-sm font-bold text-[#032109]">{t.metricMood || 'Mood & Comfort'}</span>
                     </div>
                     <span className="material-symbols-outlined text-emerald-600 text-xl">favorite</span>
                   </div>
                   <p className="text-lg font-extrabold text-[#032109]">
-                    {dataStore.state.moodRating || 'Very Calm & Cheerful'}
+                    {dataStore.state.moodRating || t.metricMoodCalm || 'Very Calm & Cheerful'}
                   </p>
-                  <span className="text-xs text-[#40493d] mt-1">Positive response to morning chai</span>
+                  <span className="text-xs text-[#40493d] mt-1">{t.metricChaiResponse || 'Positive response to morning chai'}</span>
                 </div>
               </div>
 
@@ -644,16 +646,16 @@ export default function CaregiverDashboardPage() {
                 <div className="lg:col-span-2 card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xl font-extrabold text-[#032109]">Medication Schedule & Vitals</h3>
+                      <h3 className="text-xl font-extrabold text-[#032109]">{t.medScheduleTitle || 'Medication Schedule & Vitals'}</h3>
                       <p className="text-xs sm:text-sm text-[#40493d]">
-                        Real-time synchronization with smart pillbox and elder tablet
+                        {t.medScheduleSubtitle || 'Real-time synchronization with smart pillbox and elder tablet'}
                       </p>
                     </div>
                     <button
                       onClick={() => handleSelectTab('routine')}
                       className="text-xs font-bold text-[#0d631b] hover:underline flex items-center gap-1 cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-base">edit</span> Open Schedule
+                      <span className="material-symbols-outlined text-base">edit</span> {t.openSchedule || 'Open Schedule'}
                     </button>
                   </div>
 
@@ -744,7 +746,7 @@ export default function CaregiverDashboardPage() {
                       className="btn-tactile btn-primary w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-lg">family_restroom</span>
-                      <span>View All Loved Ones & Contacts</span>
+                      <span>{t.openContactsButton || 'View All Loved Ones & Contacts'}</span>
                     </button>
                   </div>
                 </div>
@@ -760,14 +762,14 @@ export default function CaregiverDashboardPage() {
                   <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white text-[#0d631b] mb-3 shadow-sm border border-[#cdf2cb]">
                     <span className="material-symbols-outlined text-lg">photo_library</span>
                     <span className="text-xs font-bold uppercase tracking-wide">
-                      Family Memories Deck & Cognitive Companion
+                      {t.tabMemories || 'Family Memories Deck & Cognitive Companion'}
                     </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109]">
-                    Memory Match & Familiar Treasures
+                    {t.memoryMatchTitle || 'Memory Match & Familiar Treasures'}
                   </h1>
                   <p className="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Caregiver monitoring and live game companion for {patient?.name || 'Elder'}. Tap cards below to test or guide through the session.
+                    {t.memoryMatchSubtitle || 'Find the pictures that belong together. Tap cards below to test or guide through the session.'}
                   </p>
                 </div>
 
@@ -778,7 +780,7 @@ export default function CaregiverDashboardPage() {
                     className="btn-tactile btn-primary flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-lg">add_photo_alternate</span>
-                    <span>Add New Photo Memory</span>
+                    <span>{t.addNewPhotoMemory || 'Add New Photo Memory'}</span>
                   </button>
                 </div>
               </div>
@@ -790,8 +792,8 @@ export default function CaregiverDashboardPage() {
                     <span className="material-symbols-outlined text-2xl">extension</span>
                   </div>
                   <div>
-                    <span className="text-xs text-[#40493d] font-bold block">Game Difficulty</span>
-                    <span className="text-base font-extrabold text-[#032109]">Gentle & Free (3 Pairs)</span>
+                    <span className="text-xs text-[#40493d] font-bold block">{t.paceGentle || 'Game Difficulty'}</span>
+                    <span className="text-base font-extrabold text-[#032109]">3 Pairs</span>
                   </div>
                 </div>
 
@@ -800,9 +802,9 @@ export default function CaregiverDashboardPage() {
                     <span className="material-symbols-outlined text-2xl">check_circle</span>
                   </div>
                   <div>
-                    <span className="text-xs text-[#40493d] font-bold block">Completed Today</span>
+                    <span className="text-xs text-[#40493d] font-bold block">{t.activeToday || 'Completed Today'}</span>
                     <span className="text-base font-extrabold text-[#032109]">
-                      {dataStore.state.gamesPlayedCount || 1} Sessions
+                      {dataStore.state.gamesPlayedCount || 1} {t.metricSessions || 'Sessions'}
                     </span>
                   </div>
                 </div>
@@ -812,8 +814,8 @@ export default function CaregiverDashboardPage() {
                     <span className="material-symbols-outlined text-2xl">favorite</span>
                   </div>
                   <div>
-                    <span className="text-xs text-[#40493d] font-bold block">Emotional Response</span>
-                    <span className="text-base font-extrabold text-[#032109]">Calm & Joyful</span>
+                    <span className="text-xs text-[#40493d] font-bold block">{t.metricMood || 'Emotional Response'}</span>
+                    <span className="text-base font-extrabold text-[#032109]">{t.metricMoodCalm || 'Calm & Joyful'}</span>
                   </div>
                 </div>
               </div>
@@ -825,11 +827,11 @@ export default function CaregiverDashboardPage() {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
                       <h2 className="text-xl sm:text-2xl font-extrabold text-[#032109]">
-                        Familiar Treasures Game Board
+                        {t.memoryMatchTitle || 'Familiar Treasures Game Board'}
                       </h2>
                     </div>
                     <p className="text-xs sm:text-sm text-[#40493d]">
-                      Tap cards to flip them and experience the cognitive match session.
+                      {t.easyStepsDesc || 'Tap cards to flip them and experience the cognitive match session.'}
                     </p>
                   </div>
                   <button
@@ -838,7 +840,7 @@ export default function CaregiverDashboardPage() {
                     className="btn-tactile btn-primary px-4 py-2 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-base">replay</span>
-                    <span>Shuffle Cards</span>
+                    <span>{t.shuffleNextRound || 'Shuffle Cards'}</span>
                   </button>
                 </div>
 
@@ -965,14 +967,14 @@ export default function CaregiverDashboardPage() {
                   <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white text-[#0d631b] mb-3 shadow-sm border border-[#cdf2cb]">
                     <span className="material-symbols-outlined text-lg">schedule</span>
                     <span className="text-xs font-bold uppercase tracking-wide">
-                      Daily Rhythm & Routine Schedule
+                      {t.tabRoutine || 'Daily Rhythm & Routine Schedule'}
                     </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109]">
-                    Medication & Daily Care Timeline
+                    {t.medScheduleTitle || 'Medication & Daily Care Timeline'}
                   </h1>
                   <p className="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Manage smart reminders, sync with pillbox sensors, and adjust dosage alerts for {patient?.name || 'Elder'}.
+                    {t.medScheduleSubtitle || 'Manage smart reminders, sync with pillbox sensors, and adjust dosage alerts.'}
                   </p>
                 </div>
 
@@ -983,7 +985,7 @@ export default function CaregiverDashboardPage() {
                     className="btn-tactile btn-primary flex items-center gap-2 px-5 py-3 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-lg">add_alarm</span>
-                    <span>Add New Reminder</span>
+                    <span>{t.addReminder || 'Add New Reminder'}</span>
                   </button>
                 </div>
               </div>
@@ -992,9 +994,9 @@ export default function CaregiverDashboardPage() {
               <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb]">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                   <div>
-                    <h3 className="text-xl font-extrabold text-[#032109]">Today&apos;s Adherence Rate</h3>
+                    <h3 className="text-xl font-extrabold text-[#032109]">{t.metricMedicines || 'Medication Adherence'}</h3>
                     <p className="text-xs sm:text-sm text-[#40493d]">
-                      {takenCount} of {totalMeds} doses logged as taken
+                      {takenCount} of {totalMeds} {t.metricTaken || 'doses logged as taken'}
                     </p>
                   </div>
                   <span className="text-2xl font-extrabold text-[#006e1c]">{medPercent}%</span>
@@ -1010,9 +1012,9 @@ export default function CaregiverDashboardPage() {
               {/* Full Medicines List */}
               <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-extrabold text-[#032109]">Full Medication Schedule</h3>
+                  <h3 className="text-xl font-extrabold text-[#032109]">{t.medScheduleTitle || 'Full Medication Schedule'}</h3>
                   <span className="text-xs font-bold text-[#40493d] flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Smart Pillbox Connected
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> {t.deviceConnected || 'Connected'}
                   </span>
                 </div>
 
@@ -1106,14 +1108,14 @@ export default function CaregiverDashboardPage() {
                   <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white text-[#0d631b] mb-3 shadow-sm border border-[#cdf2cb]">
                     <span className="material-symbols-outlined text-lg">contact_phone</span>
                     <span className="text-xs font-bold uppercase tracking-wide">
-                      Doctor & Family SOS Care Network
+                      {t.tabContacts || 'Doctor & Family SOS Care Network'}
                     </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109]">
-                    Emergency Contacts & Loved Ones
+                    {t.emergencyContactsTitle || 'Emergency Contacts & Loved Ones'}
                   </h1>
                   <p className="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
-                    Direct access to primary doctors, family members, and immediate ambulance dispatch in {patient?.city || 'your elder’s location'}.
+                    {t.emergencyContactsSubtitle || 'Direct access to primary doctors, family members, and immediate emergency assistance.'}
                   </p>
                 </div>
 
@@ -1124,7 +1126,7 @@ export default function CaregiverDashboardPage() {
                     className="btn-tactile btn-primary flex items-center gap-2 px-5 py-3 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-lg">volunteer_activism</span>
-                    <span>Send &ldquo;{patient?.name?.split(' ')[0] || 'Loved One'} is Safe&rdquo; to Everyone</span>
+                    <span>{t.sendDoingWellBtn || `Send “${patient?.name?.split(' ')[0] || 'Loved One'} is Safe” to Everyone`}</span>
                   </button>
 
                   <button
@@ -1133,7 +1135,7 @@ export default function CaregiverDashboardPage() {
                     className="btn-tactile flex items-center gap-2 px-4 py-3 rounded-full bg-white text-[#0d631b] border-2 border-[#006e1c] text-xs sm:text-sm font-bold shadow-sm hover:bg-[#d9fdd6] transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-lg">person_add</span>
-                    <span>+ Add Contact</span>
+                    <span>+ {t.addContact || 'Add Contact'}</span>
                   </button>
                 </div>
               </div>
@@ -1144,9 +1146,9 @@ export default function CaregiverDashboardPage() {
                   <div className="w-20 h-20 rounded-3xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center mx-auto text-3xl font-extrabold shadow-sm">
                     <span className="material-symbols-outlined text-4xl">contacts_product</span>
                   </div>
-                  <h2 className="text-2xl font-extrabold text-[#032109]">No Emergency Contacts or Loved Ones Added</h2>
+                  <h2 className="text-2xl font-extrabold text-[#032109]">{t.noContactsYet || 'No Emergency Contacts or Loved Ones Added'}</h2>
                   <p className="text-sm text-[#40493d]">
-                    Customize your own trusted contact numbers (family members, personal doctors, local emergency responders) to enable 1-tap WhatsApp updates and direct calling.
+                    {t.noContactsSubtitle || 'Customize your own trusted contact numbers to enable 1-tap WhatsApp updates and direct calling.'}
                   </p>
                   <button
                     onClick={handleOpenAddContact}
@@ -1154,7 +1156,7 @@ export default function CaregiverDashboardPage() {
                     className="btn-tactile btn-primary inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold shadow-md cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-xl">person_add</span>
-                    <span>+ Add First Contact</span>
+                    <span>+ {t.addFirstContact || 'Add First Contact'}</span>
                   </button>
                 </div>
               ) : (
@@ -1201,7 +1203,7 @@ export default function CaregiverDashboardPage() {
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => handleOpenEditContact(c)}
-                              title="Edit Contact"
+                              title={t.edit || "Edit Contact"}
                               className="p-1.5 rounded-xl bg-white text-[#0d631b] hover:bg-[#c9f6c7] border border-[#cdf2cb] shadow-xs transition-colors cursor-pointer"
                               type="button"
                             >
@@ -1209,7 +1211,7 @@ export default function CaregiverDashboardPage() {
                             </button>
                             <button
                               onClick={() => handleDeleteContact(c.id, c.name)}
-                              title="Remove Contact"
+                              title={t.delete || "Remove Contact"}
                               className="p-1.5 rounded-xl bg-white text-red-600 hover:bg-red-50 border border-red-200 shadow-xs transition-colors cursor-pointer"
                               type="button"
                             >
@@ -1224,7 +1226,7 @@ export default function CaregiverDashboardPage() {
                             className="btn-tactile btn-primary py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
                           >
                             <span className="material-symbols-outlined text-base">call</span>
-                            <span>Call</span>
+                            <span>{t.callDirect || 'Call'}</span>
                           </a>
 
                           <button
@@ -1233,7 +1235,7 @@ export default function CaregiverDashboardPage() {
                             className="btn-tactile py-2.5 rounded-xl bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm cursor-pointer transition-colors"
                           >
                             <span className="material-symbols-outlined text-base">chat</span>
-                            <span>WhatsApp</span>
+                            <span>{t.whatsApp || 'WhatsApp'}</span>
                           </button>
 
                           <button
@@ -1242,7 +1244,7 @@ export default function CaregiverDashboardPage() {
                             className="py-2.5 rounded-xl bg-white text-[#0d631b] border border-[#cdf2cb] text-xs font-bold flex items-center justify-center gap-1 hover:bg-[#d9fdd6] transition-colors cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-base">mic</span>
-                            <span>Voice</span>
+                            <span>{t.voiceNote || 'Voice'}</span>
                           </button>
                         </div>
                       </div>
