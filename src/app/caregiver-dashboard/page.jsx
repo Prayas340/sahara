@@ -164,8 +164,10 @@ export default function CaregiverDashboardPage() {
                         ? data.gameScore
                         : history.reduce((sum, g) => sum + (Number(g.score) || 0), 0)));
               
-              setTodayGameSessions(sessions);
-              setTodayGameScore(score);
+              if (sessions > 0 || score > 0) {
+                setTodayGameSessions(prev => Math.max(prev, sessions));
+                setTodayGameScore(prev => Math.max(prev, score));
+              }
 
               const historyAcc = history.length > 0 
                 ? Math.round(history.reduce((sum, g) => sum + (Number(g.accuracy) || 100), 0) / history.length)
@@ -176,14 +178,14 @@ export default function CaregiverDashboardPage() {
 
               setGameAnalytics(prev => ({
                 ...prev,
-                todaySessions: sessions,
-                todayScore: score,
-                averageAccuracy: historyAcc,
-                avgAccuracy: historyAcc,
-                stabilityRating: stability,
-                cognitiveStability: stability,
-                sessions: history,
-                recentScores: history,
+                todaySessions: Math.max(prev?.todaySessions || 0, sessions),
+                todayScore: Math.max(prev?.todayScore || 0, score),
+                averageAccuracy: historyAcc || prev?.averageAccuracy || 0,
+                avgAccuracy: historyAcc || prev?.avgAccuracy || 0,
+                stabilityRating: stability !== 'Awaiting Game Today' ? stability : (prev?.stabilityRating || stability),
+                cognitiveStability: stability !== 'Awaiting Game Today' ? stability : (prev?.cognitiveStability || stability),
+                sessions: history.length > 0 ? history : (prev?.sessions || []),
+                recentScores: history.length > 0 ? history : (prev?.recentScores || []),
               }));
 
               const list = data.medications || data.routines;
@@ -299,7 +301,8 @@ export default function CaregiverDashboardPage() {
     // Fetch fresh scores from server DB and update analytics
     const fetchServerScores = (elderId, caregiverEmail) => {
       if (!elderId && !caregiverEmail) return;
-      fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}`)
+      const todayDate = getTodayDateString();
+      fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}&date=${encodeURIComponent(todayDate)}`)
         .then(r => r.json())
         .then(sData => {
           if (sData?.success && sData?.scores) {
@@ -308,22 +311,40 @@ export default function CaregiverDashboardPage() {
               setGameAnalytics(sData.analytics);
               const tSessions = Number(sData.analytics.todaySessions) || 0;
               const tScore = Number(sData.analytics.todayScore) || 0;
-              setTodayGameSessions(tSessions);
-              setTodayGameScore(tScore);
+              if (tSessions > 0 || tScore > 0) {
+                setTodayGameSessions(tSessions);
+                setTodayGameScore(tScore);
+              } else if (sData.scores.length > 0) {
+                const totalScore = sData.scores.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
+                setTodayGameSessions(prev => Math.max(prev, sData.scores.length));
+                setTodayGameScore(prev => Math.max(prev, totalScore));
+              }
             }
           } else if (dataStore.getGameAnalytics) {
             const ga = dataStore.getGameAnalytics();
-            setGameAnalytics(ga);
-            setTodayGameSessions(Number(ga?.todaySessions) || 0);
-            setTodayGameScore(Number(ga?.todayScore) || 0);
+            if (ga) {
+              setGameAnalytics(prev => ({ ...prev, ...ga }));
+              const gaSessions = Number(ga.todaySessions) || 0;
+              const gaScore = Number(ga.todayScore) || 0;
+              if (gaSessions > 0 || gaScore > 0) {
+                setTodayGameSessions(prev => Math.max(prev, gaSessions));
+                setTodayGameScore(prev => Math.max(prev, gaScore));
+              }
+            }
           }
         })
         .catch(() => {
           if (dataStore.getGameAnalytics) {
             const ga = dataStore.getGameAnalytics();
-            setGameAnalytics(ga);
-            setTodayGameSessions(Number(ga?.todaySessions) || 0);
-            setTodayGameScore(Number(ga?.todayScore) || 0);
+            if (ga) {
+              setGameAnalytics(prev => ({ ...prev, ...ga }));
+              const gaSessions = Number(ga.todaySessions) || 0;
+              const gaScore = Number(ga.todayScore) || 0;
+              if (gaSessions > 0 || gaScore > 0) {
+                setTodayGameSessions(prev => Math.max(prev, gaSessions));
+                setTodayGameScore(prev => Math.max(prev, gaScore));
+              }
+            }
           }
         });
     };
@@ -396,19 +417,7 @@ export default function CaregiverDashboardPage() {
           // Load game scores from database for analytics
           const resolvedElderId = elder.id || elder.phone || elder.email;
           _elderId = resolvedElderId || null;
-          fetch(`/api/game-scores?elderId=${encodeURIComponent(resolvedElderId || '')}&caregiverEmail=${encodeURIComponent(cgEmail || '')}`)
-            .then(r => r.json())
-            .then(sData => {
-              if (sData?.success && sData?.scores) {
-                dataStore.saveGameScores?.(sData.scores);
-                if (sData.analytics) setGameAnalytics(sData.analytics);
-              } else if (dataStore.getGameAnalytics) {
-                setGameAnalytics(dataStore.getGameAnalytics());
-              }
-            })
-            .catch(() => {
-              if (dataStore.getGameAnalytics) setGameAnalytics(dataStore.getGameAnalytics());
-            });
+          fetchServerScores(resolvedElderId, cgEmail);
         } else if (!curUser.linkedElder) {
           setSyncError(`No elder profile associated with caregiver "${cgEmail}" in the database.`);
         }
@@ -569,9 +578,7 @@ export default function CaregiverDashboardPage() {
   const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 0;
   const displayTodaySessions = Number(todayGameSessions) || 0;
   const displayTodayScore = Number(todayGameScore) || 0;
-  const displayWeeklyScore = (Number(gameAnalytics?.weeklyScore) || 0) > 0
-    ? Number(gameAnalytics.weeklyScore)
-    : displayTodayScore;
+  const displayWeeklyScore = Math.max(Number(gameAnalytics?.weeklyScore) || 0, displayTodayScore);
 
   const handleResetScores = async () => {
     try {
@@ -1238,7 +1245,7 @@ export default function CaregiverDashboardPage() {
                   </div>
                   <div>
                     <span className="text-lg font-extrabold text-[#032109] block leading-tight">
-                      {displayTodaySessions > 0
+                      {(displayTodaySessions > 0 || displayWeeklyScore > 0 || (gameAnalytics?.avgAccuracy || 0) > 0)
                         ? (gameAnalytics.stabilityRating || gameAnalytics.cognitiveStability || 'Steady Recall')
                         : 'Awaiting Game Today'}
                     </span>
@@ -1262,7 +1269,9 @@ export default function CaregiverDashboardPage() {
                   <div>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-3xl font-extrabold text-[#032109]">
-                        {displayTodaySessions > 0 ? (gameAnalytics.averageAccuracy ?? gameAnalytics.avgAccuracy ?? 0) : 0}%
+                        {(displayTodaySessions > 0 || displayWeeklyScore > 0 || (gameAnalytics?.avgAccuracy || 0) > 0)
+                          ? (gameAnalytics.averageAccuracy ?? gameAnalytics.avgAccuracy ?? 100)
+                          : 0}%
                       </span>
                     </div>
                     <p className="text-xs text-[#40493d] mt-1">Average familiar cards accuracy</p>

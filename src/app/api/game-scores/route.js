@@ -6,8 +6,9 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const elderId = searchParams.get('elderId') || searchParams.get('phone') || searchParams.get('email');
     const caregiverEmail = searchParams.get('caregiverEmail');
+    const date = searchParams.get('date');
 
-    const result = await getGameScoresFromDb({ elderId, caregiverEmail });
+    const result = await getGameScoresFromDb({ elderId, caregiverEmail, date });
     return NextResponse.json(result);
   } catch (err) {
     console.error('[API /game-scores GET error]:', err);

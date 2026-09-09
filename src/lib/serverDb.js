@@ -120,6 +120,27 @@ export function normalizeIdentifier(val) {
 }
 
 /**
+ * Find an elder in local database by ID, phone, email, or name
+ */
+export function findElderInDb(query) {
+  if (!query) return null;
+  const store = readLocalStore();
+  const clean = normalizeIdentifier(query);
+  if (store.elders?.[clean]) return store.elders[clean];
+  if (store.elders?.[query]) return store.elders[query];
+  const list = Object.values(store.elders || {});
+  const queryStr = String(query).trim().toLowerCase();
+  return list.find(e => 
+    normalizeIdentifier(e.id) === clean ||
+    normalizeIdentifier(e.phone) === clean ||
+    (e.email && e.email.toLowerCase() === queryStr) ||
+    (e.caregiverEmail && e.caregiverEmail.toLowerCase() === queryStr) ||
+    (e.name && e.name.toLowerCase() === queryStr) ||
+    (e.name && e.name.toLowerCase().includes(queryStr))
+  ) || null;
+}
+
+/**
  * Check if elder exists in database (Firebase Auth, then persistent store)
  * Performs smart multi-field matching (ID, identifier, phone digits, or email)
  */
@@ -620,10 +641,11 @@ export async function saveGameScoreToDb(scoreData) {
  * Get game scores and analytics for an elder or caregiver
  */
 export async function getGameScoresFromDb(args) {
-  let elderId, caregiverEmail;
+  let elderId, caregiverEmail, clientDate;
   if (typeof args === 'object' && args !== null) {
     elderId = args.elderId;
     caregiverEmail = args.caregiverEmail;
+    clientDate = args.date || args.clientDate;
   } else if (typeof args === 'string') {
     if (args.includes('@')) {
       caregiverEmail = args;
@@ -633,68 +655,79 @@ export async function getGameScoresFromDb(args) {
   }
 
   const store = readLocalStore();
-  let rawScores = [];
+  const candidateLists = [];
 
   if (elderId) {
     const cleanId = normalizeIdentifier(elderId);
-    if (store.gameScores?.[cleanId] && store.gameScores[cleanId].length > 0) {
-      rawScores = store.gameScores[cleanId];
-    } else if (store.gameScores?.[elderId] && store.gameScores[elderId].length > 0) {
-      rawScores = store.gameScores[elderId];
+    if (Array.isArray(store.gameScores?.[cleanId])) candidateLists.push(store.gameScores[cleanId]);
+    if (Array.isArray(store.gameScores?.[elderId])) candidateLists.push(store.gameScores[elderId]);
+  }
+
+  if (caregiverEmail) {
+    const cleanCg = caregiverEmail.trim().toLowerCase();
+    if (Array.isArray(store.gameScores?.[cleanCg])) candidateLists.push(store.gameScores[cleanCg]);
+    const cg = store.caregivers?.[cleanCg];
+    if (cg?.elderId) {
+      if (Array.isArray(store.gameScores?.[cg.elderId])) candidateLists.push(store.gameScores[cg.elderId]);
+      if (Array.isArray(store.gameScores?.[normalizeIdentifier(cg.elderId)])) candidateLists.push(store.gameScores[normalizeIdentifier(cg.elderId)]);
     }
   }
 
-  if (rawScores.length === 0 && caregiverEmail) {
-    const cleanCg = caregiverEmail.trim().toLowerCase();
-    if (store.gameScores?.[cleanCg] && store.gameScores[cleanCg].length > 0) {
-      rawScores = store.gameScores[cleanCg];
-    } else {
-      const cg = store.caregivers?.[cleanCg];
-      if (cg?.elderId) {
-        if (store.gameScores?.[cg.elderId] && store.gameScores[cg.elderId].length > 0) {
-          rawScores = store.gameScores[cg.elderId];
-        } else if (store.gameScores?.[normalizeIdentifier(cg.elderId)] && store.gameScores[normalizeIdentifier(cg.elderId)].length > 0) {
-          rawScores = store.gameScores[normalizeIdentifier(cg.elderId)];
-        }
+  // Cross-reference linked profile
+  const resolvedElder = (elderId ? (store.elders?.[elderId] || store.elders?.[normalizeIdentifier(elderId)] || findElderInDb(elderId)) : null) ||
+                        (caregiverEmail ? findElderInDb(caregiverEmail) : null);
+
+  if (resolvedElder) {
+    const eId = resolvedElder.id;
+    const ePhone = resolvedElder.phone;
+    const eEmail = resolvedElder.email;
+    const eCgEmail = resolvedElder.caregiverEmail;
+    if (eId && Array.isArray(store.gameScores?.[eId])) candidateLists.push(store.gameScores[eId]);
+    if (ePhone && Array.isArray(store.gameScores?.[normalizeIdentifier(ePhone)])) candidateLists.push(store.gameScores[normalizeIdentifier(ePhone)]);
+    if (eEmail && Array.isArray(store.gameScores?.[eEmail.toLowerCase()])) candidateLists.push(store.gameScores[eEmail.toLowerCase()]);
+    if (eCgEmail && Array.isArray(store.gameScores?.[eCgEmail.toLowerCase()])) candidateLists.push(store.gameScores[eCgEmail.toLowerCase()]);
+  }
+
+  // Deduplicate raw scores by id / unique fingerprint
+  const seenScoreIds = new Set();
+  const scores = [];
+  for (const list of candidateLists) {
+    for (const s of list) {
+      const sKey = s.id || `${s.date}_${s.timestamp}_${s.score}`;
+      if (!seenScoreIds.has(sKey)) {
+        seenScoreIds.add(sKey);
+        scores.push(s);
       }
     }
   }
 
-  // If still empty and elderId is known, check if elder has a linked caregiver
-  if (rawScores.length === 0 && elderId) {
-    const cleanId = normalizeIdentifier(elderId);
-    const elder = store.elders?.[cleanId] || store.elders?.[elderId] || findElderInDb(cleanId) || findElderInDb(elderId);
-    if (elder?.caregiverEmail && store.gameScores?.[elder.caregiverEmail.trim().toLowerCase()]) {
-      rawScores = store.gameScores[elder.caregiverEmail.trim().toLowerCase()];
-    }
-  }
-
-  // Deduplicate raw scores by id
-  const seenScoreIds = new Set();
-  const scores = [];
-  for (const s of rawScores) {
-    const sKey = s.id || `${s.date}_${s.timestamp}_${s.score}`;
-    if (!seenScoreIds.has(sKey)) {
-      seenScoreIds.add(sKey);
-      scores.push(s);
-    }
-  }
+  // Sort descending by timestamp / date
+  scores.sort((a, b) => {
+    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return timeB - timeA;
+  });
 
   // Calculate daily & weekly analytics using local calendar date
   const now = new Date();
-  const todayStr = getLocalDateString(now);
+  const todayStr = clientDate || getLocalDateString(now);
 
-  const todayScores = scores.filter(s => {
+  const isTodayMatch = (s) => {
     if (s.date === todayStr) return true;
     if (s.timestamp) {
       const tsD = new Date(s.timestamp);
       if (!isNaN(tsD.getTime())) {
-        return getLocalDateString(tsD) === todayStr;
+        const local = getLocalDateString(tsD);
+        const utc = tsD.toISOString().split('T')[0];
+        if (local === todayStr || utc === todayStr) return true;
+        // Also match if within last 18 hours
+        if (Math.abs(now.getTime() - tsD.getTime()) < 18 * 3600 * 1000) return true;
       }
     }
     return false;
-  });
+  };
 
+  const todayScores = scores.filter(isTodayMatch);
   const todayTotalScore = todayScores.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
   const todayAvgScore = todayScores.length > 0 ? Math.round(todayTotalScore / todayScores.length) : 0;
 
@@ -711,6 +744,7 @@ export async function getGameScoresFromDb(args) {
     const dayLabel = dayNames[d.getDay()];
 
     const dayRecords = scores.filter(s => {
+      if (i === 0) return isTodayMatch(s);
       if (s.date === dStr) return true;
       if (s.timestamp) {
         const tsD = new Date(s.timestamp);
@@ -734,9 +768,13 @@ export async function getGameScoresFromDb(args) {
       day: i === 0 ? 'Today' : dayLabel,
       score: dayScore,
       sessions,
-      isToday: dStr === todayStr,
+      isToday: i === 0,
     });
   }
+
+  // Ensure weekly total is never lower than today's total
+  weeklyTotalScore = Math.max(weeklyTotalScore, todayTotalScore);
+  weeklySessionsCount = Math.max(weeklySessionsCount, todayScores.length);
 
   const hasScores = scores.length > 0;
   const avgAccuracy = hasScores
