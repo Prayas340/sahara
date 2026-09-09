@@ -147,8 +147,22 @@ export default function CaregiverDashboardPage() {
             if (docSnap.exists()) {
               const data = docSnap.data() || {};
               const history = Array.isArray(data.gamesHistory) ? data.gamesHistory : [];
-              const sessions = typeof data.gameSessions === 'number' ? data.gameSessions : history.length;
-              const score = typeof data.gameScore === 'number' ? data.gameScore : history.reduce((sum, g) => sum + (Number(g.score) || 0), 0);
+              
+              // Support all aligned field keys: games.completedSessions, completedSessions, gameSessions, or gamesHistory.length
+              const sessions = typeof data.games?.completedSessions === 'number'
+                ? data.games.completedSessions
+                : (typeof data.completedSessions === 'number'
+                    ? data.completedSessions
+                    : (typeof data.gameSessions === 'number' ? data.gameSessions : history.length));
+
+              // Support all aligned field keys: games.totalScore, totalScore, gameScore, or sum of gamesHistory
+              const score = typeof data.games?.totalScore === 'number'
+                ? data.games.totalScore
+                : (typeof data.totalScore === 'number'
+                    ? data.totalScore
+                    : (typeof data.gameScore === 'number'
+                        ? data.gameScore
+                        : history.reduce((sum, g) => sum + (Number(g.score) || 0), 0)));
               
               setTodayGameSessions(sessions);
               setTodayGameScore(score);
@@ -219,6 +233,19 @@ export default function CaregiverDashboardPage() {
               if (elderData.name) {
                 setPatient(prev => ({ ...prev, ...elderData }));
               }
+
+              // Sync scores from elder profile doc if present
+              const docScore = typeof elderData.games?.totalScore === 'number'
+                ? elderData.games.totalScore
+                : (typeof elderData.todayGameScore === 'number' ? elderData.todayGameScore : 0);
+              const docSessions = typeof elderData.games?.completedSessions === 'number'
+                ? elderData.games.completedSessions
+                : (typeof elderData.todayGameSessions === 'number' ? elderData.todayGameSessions : 0);
+              if (docScore > 0 || docSessions > 0) {
+                setTodayGameScore(prev => Math.max(prev, docScore));
+                setTodayGameSessions(prev => Math.max(prev, docSessions));
+              }
+
               // If dailyLog hasn't loaded medicines and elderDoc has scheduled medications, load them
               if (Array.isArray(elderData.medications) && elderData.medications.length > 0) {
                 setMedicines(prev => {
@@ -540,12 +567,8 @@ export default function CaregiverDashboardPage() {
   const takenCount = medicines.filter((m) => m.taken).length;
   const totalMeds = medicines.length;
   const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 0;
-  const displayTodaySessions = typeof todayGameSessions === 'number' && todayGameSessions > 0
-    ? todayGameSessions
-    : (Number(gameAnalytics?.todaySessions) || 0);
-  const displayTodayScore = typeof todayGameScore === 'number' && todayGameScore > 0
-    ? todayGameScore
-    : (Number(gameAnalytics?.todayScore) || 0);
+  const displayTodaySessions = Number(todayGameSessions) || 0;
+  const displayTodayScore = Number(todayGameScore) || 0;
   const displayWeeklyScore = (Number(gameAnalytics?.weeklyScore) || 0) > 0
     ? Number(gameAnalytics.weeklyScore)
     : displayTodayScore;

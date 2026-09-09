@@ -45,5 +45,10 @@ export function normalizeElderId(userOrId) {
   return str;
 }
 
+export function getTodayDateString(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export { app, auth, googleProvider, db };
 

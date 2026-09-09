@@ -199,6 +199,97 @@ export function renderMemoryMatchGame(onNavigate) {
             showToast('🎉 Wonderful! You found the matching pair!', 'success', 4000);
             speakText(`Wonderful ${patientHonorific}! You matched ${firstCard.title}!`);
             setTimeout(renderBoard, 300);
+
+            // Check if all cards are matched
+            if (cards.every(c => c.matched)) {
+              const score = 275;
+              const accuracy = 100;
+              const now = new Date();
+              const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+              
+              let elderId = null;
+              let caregiverEmail = null;
+              try {
+                const u = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
+                if (u?.role === 'elder') {
+                  elderId = u.phone || u.id || u.email;
+                  caregiverEmail = u.caregiverEmail || u.caregiver;
+                } else if (u?.role === 'caregiver') {
+                  elderId = u.linkedElder?.phone || u.linkedElder?.id || u.linkedElder?.email;
+                  caregiverEmail = u.email;
+                }
+              } catch (e) {}
+
+              if (!elderId) {
+                const p = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
+                elderId = p?.phone || p?.id || p?.email;
+                caregiverEmail = caregiverEmail || p?.caregiverEmail;
+              }
+
+              dataStore.recordGameScore?.({
+                score,
+                moves: 3,
+                matchedPairs: 3,
+                accuracy,
+                durationSeconds: 20,
+                date: todayDate,
+                elderId: elderId || '+919854012345',
+                caregiverEmail: caregiverEmail || 'prayasdey10@gmail.com',
+              });
+
+              import('../lib/firebaseClient.js').then(({ db, normalizeElderId }) => {
+                if (db) {
+                  import('firebase/firestore').then(({ doc, setDoc, increment, serverTimestamp, arrayUnion }) => {
+                    const cleanElderId = normalizeElderId(elderId || '+919854012345');
+                    const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
+                    const elderRef = doc(db, 'elders', cleanElderId);
+                    const gameEntry = {
+                      id: `game_${Date.now()}`,
+                      gameName: 'Memory Match - Familiar Treasures',
+                      score,
+                      moves: 3,
+                      matchedPairs: 3,
+                      accuracy,
+                      durationSeconds: 20,
+                      completedAt: new Date().toISOString(),
+                    };
+                    setDoc(dailyLogRef, {
+                      games: {
+                        completedSessions: increment(1),
+                        totalScore: increment(score),
+                        lastGameScore: score,
+                        lastGameAt: new Date().toISOString(),
+                        updatedAt: serverTimestamp(),
+                      },
+                      completedSessions: increment(1),
+                      totalScore: increment(score),
+                      gameSessions: increment(1),
+                      gameScore: increment(score),
+                      gamesHistory: arrayUnion(gameEntry),
+                      lastGameScore: score,
+                      lastGameAt: new Date().toISOString(),
+                      updatedAt: serverTimestamp(),
+                    }, { merge: true }).catch(() => {});
+
+                    setDoc(elderRef, {
+                      id: cleanElderId,
+                      lastGameScore: score,
+                      todayGameScore: increment(score),
+                      todayGameSessions: increment(1),
+                      games: {
+                        completedSessions: increment(1),
+                        totalScore: increment(score),
+                        lastGameScore: score,
+                        lastGameAt: new Date().toISOString(),
+                        updatedAt: serverTimestamp(),
+                      },
+                      lastActive: serverTimestamp(),
+                      updatedAt: serverTimestamp(),
+                    }, { merge: true }).catch(() => {});
+                  }).catch(() => {});
+                }
+              }).catch(() => {});
+            }
           } else {
             // No match, turn back over after a pause
             setTimeout(() => {

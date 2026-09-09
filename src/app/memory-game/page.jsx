@@ -8,7 +8,7 @@ import { dataStore } from '../../services/dataStore.js';
 import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
-import { db, normalizeElderId } from '../../lib/firebaseClient.js';
+import { db, normalizeElderId, getTodayDateString } from '../../lib/firebaseClient.js';
 import { doc, updateDoc, setDoc, increment, arrayUnion, serverTimestamp } from 'firebase/firestore';
 
 function resolveElderAndCaregiver() {
@@ -19,8 +19,8 @@ function resolveElderAndCaregiver() {
   try {
     const stored = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
     if (stored?.role === 'elder') {
-      elderId = stored.phone || stored.email || stored.id;
-      caregiverEmail = stored.caregiverEmail || null;
+      elderId = stored.phone || stored.id || stored.email;
+      caregiverEmail = stored.caregiverEmail || stored.caregiver || null;
       caregiverName = stored.caregiverName || null;
     } else if (stored?.role === 'caregiver') {
       elderId = stored.linkedElder?.phone || stored.linkedElder?.id || stored.linkedElder?.email;
@@ -30,10 +30,21 @@ function resolveElderAndCaregiver() {
   } catch (e) {}
 
   if (!elderId) {
+    try {
+      const storedPatient = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_patient_profile') || 'null') : null;
+      if (storedPatient) {
+        elderId = storedPatient.phone || storedPatient.id || storedPatient.email;
+        caregiverEmail = caregiverEmail || storedPatient.caregiverEmail || storedPatient.caregiver;
+        caregiverName = caregiverName || storedPatient.caregiverName;
+      }
+    } catch (e) {}
+  }
+
+  if (!elderId) {
     const u = authService?.getCurrentUser ? authService.getCurrentUser() : null;
     if (u?.role === 'elder') {
-      elderId = u.phone || u.email || u.id;
-      caregiverEmail = u.caregiverEmail || caregiverEmail;
+      elderId = u.phone || u.id || u.email;
+      caregiverEmail = u.caregiverEmail || u.caregiver || caregiverEmail;
       caregiverName = u.caregiverName || caregiverName;
     } else if (u?.role === 'caregiver') {
       elderId = u.linkedElder?.phone || u.linkedElder?.id || u.linkedElder?.email;
@@ -45,7 +56,7 @@ function resolveElderAndCaregiver() {
   if (!elderId) {
     const p = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
     elderId = p?.phone || p?.id || p?.email;
-    caregiverEmail = caregiverEmail || p?.caregiverEmail;
+    caregiverEmail = caregiverEmail || p?.caregiverEmail || p?.caregiver;
     caregiverName = caregiverName || p?.caregiverName;
   }
   if (!caregiverEmail) {
@@ -166,8 +177,8 @@ export default function MemoryMatchGamePage() {
 
           // Resolve identities reliably for cross-device sync
           const { elderId, caregiverEmail, cleanElderId } = resolveElderAndCaregiver();
-          const now = new Date();
-          const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          const todayDate = getTodayDateString();
+          const isoDate = new Date().toISOString().split('T')[0];
 
           // 1. Real-time Firestore Mutation
           if (db && cleanElderId) {
@@ -184,23 +195,48 @@ export default function MemoryMatchGamePage() {
               completedAt: new Date().toISOString(),
             };
 
-            // Atomically increment gameSessions, gameScore, append to gamesHistory
-            setDoc(dailyLogRef, {
+            const gamePayload = {
+              // Exact fields specified in requirement
+              games: {
+                completedSessions: increment(1),
+                totalScore: increment(score),
+                lastGameScore: score,
+                lastGameAt: new Date().toISOString(),
+                updatedAt: serverTimestamp(),
+              },
+              completedSessions: increment(1),
+              totalScore: increment(score),
               gameSessions: increment(1),
               gameScore: increment(score),
               gamesHistory: arrayUnion(gameEntry),
               lastGameScore: score,
               lastGameAt: new Date().toISOString(),
               updatedAt: serverTimestamp(),
-            }, { merge: true }).catch(err => {
+            };
+
+            // Atomically increment gameSessions, gameScore, completedSessions, totalScore, append to gamesHistory
+            setDoc(dailyLogRef, gamePayload, { merge: true }).catch(err => {
               console.warn('[MemoryGame] Firestore setDoc notice:', err);
             });
+
+            // If ISO date differs from local date, update both paths for seamless cross-timezone sync
+            if (isoDate !== todayDate) {
+              const isoDailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', isoDate);
+              setDoc(isoDailyLogRef, gamePayload, { merge: true }).catch(() => {});
+            }
 
             setDoc(elderRef, {
               id: cleanElderId,
               lastGameScore: score,
               todayGameScore: increment(score),
               todayGameSessions: increment(1),
+              games: {
+                completedSessions: increment(1),
+                totalScore: increment(score),
+                lastGameScore: score,
+                lastGameAt: new Date().toISOString(),
+                updatedAt: serverTimestamp(),
+              },
               lastGameAt: new Date().toISOString(),
               lastActive: serverTimestamp(),
               updatedAt: serverTimestamp(),

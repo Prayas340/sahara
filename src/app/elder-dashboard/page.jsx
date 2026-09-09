@@ -6,8 +6,7 @@ import Navbar from '../../components/Navbar.jsx';
 import { dataStore } from '../../services/dataStore.js';
 import { authService } from '../../services/authService.js';
 import { useTranslation } from '../../utils/i18n.js';
-import { showToast } from '../../components/Toast.jsx';
-import { db, normalizeElderId } from '../../lib/firebaseClient.js';
+import { db, normalizeElderId, getTodayDateString } from '../../lib/firebaseClient.js';
 import { doc, setDoc, onSnapshot, serverTimestamp, arrayUnion } from 'firebase/firestore';
 
 // Helper to reliably resolve elder identity and caregiver email across both login roles
@@ -76,7 +75,7 @@ export default function ElderDashboardPage() {
   const countdownIntervalRef = useRef(null);
 
   useEffect(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getTodayDateString();
 
     const mergeWithTakenPreserved = (freshMeds, existingMeds) => {
       if (!Array.isArray(freshMeds)) return [];
@@ -234,7 +233,8 @@ export default function ElderDashboardPage() {
   const handleMarkCurrentMedTaken = () => {
     if (!currentMed || currentMed.taken) return;
     const medId = currentMed.id;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getTodayDateString();
+    const isoDate = new Date().toISOString().split('T')[0];
     const takenAtTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // Update locally with takenDate so midnight reset can compare
@@ -294,7 +294,7 @@ export default function ElderDashboardPage() {
       const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
       const elderRef = doc(db, 'elders', cleanElderId);
 
-      setDoc(dailyLogRef, {
+      const routinePayload = {
         medications: formattedMeds,
         routines: formattedRoutines,
         lastCompletedItem: {
@@ -303,7 +303,14 @@ export default function ElderDashboardPage() {
           completedAt: takenAtTime,
         },
         updatedAt: serverTimestamp(),
-      }, { merge: true }).catch(err => console.warn('[ElderDashboard] Firestore routine write error:', err));
+      };
+
+      setDoc(dailyLogRef, routinePayload, { merge: true }).catch(err => console.warn('[ElderDashboard] Firestore routine write error:', err));
+
+      if (isoDate !== todayStr) {
+        const isoDailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', isoDate);
+        setDoc(isoDailyLogRef, routinePayload, { merge: true }).catch(() => {});
+      }
 
       setDoc(elderRef, {
         id: cleanElderId,
