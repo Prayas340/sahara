@@ -424,6 +424,19 @@ export default function CaregiverDashboardPage() {
         routines: updated.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
       }, { merge: true }).catch(() => {});
     }
+
+    // Persist to server DB
+    fetch('/api/reminders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'delete',
+        elderId: patient?.id || patient?.phone,
+        caregiverEmail: caregiver?.email,
+        reminderId,
+      }),
+    }).catch(() => {});
+
     showToast(`🗑️ Removed reminder "${reminderTitle || 'Reminder'}"`, 'info', 3000);
   };
 

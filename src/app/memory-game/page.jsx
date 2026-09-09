@@ -106,11 +106,17 @@ export default function MemoryMatchGamePage() {
             const activeUser = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
             if (activeUser?.role === 'elder') {
               elderId = activeUser.phone || activeUser.email || activeUser.id;
+            } else if (activeUser?.role === 'caregiver') {
+              elderId = activeUser.linkedElder?.phone || activeUser.linkedElder?.id || activeUser.linkedElder?.email;
             }
           } catch (e) {}
           if (!elderId) {
             const u = authService?.getCurrentUser ? authService.getCurrentUser() : null;
-            elderId = u?.phone || u?.email || u?.id;
+            if (u?.role === 'elder') {
+              elderId = u.phone || u.email || u.id;
+            } else if (u?.role === 'caregiver') {
+              elderId = u.linkedElder?.phone || u.linkedElder?.id || u.linkedElder?.email;
+            }
           }
           const cleanElderId = normalizeElderId(elderId || dataStore.state?.patient?.phone || '+919854012345');
           const todayDate = new Date().toISOString().split('T')[0];

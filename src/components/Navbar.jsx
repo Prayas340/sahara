@@ -33,9 +33,9 @@ export default function Navbar({ activeView = 'elder' }) {
     };
   }, []);
 
-  const isCaregiver = activeView === 'caregiver' || user?.role === 'caregiver';
+  const isCaregiver = activeView === 'caregiver';
   const effectiveName = isCaregiver ? (user?.name || t.caregiverCompanion || 'Caregiver') : (patient?.name || user?.name || '');
-  const elderDisplayName = !isCaregiver && patient?.honorific ? patient.honorific : (patient?.name ? `${patient.name.split(' ')[0]} ji` : (user?.honorific || (effectiveName ? `${effectiveName.split(' ')[0]} ji` : t.sanctuary)));
+  const elderDisplayName = patient?.honorific ? patient.honorific : (patient?.name ? `${patient.name.split(' ')[0]} ji` : (user?.honorific || (effectiveName ? `${effectiveName.split(' ')[0]} ji` : t.sanctuary)));
 
   const handleLanguageChange = (e) => {
     const newLang = e.target.value;

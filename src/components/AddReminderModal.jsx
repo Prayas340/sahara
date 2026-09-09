@@ -51,6 +51,20 @@ export default function AddReminderModal({ isOpen, onClose }) {
       }
     }
 
+    // Explicitly persist to server DB endpoint
+    try {
+      const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
+      const elderId = activeUser?.linkedElder?.id || activeUser?.linkedElder?.phone || activeUser?.phone || dataStore.state?.patient?.phone;
+      const caregiverEmail = activeUser?.email || activeUser?.caregiverEmail || dataStore.state?.caregiver?.email;
+      if (elderId || caregiverEmail) {
+        fetch('/api/reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add', elderId, caregiverEmail, reminder: newMed }),
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
     showToast(`✓ Added reminder: "${title}" for ${time}`, 'success', 3500);
     setTitle('');
     setDetail('');

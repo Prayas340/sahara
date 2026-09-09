@@ -715,6 +715,11 @@ export async function getRemindersFromDb(args) {
     const cleanId = normalizeIdentifier(elderId);
     if (store.reminders[cleanId]) {
       medicines = store.reminders[cleanId];
+    } else {
+      const elder = store.elders?.[cleanId] || findElderInDb(cleanId);
+      if (elder?.caregiverEmail && store.reminders[elder.caregiverEmail.trim().toLowerCase()]) {
+        medicines = store.reminders[elder.caregiverEmail.trim().toLowerCase()];
+      }
     }
   }
 
@@ -724,8 +729,8 @@ export async function getRemindersFromDb(args) {
       medicines = store.reminders[cleanCg];
     } else {
       const cg = store.caregivers?.[cleanCg];
-      if (cg?.elderId && store.reminders[cg.elderId]) {
-        medicines = store.reminders[cg.elderId];
+      if (cg?.elderId && store.reminders[normalizeIdentifier(cg.elderId)]) {
+        medicines = store.reminders[normalizeIdentifier(cg.elderId)];
       }
     }
   }
@@ -786,8 +791,18 @@ export async function saveRemindersToDb({ elderId, caregiverEmail, medicines }) 
   if (!store.routineCompletions) store.routineCompletions = {};
 
   const cleanList = Array.isArray(medicines) ? medicines : [];
-  const cleanElderId = elderId ? normalizeIdentifier(elderId) : null;
-  const cleanCg = caregiverEmail ? caregiverEmail.trim().toLowerCase() : null;
+  let cleanElderId = elderId ? normalizeIdentifier(elderId) : null;
+  let cleanCg = caregiverEmail ? caregiverEmail.trim().toLowerCase() : null;
+
+  // Resolve cross-links if one is missing
+  if (!cleanCg && cleanElderId) {
+    const elder = store.elders?.[cleanElderId] || findElderInDb(cleanElderId);
+    if (elder?.caregiverEmail) cleanCg = elder.caregiverEmail.trim().toLowerCase();
+  }
+  if (!cleanElderId && cleanCg) {
+    const cg = store.caregivers?.[cleanCg];
+    if (cg?.elderId) cleanElderId = normalizeIdentifier(cg.elderId);
+  }
 
   if (cleanElderId) {
     store.reminders[cleanElderId] = cleanList;
@@ -881,7 +896,7 @@ export async function toggleReminderStatusInDb({ elderId, caregiverEmail, remind
   const existing = await getRemindersFromDb({ elderId, caregiverEmail });
   let toggledItem = null;
   const list = (existing.medicines || []).map(m => {
-    if (m.id === reminderId) {
+    if (m.id === reminderId || String(m.id) === String(reminderId) || m.title === reminderId) {
       const isTaken = taken !== undefined ? Boolean(taken) : !m.taken;
       const todayStr = takenDate || new Date().toISOString().split('T')[0];
       const updated = {

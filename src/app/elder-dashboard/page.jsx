@@ -10,6 +10,49 @@ import { showToast } from '../../components/Toast.jsx';
 import { db, normalizeElderId } from '../../lib/firebaseClient.js';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
+// Helper to reliably resolve elder identity and caregiver email across both login roles
+function resolveElderAndCaregiver() {
+  let elderId = null;
+  let caregiverEmail = null;
+  try {
+    const stored = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
+    if (stored?.role === 'elder') {
+      elderId = stored.phone || stored.email || stored.id;
+      caregiverEmail = stored.caregiverEmail || null;
+    } else if (stored?.role === 'caregiver') {
+      elderId = stored.linkedElder?.phone || stored.linkedElder?.id || stored.linkedElder?.email;
+      caregiverEmail = stored.email || null;
+    }
+  } catch (e) {}
+
+  if (!elderId) {
+    const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
+    if (u?.role === 'elder') {
+      elderId = u.phone || u.email || u.id;
+      caregiverEmail = u.caregiverEmail || caregiverEmail;
+    } else if (u?.role === 'caregiver') {
+      elderId = u.linkedElder?.phone || u.linkedElder?.id || u.linkedElder?.email;
+      caregiverEmail = u.email || caregiverEmail;
+    }
+  }
+
+  if (!elderId) {
+    const p = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
+    elderId = p?.phone || p?.id || p?.email;
+    caregiverEmail = caregiverEmail || p?.caregiverEmail;
+  }
+  if (!caregiverEmail) {
+    const cg = dataStore.getCaregiver ? dataStore.getCaregiver() : dataStore.state?.caregiver;
+    caregiverEmail = cg?.email || dataStore.state?.patient?.caregiverEmail || null;
+  }
+
+  return {
+    elderId: elderId || '+919854012345',
+    caregiverEmail,
+    cleanElderId: normalizeElderId(elderId || '+919854012345'),
+  };
+}
+
 export default function ElderDashboardPage() {
   const router = useRouter();
   const { t, lang } = useTranslation();
@@ -40,20 +83,7 @@ export default function ElderDashboardPage() {
         dataStore.saveMedicines(reset);
         // Persist the reset to server DB
         try {
-          let elderId = null;
-          let caregiverEmail = null;
-          try {
-            const stored = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
-            if (stored?.role === 'elder') {
-              elderId = stored.phone || stored.email || stored.id;
-              caregiverEmail = stored.caregiverEmail || null;
-            }
-          } catch (e) {}
-          if (!elderId) {
-            const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
-            elderId = u?.phone || u?.email || u?.id;
-          }
-          if (!caregiverEmail) caregiverEmail = dataStore.state?.caregiver?.email || dataStore.state?.patient?.caregiverEmail;
+          const { elderId, caregiverEmail } = resolveElderAndCaregiver();
           if (elderId) {
             fetch('/api/reminders', {
               method: 'POST',
@@ -75,18 +105,7 @@ export default function ElderDashboardPage() {
     // Multi-Device Cloud Sync for Elder
     let unsubFirestore = null;
     try {
-      let identifier = null;
-      try {
-        const stored = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
-        if (stored?.role === 'elder') {
-          identifier = stored.phone || stored.email || stored.id;
-        }
-      } catch (e) {}
-      if (!identifier) {
-        const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
-        identifier = u?.phone || u?.email || u?.id;
-      }
-      const cleanElderId = normalizeElderId(identifier || dataStore.state?.patient?.phone || '+919854012345');
+      const { elderId, cleanElderId } = resolveElderAndCaregiver();
 
       // Real-time Firestore live listener for dailyLogs
       if (db && cleanElderId) {
@@ -113,15 +132,15 @@ export default function ElderDashboardPage() {
         }, (err) => console.warn('[ElderDashboard] onSnapshot notice:', err.message));
       }
 
-      if (identifier) {
+      if (elderId) {
         // Sync elder profile
         if (authService.syncElderData) {
-          authService.syncElderData(identifier).then((res) => {
+          authService.syncElderData(elderId).then((res) => {
             if (res?.elder) syncData();
           }).catch((err) => console.warn('Elder sync error:', err));
         }
         // Sync reminders from server database
-        fetch(`/api/reminders?elderId=${encodeURIComponent(identifier)}`)
+        fetch(`/api/reminders?elderId=${encodeURIComponent(elderId)}`)
           .then(r => r.json())
           .then(rData => {
             if (rData?.success && rData?.medicines) {
@@ -174,28 +193,16 @@ export default function ElderDashboardPage() {
     const takenAtTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // Update locally with takenDate so midnight reset can compare
-    const updatedMeds = (dataStore.getMedicines ? dataStore.getMedicines() : []).map(m => {
-      if (m.id === medId) {
+    const baseList = (medicines && medicines.length > 0) ? medicines : (dataStore.getMedicines ? dataStore.getMedicines() : []);
+    const updatedMeds = baseList.map(m => {
+      if (m.id === medId || String(m.id) === String(medId) || m.title === currentMed.title) {
         return { ...m, taken: true, takenAt: takenAtTime, takenDate: todayStr };
       }
       return m;
     });
 
-    // Resolve elder identity from session
-    let elderId = null;
-    let caregiverEmail = null;
-    try {
-      const stored = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
-      if (stored?.role === 'elder') {
-        elderId = stored.phone || stored.email || stored.id;
-        caregiverEmail = stored.caregiverEmail || null;
-      }
-    } catch (e) {}
-    if (!elderId) {
-      const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
-      elderId = u?.phone || u?.email || u?.id;
-    }
-    if (!caregiverEmail) caregiverEmail = dataStore.state?.caregiver?.email || dataStore.state?.patient?.caregiverEmail;
+    // Resolve elder and caregiver identities reliably
+    const { elderId, caregiverEmail, cleanElderId } = resolveElderAndCaregiver();
 
     // Save locally (also persists to server via saveMedicines)
     dataStore.state.medicines = updatedMeds;
@@ -224,7 +231,6 @@ export default function ElderDashboardPage() {
 
     // Real-time Firestore Mutation
     if (db) {
-      const cleanElderId = normalizeElderId(elderId || dataStore.state?.patient?.phone || '+919854012345');
       const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
       const elderRef = doc(db, 'elders', cleanElderId);
 

@@ -657,6 +657,9 @@ class DataStore {
         if (activeUser?.role === 'elder') {
           elderId = activeUser.phone || activeUser.email || activeUser.id;
           caregiverEmail = activeUser.caregiverEmail || null;
+        } else if (activeUser?.role === 'caregiver') {
+          elderId = activeUser.linkedElder?.phone || activeUser.linkedElder?.id || activeUser.linkedElder?.email;
+          caregiverEmail = activeUser.email || null;
         }
       }
     } catch (e) {}
