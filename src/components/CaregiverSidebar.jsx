@@ -125,18 +125,6 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             <span>{t.tabContacts || 'Doctor & Family SOS'}</span>
           </button>
         </nav>
-
-        {/* Bottom Emergency Button */}
-        <div className="pt-4 mt-auto">
-          <button
-            onClick={handleEmergencyAlert}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#ffdad6] text-[#93000a] rounded-2xl font-bold text-sm border border-red-200 hover:bg-red-200 transition-all shadow-sm cursor-pointer"
-            type="button"
-          >
-            <span className="material-symbols-outlined text-xl">emergency_share</span>
-            <span>One-Tap Emergency Alert</span>
-          </button>
-        </div>
       </aside>
     </>
   );

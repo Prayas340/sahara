@@ -181,18 +181,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               <span>Doctor & Family SOS</span>
             </button>
           </nav>
-
-          <!-- Emergency Action Pinned at Bottom of Sidebar -->
-          <div class="pt-4 mt-auto">
-            <button 
-              class="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#ffdad6] text-[#93000a] rounded-2xl font-bold text-sm border border-red-200 hover:bg-red-200 transition-all shadow-sm cursor-pointer" 
-              id="side-emergency-alert" 
-              type="button"
-            >
-              <span class="material-symbols-outlined text-xl">emergency_share</span>
-              <span>One-Tap Emergency Alert</span>
-            </button>
-          </div>
         </aside>
 
         <!-- Main Content Area (renders active tab without losing the sidebar) -->
@@ -874,9 +862,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
     });
 
     // Emergency Alerts
-    document.getElementById('side-emergency-alert')?.addEventListener('click', () => {
-      showToast('🚨 Emergency alert sent to Dr. B. Das and primary family contacts!', 'error', 6000);
-    });
     document.getElementById('caregiver-call-asha-btn')?.addEventListener('click', () => {
       showToast(`Calling ${patient.honorific || patient.name}'s room intercom (+91 98540 12345)...`, 'heart');
       window.open('tel:+919854012345');
