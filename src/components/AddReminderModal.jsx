@@ -20,17 +20,17 @@ export default function AddReminderModal({ isOpen, onClose }) {
     }
 
     const newMed = {
+      id: `rem_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       title: title.trim(),
       detail: detail.trim() || 'Daily schedule',
-      scheduledTime: time,
+      scheduledTime: time || '08:00 AM',
       taken: false,
       takenAt: null,
       category,
     };
 
-    dataStore.state.medicines.push(newMed);
-    dataStore.notifyChange();
-    showToast(`Added reminder: "${title}" for ${time}`, 'success');
+    dataStore.addReminder(newMed);
+    showToast(`✓ Added reminder: "${title}" for ${time}`, 'success', 3500);
     setTitle('');
     setDetail('');
     onClose();

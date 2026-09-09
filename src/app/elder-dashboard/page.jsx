@@ -22,7 +22,7 @@ export default function ElderDashboardPage() {
         setActiveUser(u);
         const p = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {});
         setPatient(p || {});
-        setMedicines([...(dataStore.state?.medicines || [])]);
+        setMedicines([...(dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state?.medicines || []))]);
       } catch (err) {
         console.warn('Error reading local user state:', err);
       }
@@ -31,17 +31,29 @@ export default function ElderDashboardPage() {
     syncData();
     window.addEventListener('sahara:datastore-change', syncData);
     window.addEventListener('sahara:auth-change', syncData);
+    window.addEventListener('sahara:medicines-change', syncData);
 
     // Multi-Device Cloud Sync for Elder
     try {
       const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
       const identifier = u?.phone || u?.email || u?.id;
-      if (identifier && authService.syncElderData) {
-        authService.syncElderData(identifier).then((res) => {
-          if (res?.elder) {
-            syncData();
-          }
-        }).catch((err) => console.warn('Elder sync error:', err));
+      if (identifier) {
+        // Sync elder profile
+        if (authService.syncElderData) {
+          authService.syncElderData(identifier).then((res) => {
+            if (res?.elder) syncData();
+          }).catch((err) => console.warn('Elder sync error:', err));
+        }
+        // Sync reminders from server database
+        fetch(`/api/reminders?elderId=${encodeURIComponent(identifier)}`)
+          .then(r => r.json())
+          .then(rData => {
+            if (rData?.success && rData?.medicines) {
+              dataStore.saveMedicines(rData.medicines);
+              setMedicines([...rData.medicines]);
+            }
+          })
+          .catch(() => {});
       }
     } catch (err) {
       console.warn('Elder cloud sync skipped:', err);
@@ -50,6 +62,7 @@ export default function ElderDashboardPage() {
     return () => {
       window.removeEventListener('sahara:datastore-change', syncData);
       window.removeEventListener('sahara:auth-change', syncData);
+      window.removeEventListener('sahara:medicines-change', syncData);
     };
   }, []);
 
@@ -58,13 +71,11 @@ export default function ElderDashboardPage() {
   const caregiverObj = dataStore.getCaregiver ? dataStore.getCaregiver() : null;
   const caregiverName = caregiverObj?.name || patient?.caregiverName || 'Your caregiver';
 
-  const morningMed = medicines[0] || {
-    title: 'Donepezil 5mg & Morning Routine',
-    detail: 'After breakfast with a warm cup of Assam tea',
-    scheduledTime: '08:00 AM',
-    taken: true,
-    takenAt: '8:15 AM',
-  };
+  const allMeds = medicines && medicines.length > 0 ? medicines : (dataStore.getMedicines ? dataStore.getMedicines() : []);
+  const pendingMeds = allMeds.filter(m => !m.taken);
+  const completedMeds = allMeds.filter(m => m.taken);
+  const isAllDone = allMeds.length > 0 && pendingMeds.length === 0;
+  const currentMed = pendingMeds.length > 0 ? pendingMeds[0] : (allMeds[0] || null);
 
   const currentDateStr = new Intl.DateTimeFormat('en-IN', {
     weekday: 'long',
@@ -78,13 +89,19 @@ export default function ElderDashboardPage() {
     showToast('🔊 ' + planText, 'info', 6000);
   };
 
-  const handleToggleMorningMed = () => {
-    if (dataStore.state.medicines[0]) {
-      const med = dataStore.state.medicines[0];
-      med.taken = !med.taken;
-      med.takenAt = med.taken ? 'Just now' : null;
-      dataStore.notifyChange();
-      showToast(med.taken ? `✓ Marked "${med.title}" as taken!` : 'Pending morning dose', 'info');
+  const handleMarkCurrentMedTaken = () => {
+    if (!currentMed) return;
+    const medId = currentMed.id;
+    dataStore.toggleMedicineStatus(medId);
+    
+    const remainingAfterThis = pendingMeds.filter(m => m.id !== medId);
+    if (remainingAfterThis.length === 0) {
+      showToast(`🎉 Wonderful, ${displayHonorific}! All routines completed for today!`, 'success', 5000);
+      speakText(`Wonderful, ${displayHonorific}! All daily medicines completed for today!`);
+    } else {
+      const nextMed = remainingAfterThis[0];
+      showToast(`✓ Marked "${currentMed.title}" as taken! Next: ${nextMed.title}`, 'success', 4000);
+      speakText(`Marked ${currentMed.title} as taken.`);
     }
   };
 
@@ -206,54 +223,109 @@ export default function ElderDashboardPage() {
             </div>
           </div>
 
-          {/* 1. Medicine Rhythm Card */}
-          <section className="relative card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md overflow-hidden border border-[#cdf2cb]">
-            <div className={`absolute top-0 left-0 bottom-0 w-2.5 ${morningMed.taken ? 'bg-[#0d631b]' : 'bg-[#2e7d32]'}`}></div>
-
-            <div className="pl-2 flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#d9fdd6] flex items-center justify-center shadow-inner shrink-0 text-[#0d631b]">
-                    <span className="material-symbols-outlined text-3xl">medication</span>
+          {/* 1. Medicine Rhythm Card - ALL COMPLETED STATE */}
+          {isAllDone ? (
+            <section className="relative card-tactile bg-[#d9fdd6] rounded-3xl p-6 sm:p-8 shadow-md overflow-hidden border border-[#cdf2cb]">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+                <div className="flex items-center gap-4 flex-col sm:flex-row">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-[#006e1c] text-white flex items-center justify-center shadow-md shrink-0">
+                    <span className="material-symbols-outlined text-3xl sm:text-4xl">task_alt</span>
                   </div>
                   <div>
-                    <span className="text-xs sm:text-sm text-[#40493d] flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm text-[#0d631b]">schedule</span>
-                      {t.metricNextMed || 'Scheduled'}: {morningMed.scheduledTime}
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white text-[#0d631b] text-xs font-extrabold mb-1 shadow-sm">
+                      <span className="material-symbols-outlined text-sm">celebration</span>
+                      {t.metricAllMedsDone || 'All medicines completed for today'}
                     </span>
                     <h2 className="text-xl sm:text-2xl font-extrabold text-[#032109]">
-                      {morningMed.title === 'Donepezil 5mg & Morning Routine' ? (t.donepezilDetail || morningMed.title) : morningMed.title}
+                      {t.metricAllMedsDone || 'All Medicines Completed for Today ✓'}
                     </h2>
+                    <p className="text-sm text-[#40493d] mt-1">
+                      Wonderful care today, {displayHonorific}! All {allMeds.length} daily routines and medicine doses are completed.
+                    </p>
                   </div>
                 </div>
 
-                <span
-                  className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 self-start sm:self-center ${
-                    morningMed.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-base">
-                    {morningMed.taken ? 'check_circle' : 'pending'}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-4 py-2 rounded-full bg-[#006e1c] text-white font-extrabold text-sm shadow-sm">
+                    {allMeds.length}/{allMeds.length} (100%)
                   </span>
-                  {morningMed.taken ? (t.takenJustNow || 'Taken on time') : (t.pendingDose || 'Pending morning dose')}
-                </span>
+                </div>
               </div>
 
-              <p className="text-sm sm:text-base text-[#40493d] bg-[#ebffe7] p-3 rounded-2xl border border-[#cdf2cb]">
-                {morningMed.detail === 'After breakfast with a warm cup of Assam tea' ? (t.afterBreakfastDesc || morningMed.detail) : morningMed.detail}
-              </p>
-
-              <div className="flex items-center justify-end pt-2">
-                <button
-                  onClick={handleToggleMorningMed}
-                  type="button"
-                  className="btn-tactile btn-primary px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold cursor-pointer"
-                >
-                  {morningMed.taken ? (t.markedTakenSuccess || '✓ Marked Taken') : (t.markAsTaken || 'Mark as Taken')}
-                </button>
+              {/* Completed list badges */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-5 pt-4 border-t border-[#cdf2cb]">
+                {allMeds.map((med, idx) => (
+                  <div key={med.id || idx} className="p-2.5 bg-white rounded-xl border border-[#cdf2cb] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#0d631b] text-base">check_circle</span>
+                    <div className="overflow-hidden">
+                      <p className="text-xs font-bold text-[#032109] truncate">{med.title}</p>
+                      <p className="text-[10px] text-[#40493d]">{med.scheduledTime} · Taken {med.takenAt || ''}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          </section>
+            </section>
+          ) : currentMed ? (
+            <section className="relative card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md overflow-hidden border border-[#cdf2cb]">
+              <div className={`absolute top-0 left-0 bottom-0 w-2.5 ${currentMed.taken ? 'bg-[#0d631b]' : 'bg-[#2e7d32]'}`}></div>
+
+              <div className="pl-2 flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#d9fdd6] flex items-center justify-center shadow-inner shrink-0 text-[#0d631b]">
+                      <span className="material-symbols-outlined text-3xl">medication</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm text-[#40493d] flex items-center gap-1 font-bold">
+                          <span className="material-symbols-outlined text-sm text-[#0d631b]">schedule</span>
+                          {t.metricNextMed || 'Scheduled'}: {currentMed.scheduledTime}
+                        </span>
+                        {pendingMeds.length > 1 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                            {pendingMeds.length} remaining today
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-xl sm:text-2xl font-extrabold text-[#032109]">
+                        {currentMed.title}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 self-start sm:self-center ${
+                      currentMed.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-amber-100 text-amber-900'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {currentMed.taken ? 'check_circle' : 'pending'}
+                    </span>
+                    {currentMed.taken ? (t.takenJustNow || 'Taken on time') : (t.pendingDose || 'Pending dose')}
+                  </span>
+                </div>
+
+                <p className="text-sm sm:text-base text-[#40493d] bg-[#ebffe7] p-3 rounded-2xl border border-[#cdf2cb]">
+                  {currentMed.detail}
+                </p>
+
+                <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
+                  <span className="text-xs text-[#40493d] font-bold">
+                    {completedMeds.length} of {allMeds.length} completed today ({allMeds.length > 0 ? Math.round((completedMeds.length / allMeds.length) * 100) : 0}%)
+                  </span>
+
+                  <button
+                    onClick={handleMarkCurrentMedTaken}
+                    type="button"
+                    className="btn-tactile btn-primary px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold cursor-pointer shadow-md flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-base">check</span>
+                    <span>{t.markAsTaken || 'Mark as Taken'}</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           {/* 2. Play Memory Match Game Card */}
           <section

@@ -7,7 +7,12 @@ export function renderElderDashboard(onNavigate) {
   const patient = dataStore.state.patient || {};
   const displayName = patient.name || 'Asha Devi Borah';
   const displayHonorific = patient.honorific || (displayName.split(' ')[0] ? `${displayName.split(' ')[0]} ji` : displayName);
-  const morningMed = dataStore.state.medicines.find(m => m.id === 'med_morning') || dataStore.state.medicines[0];
+  
+  const allMeds = dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state.medicines || []);
+  const pendingMeds = allMeds.filter(m => !m.taken);
+  const completedMeds = allMeds.filter(m => m.taken);
+  const isAllDone = allMeds.length > 0 && pendingMeds.length === 0;
+  const currentMed = pendingMeds.length > 0 ? pendingMeds[0] : (allMeds[0] || null);
 
   const currentDateStr = new Intl.DateTimeFormat('en-IN', {
     weekday: 'long',
@@ -66,84 +71,117 @@ export function renderElderDashboard(onNavigate) {
           </div>
 
           <!-- 1. TODAY'S SUPPORT: MEDICINE RHYTHM CARD -->
-          <section aria-labelledby="med-heading" class="relative card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md overflow-hidden border border-[#cdf2cb]">
-            <!-- Time indicator vertical bar -->
-            <div class="absolute top-0 left-0 bottom-0 w-2.5 ${morningMed.taken ? 'bg-[#0d631b]' : 'bg-[#2e7d32]'}"></div>
-            
-            <div class="pl-2 flex flex-col gap-4">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div class="flex items-center gap-3">
-                  <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#d9fdd6] flex items-center justify-center shadow-inner shrink-0 text-[#0d631b]">
-                    <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">medication</span>
+          ${isAllDone ? `
+            <section class="relative card-tactile bg-[#d9fdd6] rounded-3xl p-6 sm:p-8 shadow-md overflow-hidden border border-[#cdf2cb]">
+              <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+                <div class="flex items-center gap-4 flex-col sm:flex-row">
+                  <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-[#006e1c] text-white flex items-center justify-center shadow-md shrink-0">
+                    <span class="material-symbols-outlined text-3xl sm:text-4xl">task_alt</span>
                   </div>
                   <div>
-                    <span class="text-xs sm:text-sm text-[#40493d] flex items-center gap-1">
-                      <span class="material-symbols-outlined text-sm text-[#0d631b]">schedule</span>
-                      Scheduled for ${morningMed.scheduledTime}
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white text-[#0d631b] text-xs font-extrabold mb-1 shadow-sm">
+                      <span class="material-symbols-outlined text-sm">celebration</span>
+                      All medicines completed for today
                     </span>
-                    <h2 class="text-xl sm:text-2xl font-extrabold text-[#032109]" id="med-heading">
-                      ${morningMed.title}
+                    <h2 class="text-xl sm:text-2xl font-extrabold text-[#032109]">
+                      All Medicines Completed for Today ✓
                     </h2>
+                    <p class="text-sm text-[#40493d] mt-1">
+                      Wonderful care today, ${displayHonorific}! All ${allMeds.length} daily routines are finished.
+                    </p>
                   </div>
                 </div>
 
-                ${morningMed.taken ? `
-                  <span class="self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-[#cdf2cb]">
-                    <span class="material-symbols-outlined text-base">check_circle</span>
-                    Taken at ${morningMed.takenAt || '8:15 AM'}
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="px-4 py-2 rounded-full bg-[#006e1c] text-white font-extrabold text-sm shadow-sm">
+                    ${allMeds.length}/${allMeds.length} (100%)
                   </span>
-                ` : `
-                  <span class="self-start sm:self-auto px-3 py-1 rounded-full bg-[#ffdad6] text-[#93000a] text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-red-200">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#ba1a1a] animate-ping"></span>
-                    Due now
-                  </span>
-                `}
-              </div>
-
-              <!-- Medicine details box -->
-              <div class="p-4 rounded-2xl bg-[#d9fdd6]/50 border border-[#cdf2cb] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div class="space-y-0.5">
-                  <p class="text-base sm:text-lg font-bold text-[#032109]">${morningMed.detail}</p>
-                  <p class="text-xs sm:text-sm text-[#40493d]">${morningMed.instruction}</p>
                 </div>
-                <button 
-                  class="shrink-0 flex items-center gap-1.5 text-[#0d631b] hover:text-[#0c7521] text-xs sm:text-sm font-bold py-2 px-3 rounded-full hover:bg-[#d3f8d0] transition-colors" 
-                  id="elder-listen-med-btn"
-                  type="button"
-                >
-                  <span class="material-symbols-outlined text-lg">volume_up</span>
-                  <span>Listen instructions</span>
-                </button>
               </div>
 
-              <!-- Medicine Confirmation Actions -->
-              <div class="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3" id="med-actions-dock">
-                ${morningMed.taken ? `
-                  <div class="w-full p-4 rounded-2xl bg-[#d9fdd6] text-[#0c7521] font-bold text-center flex items-center justify-center gap-2 border border-[#cdf2cb]">
-                    <span class="material-symbols-outlined text-2xl">verified</span>
-                    <span>Completed! Riya has been notified via WhatsApp & Caregiver Portal.</span>
+              <!-- Completed list badges -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-5 pt-4 border-t border-[#cdf2cb]">
+                ${allMeds.map((med) => `
+                  <div class="p-2.5 bg-white rounded-xl border border-[#cdf2cb] flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#0d631b] text-base">check_circle</span>
+                    <div class="overflow-hidden">
+                      <p class="text-xs font-bold text-[#032109] truncate">${med.title}</p>
+                      <p class="text-[10px] text-[#40493d]">${med.scheduledTime} · Taken ${med.takenAt || ''}</p>
+                    </div>
                   </div>
-                ` : `
+                `).join('')}
+              </div>
+            </section>
+          ` : currentMed ? `
+            <section aria-labelledby="med-heading" class="relative card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md overflow-hidden border border-[#cdf2cb]">
+              <!-- Time indicator vertical bar -->
+              <div class="absolute top-0 left-0 bottom-0 w-2.5 ${currentMed.taken ? 'bg-[#0d631b]' : 'bg-[#2e7d32]'}"></div>
+              
+              <div class="pl-2 flex flex-col gap-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#d9fdd6] flex items-center justify-center shadow-inner shrink-0 text-[#0d631b]">
+                      <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">medication</span>
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs sm:text-sm text-[#40493d] flex items-center gap-1 font-bold">
+                          <span class="material-symbols-outlined text-sm text-[#0d631b]">schedule</span>
+                          Scheduled for ${currentMed.scheduledTime}
+                        </span>
+                        ${pendingMeds.length > 1 ? `
+                          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                            ${pendingMeds.length} remaining today
+                          </span>
+                        ` : ''}
+                      </div>
+                      <h2 class="text-xl sm:text-2xl font-extrabold text-[#032109]" id="med-heading">
+                        ${currentMed.title}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <span class="self-start sm:self-auto px-3.5 py-1.5 rounded-full ${currentMed.taken ? 'bg-[#d9fdd6] text-[#0c7521]' : 'bg-[#ffdad6] text-[#93000a]'} text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-[#cdf2cb]">
+                    <span class="material-symbols-outlined text-base">${currentMed.taken ? 'check_circle' : 'pending'}</span>
+                    ${currentMed.taken ? `Taken at ${currentMed.takenAt || '8:15 AM'}` : 'Due now'}
+                  </span>
+                </div>
+
+                <!-- Medicine details box -->
+                <div class="p-4 rounded-2xl bg-[#d9fdd6]/50 border border-[#cdf2cb] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div class="space-y-0.5">
+                    <p class="text-base sm:text-lg font-bold text-[#032109]">${currentMed.detail}</p>
+                    <p class="text-xs sm:text-sm text-[#40493d]">${currentMed.instruction || 'Take on schedule'}</p>
+                  </div>
                   <button 
-                    class="btn-tactile btn-primary min-h-[56px] flex-1 px-6 rounded-full text-base sm:text-lg font-extrabold flex items-center justify-center gap-2 shadow-md" 
-                    id="elder-mark-med-taken-btn" 
+                    class="shrink-0 flex items-center gap-1.5 text-[#0d631b] hover:text-[#0c7521] text-xs sm:text-sm font-bold py-2 px-3 rounded-full hover:bg-[#d3f8d0] transition-colors cursor-pointer" 
+                    id="elder-listen-med-btn"
                     type="button"
                   >
-                    <span class="material-symbols-outlined text-2xl">check_circle</span>
+                    <span class="material-symbols-outlined text-lg">volume_up</span>
+                    <span>Listen instructions</span>
+                  </button>
+                </div>
+
+                <!-- Medicine Confirmation Actions -->
+                <div class="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3" id="med-actions-dock">
+                  <span class="text-xs text-[#40493d] font-bold">
+                    ${completedMeds.length} of ${allMeds.length} completed today (${allMeds.length > 0 ? Math.round((completedMeds.length / allMeds.length) * 100) : 0}%)
+                  </span>
+
+                  <button 
+                    class="btn-tactile btn-primary min-h-[48px] px-6 rounded-full text-sm sm:text-base font-extrabold flex items-center justify-center gap-2 shadow-md cursor-pointer" 
+                    id="elder-mark-med-taken-btn" 
+                    data-med-id="${currentMed.id}"
+                    type="button"
+                  >
+                    <span class="material-symbols-outlined text-xl">check_circle</span>
                     <span>Mark as Taken</span>
                   </button>
-                  <button 
-                    class="btn-tactile btn-secondary min-h-[56px] px-6 rounded-full text-sm sm:text-base font-bold flex items-center justify-center gap-2" 
-                    id="elder-snooze-med-btn" 
-                    type="button"
-                  >
-                    <span class="material-symbols-outlined text-xl">alarm</span>
-                    <span>Remind in 15 mins</span>
-                  </button>
-                `}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          ` : ''}
 
           <!-- 2. KEEP YOUR MIND ACTIVE: COGNITIVE GAME & MEMORY DECK -->
           <section aria-labelledby="cognitive-heading" class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden border border-[#cdf2cb]">

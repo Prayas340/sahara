@@ -655,3 +655,185 @@ export async function getGameScoresFromDb(args) {
   };
 }
 
+/**
+ * Default starter routine reminders
+ */
+export const DEFAULT_MEDICINES = [
+  {
+    id: 'med_morning',
+    title: 'Donepezil & Morning Rhythm',
+    detail: 'Blood pressure tablet & warm hydration after breakfast',
+    scheduledTime: '08:00 AM',
+    category: 'medication',
+    taken: false,
+    takenAt: null,
+  },
+  {
+    id: 'med_afternoon',
+    title: 'Afternoon Digestive Tonic',
+    detail: '10ml digestive syrup with lukewarm water after lunch',
+    scheduledTime: '01:30 PM',
+    category: 'medication',
+    taken: false,
+    takenAt: null,
+  },
+  {
+    id: 'med_night',
+    title: 'Night Calm Routine',
+    detail: 'Joint mobility tablet & warm turmeric milk before sleep',
+    scheduledTime: '08:30 PM',
+    category: 'medication',
+    taken: false,
+    takenAt: null,
+  },
+];
+
+/**
+ * Get reminders for an elder or caregiver
+ */
+export async function getRemindersFromDb(args) {
+  let elderId, caregiverEmail;
+  if (typeof args === 'object' && args !== null) {
+    elderId = args.elderId;
+    caregiverEmail = args.caregiverEmail;
+  } else if (typeof args === 'string') {
+    if (args.includes('@')) caregiverEmail = args;
+    else elderId = args;
+  }
+
+  const store = readLocalStore();
+  if (!store.reminders) store.reminders = {};
+
+  let medicines = null;
+
+  if (elderId) {
+    const cleanId = normalizeIdentifier(elderId);
+    if (store.reminders[cleanId]) {
+      medicines = store.reminders[cleanId];
+    }
+  }
+
+  if (!medicines && caregiverEmail) {
+    const cleanCg = caregiverEmail.trim().toLowerCase();
+    if (store.reminders[cleanCg]) {
+      medicines = store.reminders[cleanCg];
+    } else {
+      const cg = store.caregivers?.[cleanCg];
+      if (cg?.elderId && store.reminders[cg.elderId]) {
+        medicines = store.reminders[cg.elderId];
+      }
+    }
+  }
+
+  if (!medicines) {
+    // Return default starter list
+    medicines = JSON.parse(JSON.stringify(DEFAULT_MEDICINES));
+  }
+
+  const total = medicines.length;
+  const takenCount = medicines.filter(m => m.taken).length;
+  const completionPercentage = total > 0 ? Math.round((takenCount / total) * 100) : 0;
+  const allCompleted = total > 0 && takenCount === total;
+  const nextPending = medicines.find(m => !m.taken) || null;
+
+  return {
+    success: true,
+    medicines,
+    stats: {
+      total,
+      takenCount,
+      completionPercentage,
+      allCompleted,
+      nextPending,
+    }
+  };
+}
+
+/**
+ * Save full list of reminders for an elder or caregiver
+ */
+export async function saveRemindersToDb({ elderId, caregiverEmail, medicines }) {
+  const store = readLocalStore();
+  if (!store.reminders) store.reminders = {};
+
+  const cleanList = Array.isArray(medicines) ? medicines : [];
+
+  if (elderId) {
+    const cleanId = normalizeIdentifier(elderId);
+    store.reminders[cleanId] = cleanList;
+  }
+  if (caregiverEmail) {
+    const cleanCg = caregiverEmail.trim().toLowerCase();
+    store.reminders[cleanCg] = cleanList;
+  }
+
+  writeLocalStore(store);
+
+  const total = cleanList.length;
+  const takenCount = cleanList.filter(m => m.taken).length;
+  const completionPercentage = total > 0 ? Math.round((takenCount / total) * 100) : 0;
+  const allCompleted = total > 0 && takenCount === total;
+  const nextPending = cleanList.find(m => !m.taken) || null;
+
+  return {
+    success: true,
+    medicines: cleanList,
+    stats: {
+      total,
+      takenCount,
+      completionPercentage,
+      allCompleted,
+      nextPending,
+    }
+  };
+}
+
+/**
+ * Add a single reminder for an elder or caregiver
+ */
+export async function addReminderToDb({ elderId, caregiverEmail, reminder }) {
+  const existing = await getRemindersFromDb({ elderId, caregiverEmail });
+  const list = [...(existing.medicines || [])];
+
+  const newReminder = {
+    id: reminder.id || ('rem_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+    title: reminder.title || 'Daily Routine Dose',
+    detail: reminder.detail || 'Scheduled routine',
+    scheduledTime: reminder.scheduledTime || reminder.time || '08:00 AM',
+    category: reminder.category || 'medication',
+    taken: Boolean(reminder.taken),
+    takenAt: reminder.takenAt || null,
+  };
+
+  list.push(newReminder);
+  return saveRemindersToDb({ elderId, caregiverEmail, medicines: list });
+}
+
+/**
+ * Delete a reminder by ID for an elder or caregiver
+ */
+export async function deleteReminderFromDb({ elderId, caregiverEmail, reminderId }) {
+  const existing = await getRemindersFromDb({ elderId, caregiverEmail });
+  const list = (existing.medicines || []).filter(m => m.id !== reminderId);
+  return saveRemindersToDb({ elderId, caregiverEmail, medicines: list });
+}
+
+/**
+ * Toggle or set taken status for a reminder
+ */
+export async function toggleReminderStatusInDb({ elderId, caregiverEmail, reminderId, taken, takenAt }) {
+  const existing = await getRemindersFromDb({ elderId, caregiverEmail });
+  const list = (existing.medicines || []).map(m => {
+    if (m.id === reminderId) {
+      const isTaken = taken !== undefined ? Boolean(taken) : !m.taken;
+      return {
+        ...m,
+        taken: isTaken,
+        takenAt: isTaken ? (takenAt || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })) : null,
+      };
+    }
+    return m;
+  });
+  return saveRemindersToDb({ elderId, caregiverEmail, medicines: list });
+}
+

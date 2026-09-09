@@ -674,10 +674,18 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                       <div class="flex items-center gap-2 self-end sm:self-center">
                         <button 
                           class="toggle-med-btn px-4 py-2 rounded-full text-xs font-bold transition-colors cursor-pointer ${med.taken ? 'bg-[#d9fdd6] text-[#0c7521] hover:bg-[#cdf2cb]' : 'bg-[#006e1c] text-white hover:bg-[#0d631b]'}"
-                          data-index="${idx}"
+                          data-id="${med.id || idx}"
                           type="button"
                         >
                           ${med.taken ? '✓ Taken (' + (med.takenAt || 'Logged') + ')' : 'Mark as Taken'}
+                        </button>
+                        <button
+                          class="delete-med-btn p-2 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer"
+                          data-id="${med.id || idx}"
+                          title="Delete Reminder"
+                          type="button"
+                        >
+                          <span class="material-symbols-outlined text-lg">delete</span>
                         </button>
                       </div>
                     </div>
@@ -896,15 +904,29 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
 
     // Toggle Medicine Status Buttons
     document.querySelectorAll('.toggle-med-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.getAttribute('data-index'), 10);
-        if (medicines[idx]) {
-          medicines[idx].taken = !medicines[idx].taken;
-          if (medicines[idx].taken) {
-            medicines[idx].takenAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            showToast(`✓ Marked "${medicines[idx].title}" as taken`, 'success');
-          } else {
-            showToast(`Pending: "${medicines[idx].title}" marked due`, 'info');
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (dataStore.toggleMedicineStatus) {
+          const updated = await dataStore.toggleMedicineStatus(id);
+          const targetMed = updated?.find(m => String(m.id) === String(id));
+          if (targetMed?.taken) {
+            showToast(`✓ Marked "${targetMed.title}" as taken`, 'success');
+          } else if (targetMed) {
+            showToast(`Pending: "${targetMed.title}" marked due`, 'info');
+          }
+        }
+        switchTab('routine');
+      });
+    });
+
+    // Delete Medicine Buttons
+    document.querySelectorAll('.delete-med-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (confirm('Are you sure you want to delete this reminder?')) {
+          if (dataStore.deleteReminder) {
+            await dataStore.deleteReminder(id);
+            showToast('Reminder deleted successfully', 'info');
           }
           switchTab('routine');
         }

@@ -522,6 +522,91 @@ class DataStore {
     this.saveContacts(updated);
   }
 
+  getMedicines() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
+        const stored = localStorage.getItem(`sahara_medicines_${targetId}`) || localStorage.getItem('sahara_medicines');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.state.medicines = parsed;
+            return parsed;
+          }
+        }
+      } catch (e) {}
+    }
+    return Array.isArray(this.state.medicines) ? this.state.medicines : [];
+  }
+
+  saveMedicines(medicines) {
+    if (!Array.isArray(medicines)) return;
+    this.state.medicines = medicines;
+    this.saveState();
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
+        localStorage.setItem(`sahara_medicines_${targetId}`, JSON.stringify(medicines));
+        localStorage.setItem('sahara_medicines', JSON.stringify(medicines));
+      } catch (e) {}
+    }
+    // Async persist to server database
+    try {
+      const elderId = this.state.patient?.id || this.state.patient?.phone;
+      const caregiverEmail = this.state.caregiver?.email || this.state.patient?.caregiverEmail;
+      fetch('/api/reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save',
+          elderId,
+          caregiverEmail,
+          medicines,
+        }),
+      }).catch(err => console.warn('[dataStore] Failed to sync reminders to server:', err));
+    } catch (e) {}
+
+    this.notifyChange();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines } }));
+    }
+  }
+
+  addReminder(reminder) {
+    const newMed = {
+      id: reminder.id || `rem_${Date.now().toString(36)}`,
+      title: reminder.title || 'Daily Routine Dose',
+      detail: reminder.detail || 'Scheduled reminder',
+      scheduledTime: reminder.scheduledTime || reminder.time || '08:00 AM',
+      category: reminder.category || 'medication',
+      taken: Boolean(reminder.taken),
+      takenAt: reminder.takenAt || null,
+    };
+    const list = [...this.getMedicines(), newMed];
+    this.saveMedicines(list);
+    return newMed;
+  }
+
+  deleteReminder(reminderId) {
+    const list = this.getMedicines().filter(m => m.id !== reminderId);
+    this.saveMedicines(list);
+  }
+
+  toggleMedicineStatus(identifier) {
+    const list = this.getMedicines().map((m, idx) => {
+      if (m.id === identifier || idx === identifier) {
+        const nowTaken = !m.taken;
+        return {
+          ...m,
+          taken: nowTaken,
+          takenAt: nowTaken ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
+        };
+      }
+      return m;
+    });
+    this.saveMedicines(list);
+  }
+
   recordGameScore(scoreData) {
     const todayStr = new Date().toISOString().split('T')[0];
     const timestamp = new Date().toISOString();

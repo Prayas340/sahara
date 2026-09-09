@@ -138,6 +138,17 @@ export default function CaregiverDashboardPage() {
               setContacts([...loadedContacts]);
             });
 
+          // Load reminders & medicines from database
+          fetch(`/api/reminders?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(cgEmail || '')}`)
+            .then(r => r.json())
+            .then(rData => {
+              if (rData?.success && rData?.medicines) {
+                dataStore.saveMedicines(rData.medicines);
+                setMedicines([...rData.medicines]);
+              }
+            })
+            .catch(() => {});
+
           // Load game scores from database for analytics
           fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(cgEmail || '')}`)
             .then(r => r.json())
@@ -174,7 +185,7 @@ export default function CaregiverDashboardPage() {
       if (activeUser?.role === 'caregiver') {
         setCaregiver(activeUser);
       }
-      setMedicines([...(dataStore.state?.medicines || [])]);
+      setMedicines([...(dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state?.medicines || []))]);
       const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
       setContacts([...loadedContacts]);
       if (dataStore.getGameAnalytics) {
@@ -185,6 +196,7 @@ export default function CaregiverDashboardPage() {
     window.addEventListener('sahara:datastore-change', syncData);
     window.addEventListener('sahara:auth-change', syncData);
     window.addEventListener('sahara:game-score-change', syncData);
+    window.addEventListener('sahara:medicines-change', syncData);
 
     // Read initial tab from URL if present
     if (typeof window !== 'undefined') {
@@ -199,6 +211,7 @@ export default function CaregiverDashboardPage() {
       window.removeEventListener('sahara:datastore-change', syncData);
       window.removeEventListener('sahara:auth-change', syncData);
       window.removeEventListener('sahara:game-score-change', syncData);
+      window.removeEventListener('sahara:medicines-change', syncData);
     };
   }, [router]);
 
@@ -218,7 +231,7 @@ export default function CaregiverDashboardPage() {
       if (elder && elder.name) {
         setPatient(elder);
         if (res.user || res.caregiver) setCaregiver(res.user || res.caregiver);
-        setMedicines([...(dataStore.state?.medicines || [])]);
+        setMedicines([...(dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state?.medicines || []))]);
         const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
         setContacts([...loadedContacts]);
         showToast(`Synchronized with ${elder.name}'s profile!`, 'success');
@@ -240,61 +253,21 @@ export default function CaregiverDashboardPage() {
     window.history.replaceState(null, '', `/caregiver-dashboard?tab=${tab}`);
   };
 
-  const handleCardClick = (idx) => {
-    const card = cards[idx];
-    if (card.matched || card.flipped || flippedIndices.length >= 2) return;
-
-    const newCards = [...cards];
-    newCards[idx].flipped = true;
-    setCards(newCards);
-
-    const newFlipped = [...flippedIndices, idx];
-    setFlippedIndices(newFlipped);
-    showToast(`Opened: ${card.title}`, 'info', 1500);
-
-    if (newFlipped.length === 2) {
-      const first = newCards[newFlipped[0]];
-      const second = newCards[newFlipped[1]];
-
-      if (first.pairId === second.pairId) {
-        first.matched = true;
-        second.matched = true;
-        setCards([...newCards]);
-        setFlippedIndices([]);
-        dataStore.incrementGamesCount?.();
-        showToast(`🎉 Pair Matched: ${first.title}!`, 'success', 3000);
-      } else {
-        setTimeout(() => {
-          first.flipped = false;
-          second.flipped = false;
-          setCards([...newCards]);
-          setFlippedIndices([]);
-        }, 1200);
-      }
+  const toggleMedStatus = (identifier) => {
+    dataStore.toggleMedicineStatus(identifier);
+    const updated = dataStore.getMedicines ? dataStore.getMedicines() : [];
+    setMedicines([...updated]);
+    const target = updated.find((m, i) => m.id === identifier || i === identifier);
+    if (target) {
+      showToast(target.taken ? `✓ "${target.title}" marked as taken` : `Pending: "${target.title}"`, 'info');
     }
   };
 
-  const handleShuffleCards = () => {
-    const reset = cards.map((c, i) => ({
-      ...c,
-      flipped: i === 0 || i === 5,
-      matched: i === 0 || i === 5,
-    }));
-    setCards(reset);
-    setFlippedIndices([]);
-    showToast('Cards shuffled softly!', 'info');
-  };
-
-  const toggleMedStatus = (idx) => {
-    if (dataStore.state.medicines[idx]) {
-      const med = dataStore.state.medicines[idx];
-      med.taken = !med.taken;
-      med.takenAt = med.taken
-        ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : null;
-      dataStore.notifyChange();
-      showToast(med.taken ? `✓ "${med.title}" marked as taken` : `Pending: "${med.title}"`, 'info');
-    }
+  const handleDeleteReminder = (reminderId, reminderTitle) => {
+    dataStore.deleteReminder(reminderId);
+    const updated = dataStore.getMedicines ? dataStore.getMedicines() : [];
+    setMedicines([...updated]);
+    showToast(`🗑️ Removed reminder "${reminderTitle || 'Reminder'}"`, 'info', 3000);
   };
 
   const handleOpenAddContact = () => {
@@ -1162,7 +1135,7 @@ export default function CaregiverDashboardPage() {
                 <div className="space-y-3 pt-2">
                   {medicines.map((med, idx) => (
                     <div
-                      key={idx}
+                      key={med.id || idx}
                       className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-3">
@@ -1181,17 +1154,28 @@ export default function CaregiverDashboardPage() {
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => toggleMedStatus(idx)}
-                        type="button"
-                        className={`px-4 py-2 rounded-full text-xs font-bold transition-colors cursor-pointer self-end sm:self-center ${
-                          med.taken
-                            ? 'bg-[#d9fdd6] text-[#0c7521] hover:bg-[#cdf2cb]'
-                            : 'bg-[#006e1c] text-white hover:bg-[#0d631b]'
-                        }`}
-                      >
-                        {med.taken ? '✓ Taken (' + (med.takenAt || 'Logged') + ')' : 'Mark as Taken'}
-                      </button>
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <button
+                          onClick={() => toggleMedStatus(med.id || idx)}
+                          type="button"
+                          className={`px-4 py-2 rounded-full text-xs font-bold transition-colors cursor-pointer ${
+                            med.taken
+                              ? 'bg-[#d9fdd6] text-[#0c7521] hover:bg-[#cdf2cb]'
+                              : 'bg-[#006e1c] text-white hover:bg-[#0d631b]'
+                          }`}
+                        >
+                          {med.taken ? '✓ Taken (' + (med.takenAt || 'Logged') + ')' : 'Mark as Taken'}
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteReminder(med.id, med.title)}
+                          type="button"
+                          title="Delete Reminder"
+                          className="w-8 h-8 rounded-full bg-white hover:bg-red-50 text-red-600 border border-red-200 flex items-center justify-center cursor-pointer transition-colors shadow-xs"
+                        >
+                          <span className="material-symbols-outlined text-base">delete</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
