@@ -3,11 +3,6 @@ import { dataStore } from '../services/dataStore.js';
 import { showToast } from '../utils/toast.js';
 
 export function renderCaregiverLogin(onNavigate) {
-  const latestCaregiver = authService.getLatestRegisteredCaregiver() || {
-    name: 'Riya Borah',
-    email: 'riya@sahara.care',
-    password: 'care1234',
-  };
   const currentElder = dataStore.getPatient();
 
   const html = `
@@ -131,28 +126,6 @@ export function renderCaregiverLogin(onNavigate) {
                 Enter the caregiver credentials configured during the Elder profile setup. Signing in will directly fetch and load your loved one's care plan.
               </p>
 
-              <!-- Quick Autofill Registered Account Card -->
-              <div class="mb-4 p-3 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-lg text-[#0d631b]">link</span>
-                  <div>
-                    <p class="text-xs font-bold text-[#032109]">
-                      Registered for: <span class="text-[#0d631b]">${currentElder.name}</span>
-                    </p>
-                    <p class="text-[11px] text-[#40493d]">
-                      ${latestCaregiver.name} · <span class="font-mono">${latestCaregiver.email}</span>
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  id="caregiver-quick-autofill-btn"
-                  type="button" 
-                  class="px-3 py-1.5 rounded-xl bg-white hover:bg-[#d9fdd6] text-[#0d631b] font-extrabold text-xs border border-[#cdf2cb] shadow-xs transition-colors shrink-0 cursor-pointer"
-                >
-                  Fill Credentials
-                </button>
-              </div>
-
               <!-- Error Alert Box -->
               <div id="caregiver-error-box" class="hidden mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
                 <span class="material-symbols-outlined text-base">error</span>
@@ -248,7 +221,6 @@ export function renderCaregiverLogin(onNavigate) {
     const submitText = document.getElementById('caregiver-submit-text');
     const errorBox = document.getElementById('caregiver-error-box');
     const errorMsg = document.getElementById('caregiver-error-msg');
-    const quickAutofillBtn = document.getElementById('caregiver-quick-autofill-btn');
     const togglePasswordBtn = document.getElementById('toggle-login-password-btn');
     const passwordEyeIcon = document.getElementById('login-password-eye-icon');
     const switchToElderBtn = document.getElementById('switch-to-elder-btn');
@@ -258,15 +230,6 @@ export function renderCaregiverLogin(onNavigate) {
     const goToElder = () => onNavigate('welcome-login');
     switchToElderBtn?.addEventListener('click', goToElder);
     footerSwitchToElderBtn?.addEventListener('click', goToElder);
-
-    // Quick Autofill
-    quickAutofillBtn?.addEventListener('click', () => {
-      const latest = authService.getLatestRegisteredCaregiver();
-      if (emailInput) emailInput.value = latest?.email || 'riya@sahara.care';
-      if (passwordInput) passwordInput.value = latest?.password || 'care123';
-      if (errorBox) errorBox.classList.add('hidden');
-      showToast('Autofilled registered caregiver credentials.', 'info');
-    });
 
     // Toggle password visibility
     togglePasswordBtn?.addEventListener('click', () => {

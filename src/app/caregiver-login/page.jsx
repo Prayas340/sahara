@@ -49,17 +49,6 @@ export default function CaregiverLoginPage() {
     return '';
   };
 
-  const handleAutofillDemo = () => {
-    const targetEmail = caregiver.email || 'riya@sahara.care';
-    const targetPassword = caregiver.password || 'care123';
-    setEmail(targetEmail);
-    setPassword(targetPassword);
-    setLoginError('');
-    setFieldErrors({ email: '', password: '' });
-    setTouched({ email: true, password: true });
-    showToast('Loaded registered caregiver credentials.', 'info');
-  };
-
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
@@ -191,17 +180,6 @@ export default function CaregiverLoginPage() {
                 <span className="text-xs font-extrabold text-[#0d631b] uppercase tracking-wider bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
                   Caregiver Portal Authentication
                 </span>
-                {caregiver?.email && (
-                  <button
-                    type="button"
-                    onClick={handleAutofillDemo}
-                    className="text-xs font-bold text-[#0d631b] hover:text-[#032109] bg-[#ebffe7] hover:bg-[#d9fdd6] px-2.5 py-1 rounded-full border border-[#cdf2cb] transition-colors cursor-pointer flex items-center gap-1"
-                    title="Fill registered demo caregiver credentials"
-                  >
-                    <span className="material-symbols-outlined text-sm">key</span>
-                    <span>Quick Autofill</span>
-                  </button>
-                )}
               </div>
 
               <h2 className="text-2xl font-extrabold text-[#032109] mb-1">Welcome, Caregiver</h2>
