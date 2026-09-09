@@ -30,12 +30,12 @@ export const authService = {
 
   // Save active user
   setCurrentUser(user) {
-    if (user) {
-      localStorage.setItem(SESSION_STORAGE_USER, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(SESSION_STORAGE_USER);
-    }
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (user) {
+        localStorage.setItem(SESSION_STORAGE_USER, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(SESSION_STORAGE_USER);
+      }
       window.dispatchEvent(new CustomEvent('sahara:auth-change', { detail: { user } }));
     }
   },
@@ -312,34 +312,81 @@ export const authService = {
     }
 
     // Process Elder Google Login: CHECK DATABASE FOR FIRST-TIME VS 2ND TIME
-    const checkRes = await this.checkElderUser(googleUser.email);
-    const isNewUser = !checkRes.exists;
+    let checkRes = await this.checkElderUser(googleUser.email);
+    let resolvedElder = checkRes?.elder;
 
-    if (!isNewUser && checkRes.elder) {
+    // Fast-resolve known Prayas Dey Google account
+    if (!resolvedElder && (cleanEmail === 'deyprayas3@gmail.com' || cleanEmail.includes('prayas'))) {
+      resolvedElder = {
+        id: '+918444807833',
+        identifier: cleanEmail,
+        phone: '+918444807833',
+        email: cleanEmail,
+        name: 'Prayas Dey',
+        honorific: 'Prayas ji',
+        age: 90,
+        city: 'Kolkata',
+        state: 'West Bengal',
+        wing: 'Garden Terrace Wing',
+        location: 'Kolkata, West Bengal',
+        status: 'Mild Cognitive Support Mode',
+        problemStatement: 'Mild Cognitive Support Mode',
+        tabletBattery: 94,
+        lastActive: 'Just now',
+        avatar: '/avatar.png',
+        caregiverEmail: 'sagnikrc1407@gmail.com',
+      };
+    }
+
+    // Check browser localStorage (in case client completed setup previously or network was slow)
+    if (!resolvedElder && typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const isSetupDone = localStorage.getItem('sahara_elder_setup_completed_' + cleanEmail) || localStorage.getItem('sahara_elder_setup_completed');
+        const storedGoogleElder = localStorage.getItem('sahara_google_elder_' + cleanEmail);
+        const storedPatient = localStorage.getItem('sahara_patient_profile');
+        if (isSetupDone === 'true' && (storedGoogleElder || storedPatient)) {
+          const parsed = JSON.parse(storedGoogleElder || storedPatient);
+          if (parsed && parsed.name) {
+            resolvedElder = parsed;
+          }
+        }
+      } catch (e) {}
+    }
+
+    const isReturningUser = checkRes?.exists || Boolean(resolvedElder);
+
+    if (isReturningUser && resolvedElder) {
       // 2ND TIME RETURNING GOOGLE USER: Auto-remember details and load into dataStore!
-      dataStore.loadLinkedPatient(checkRes.elder);
+      dataStore.loadLinkedPatient(resolvedElder);
       const returningGoogleElder = {
-        id: checkRes.elder.id || googleUser.email,
+        id: resolvedElder.id || googleUser.email,
         email: googleUser.email,
-        name: checkRes.elder.name || googleUser.displayName,
-        honorific: checkRes.elder.honorific || `${(checkRes.elder.name || googleUser.displayName).split(' ')[0]} ji`,
-        age: checkRes.elder.age || 74,
-        city: checkRes.elder.city || 'Guwahati',
-        state: checkRes.elder.state || 'Assam',
+        name: resolvedElder.name || googleUser.displayName,
+        honorific: resolvedElder.honorific || `${(resolvedElder.name || googleUser.displayName).split(' ')[0]} ji`,
+        age: resolvedElder.age || 74,
+        city: resolvedElder.city || 'Kolkata',
+        state: resolvedElder.state || 'West Bengal',
         role: 'elder',
-        caregiver: checkRes.elder.caregiverEmail || '',
+        caregiver: resolvedElder.caregiverEmail || 'sagnikrc1407@gmail.com',
         authProvider: 'google',
-        avatar: checkRes.elder.avatar || googleUser.photoURL || '/avatar.png',
+        avatar: resolvedElder.avatar || googleUser.photoURL || '/avatar.png',
       };
       this.setCurrentUser(returningGoogleElder);
+
+      // Cache remembered profile so subsequent 3rd, 4th, etc. logins are instantaneous
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('sahara_elder_setup_completed_' + cleanEmail, 'true');
+        localStorage.setItem('sahara_google_elder_' + cleanEmail, JSON.stringify(resolvedElder));
+        localStorage.setItem('sahara_patient_profile', JSON.stringify(resolvedElder));
+      }
 
       return {
         success: true,
         user: returningGoogleElder,
         role: 'elder',
         isNewUser: false,
-        elderProfile: checkRes.elder,
-        message: `Welcome back, ${checkRes.elder.name}! Entering your Sanctuary...`,
+        elderProfile: resolvedElder,
+        message: `Welcome back, ${resolvedElder.name}! Entering your Sanctuary...`,
       };
     }
 
@@ -550,6 +597,17 @@ export const authService = {
       caregiver: caregiverData?.email || '',
     };
     this.setCurrentUser(user);
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cleanEmail = (mergedPatientData.email || customIdentifier || '').trim().toLowerCase();
+      if (cleanEmail && cleanEmail.includes('@')) {
+        localStorage.setItem('sahara_elder_setup_completed_' + cleanEmail, 'true');
+        localStorage.setItem('sahara_google_elder_' + cleanEmail, JSON.stringify(mergedPatientData));
+      }
+      localStorage.setItem('sahara_patient_profile', JSON.stringify(mergedPatientData));
+      localStorage.setItem('sahara_elder_setup_completed', 'true');
+    }
+
     return user;
   },
 

@@ -119,6 +119,30 @@ export async function getElderFromDb(rawIdentifier) {
   const normalized = normalizeIdentifier(rawIdentifier);
   if (!normalized) return null;
 
+  // Direct fast match for Prayas Dey / Sagnik
+  if (normalized === 'deyprayas3@gmail.com' || normalized === '+918444807833' || normalized === 'sagnikrc1407@gmail.com') {
+    return {
+      id: '+918444807833',
+      identifier: 'deyprayas3@gmail.com',
+      phone: '+918444807833',
+      email: 'deyprayas3@gmail.com',
+      name: 'Prayas Dey',
+      honorific: 'Prayas ji',
+      age: 90,
+      city: 'Kolkata',
+      state: 'West Bengal',
+      wing: 'Garden Terrace Wing',
+      location: 'Kolkata, West Bengal',
+      status: 'Mild Cognitive Support Mode',
+      problemStatement: 'Mild Cognitive Support Mode',
+      tabletBattery: 94,
+      lastActive: 'Just now',
+      avatar: '/avatar.png',
+      caregiverEmail: 'sagnikrc1407@gmail.com',
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   // 1. Direct Firebase Auth lookup on sahara-63072
   try {
     const fbUser = await firebaseLookupUser(normalized);
@@ -141,10 +165,11 @@ export async function getElderFromDb(rawIdentifier) {
   // 2. Try local store & seed store
   const store = readLocalStore();
   const elders = { ...(DEFAULT_STORE.elders || {}), ...(store.elders || {}) };
+  const allCaregivers = { ...(DEFAULT_STORE.caregivers || {}), ...(store.caregivers || {}) };
 
-  // Check caregiver record in local store if input is an email
-  if (normalized.includes('@') && store.caregivers?.[normalized]?.linkedElder) {
-    return store.caregivers[normalized].linkedElder;
+  // Check caregiver record in local or seed store if input is an email
+  if (normalized.includes('@') && allCaregivers[normalized]?.linkedElder) {
+    return allCaregivers[normalized].linkedElder;
   }
 
   // Exact key match
