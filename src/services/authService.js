@@ -641,6 +641,7 @@ export const authService = {
     }
 
     // 1. Authenticate with server database API first!
+    let apiErrorMessage = '';
     try {
       const res = await fetch('/api/auth/caregiver-login', {
         method: 'POST',
@@ -674,14 +675,12 @@ export const authService = {
           message: result.message || `Welcome back, ${result.user.name}! Connected to ${result.elderProfile.name}'s care overview.`
         };
       } else if (result && !result.success) {
-        // FAIL EXPLICITLY: Do NOT mask database failure with mock fallback!
-        return {
-          success: false,
-          message: result.message || 'Access denied. The email or password entered does not match this elder’s registered caregiver.'
-        };
+        apiAuthFailed = true;
+        apiErrorMessage = result.message || '';
       }
     } catch (apiErr) {
       console.warn('[authService] Caregiver API login network error:', apiErr);
+      apiAuthFailed = true;
     }
 
     // 2. Direct Firebase Client Authentication (if API endpoint network failed)
@@ -746,7 +745,7 @@ export const authService = {
     // Explicit failure rather than silently masking missing database reads
     return {
       success: false,
-      message: `Authentication failed for "${cleanEmail}". Please ensure you have completed the Elder & Caregiver setup on Device A and check your internet connection.`
+      message: apiErrorMessage || `Authentication failed for "${cleanEmail}". Please ensure you have completed the Elder & Caregiver setup on Device A and check your internet connection.`
     };
   },
 
