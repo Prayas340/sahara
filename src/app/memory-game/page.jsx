@@ -105,7 +105,8 @@ export default function MemoryMatchGamePage() {
   const [flippedIndices, setFlippedIndices] = useState([]);
   const [moves, setMoves] = useState(0);
   const [roundCompleted, setRoundCompleted] = useState(false);
-  const [lastScoreEarned, setLastScoreEarned] = useState(0);
+  const [lastScoreEarned, setLastScoreEarned] = useState(275);
+  const [lastAccuracy, setLastAccuracy] = useState(100);
   const [startTime, setStartTime] = useState(null);
 
   const shufflePool = () => {
@@ -150,6 +151,7 @@ export default function MemoryMatchGamePage() {
           const score = 275;
           
           setLastScoreEarned(score);
+          setLastAccuracy(accuracy);
           setRoundCompleted(true);
 
           // Resolve identities reliably for cross-device sync
@@ -243,7 +245,7 @@ export default function MemoryMatchGamePage() {
             }));
           }
 
-          showToast(`🌟 Round Complete! +${score} Points Earned! (${accuracy}% Recall)`, 'success', 5000);
+          showToast(`🌟 Round Complete! Score: ${score} pts (${accuracy}% Recall)`, 'success', 5000);
           speakText(`Round Complete! You scored ${score} points!`);
         } else {
           showToast(`🎉 Wonderful! You matched ${first.title}!`, 'success', 3000);
@@ -362,26 +364,36 @@ export default function MemoryMatchGamePage() {
             ))}
           </div>
 
-          {/* Victory & Praise Banner */}
-          <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] text-center space-y-3">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs sm:text-sm font-bold">
-              <span className="material-symbols-outlined text-lg">celebration</span>
-              <span>{t.memoryVictoryPraise || 'Aadarna Joy · You matched the morning tea pair!'}</span>
+          {/* Game Completion & Replay Area */}
+          {roundCompleted ? (
+            <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] text-center space-y-4">
+              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#d9fdd6] text-[#006e1c] text-sm sm:text-base font-extrabold border border-[#cdf2cb] shadow-sm">
+                <span className="material-symbols-outlined text-xl">stars</span>
+                <span>🌟 Round Complete! Score: {lastScoreEarned || 275} pts ({lastAccuracy}% Recall)</span>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                <button
+                  onClick={handleReplay}
+                  type="button"
+                  className="btn-tactile btn-primary flex items-center gap-2 px-6 py-3 rounded-full text-sm sm:text-base font-bold shadow-md cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-xl">replay</span>
+                  <span>{t.shuffleNextRound || 'Shuffle & Play Next Round'}</span>
+                </button>
+              </div>
             </div>
-            <p className="text-sm sm:text-base text-[#40493d]">
-              {t.tagline || 'Gentle mental exercise stimulates happy memories and clarity.'}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          ) : (
+            <div className="flex flex-wrap items-center justify-center pt-2">
               <button
                 onClick={handleReplay}
                 type="button"
-                className="btn-tactile btn-primary px-6 py-3 rounded-full text-sm sm:text-base font-bold shadow-md cursor-pointer"
+                className="btn-tactile bg-white hover:bg-[#d9fdd6] text-[#0d631b] border border-[#cdf2cb] flex items-center gap-2 px-6 py-3 rounded-full text-sm sm:text-base font-bold shadow-sm cursor-pointer transition-colors"
               >
-                <span className="material-symbols-outlined mr-1">replay</span>
+                <span className="material-symbols-outlined text-xl">replay</span>
                 <span>{t.shuffleNextRound || 'Shuffle & Play Next Round'}</span>
               </button>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
