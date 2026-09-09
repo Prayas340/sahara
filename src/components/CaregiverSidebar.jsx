@@ -59,7 +59,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('contacts')}
           >
             <span className="material-symbols-outlined text-xl">contact_phone</span>
-            <span>{t.tabContacts || 'SOS & Family'}</span>
+            <span>{t.tabContacts || 'Family Contact'}</span>
           </button>
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => onSelectTab('contacts')}
           >
             <span className="material-symbols-outlined text-2xl">contact_phone</span>
-            <span>{t.tabContacts || 'Doctor & Family SOS'}</span>
+            <span>{t.tabContacts || 'Family Contact'}</span>
           </button>
         </nav>
       </aside>

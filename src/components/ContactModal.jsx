@@ -146,30 +146,7 @@ export default function ContactModal({ isOpen, onClose, onSave, contactToEdit, p
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-[#40493d] uppercase tracking-wider mb-2">
-              Choose Avatar
-            </label>
-            <div className="flex items-center gap-3 overflow-x-auto py-1">
-              {PRESET_AVATARS.map((imgUrl, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setAvatar(imgUrl)}
-                  className={`relative shrink-0 w-12 h-12 rounded-2xl overflow-hidden border-2 transition-all cursor-pointer ${
-                    avatar === imgUrl ? 'border-[#0d631b] scale-105 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <img src={imgUrl} alt="Avatar option" className="w-full h-full object-cover" />
-                  {avatar === imgUrl && (
-                    <span className="absolute bottom-0 right-0 bg-[#0d631b] text-white rounded-tl-md text-[10px] px-1">
-                      ✓
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#cdf2cb] mt-6">
             <button

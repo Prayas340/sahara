@@ -68,7 +68,7 @@ export const translations = {
     tabOverview: "Patient Overview",
     tabMemories: "Patient Game Score",
     tabRoutine: "Daily Routine & Medicines",
-    tabContacts: "Doctor & Family SOS",
+    tabContacts: "Family Contact",
     
     // Game Score Analytics
     tabGameScores: "Patient Game Score",
@@ -206,7 +206,7 @@ export const translations = {
     tabOverview: "मरीज़ की स्थिति",
     tabMemories: "मरीज़ खेल स्कोर",
     tabRoutine: "दैनिक दवा व दिनचर्या",
-    tabContacts: "डॉक्टर व पारिवारिक आपातकालीन संपर्क",
+    tabContacts: "पारिवारिक संपर्क (Family Contact)",
     
     // Game Score Analytics
     tabGameScores: "मरीज़ खेल स्कोर व विश्लेषण",
@@ -344,7 +344,7 @@ export const translations = {
     tabOverview: "সামগ্ৰিক পৰিদৰ্শন",
     tabMemories: "মৰীজৰ খেল স্কোৰ",
     tabRoutine: "দৈনিক নিয়ম আৰু ঔষধ",
-    tabContacts: "চিকিৎসক আৰু পৰিয়াল SOS",
+    tabContacts: "পৰিয়ালৰ যোগাযোগ (Family Contact)",
     
     // Game Score Analytics
     tabGameScores: "মৰীজৰ খেল স্কোৰ আৰু বিশ্লেষণ",
@@ -482,7 +482,7 @@ export const translations = {
     tabOverview: "রোগীর অবস্থা",
     tabMemories: "রোগীর খেলার স্কোর",
     tabRoutine: "দৈনিক রুটিন ও ওষুধ",
-    tabContacts: "চিকিৎসক ও জরুরি যোগাযোগ",
+    tabContacts: "পারিবারিক যোগাযোগ (Family Contact)",
     
     // Game Score Analytics
     tabGameScores: "রোগীর খেলার স্কোর ও বিশ্লেষণ",
@@ -620,7 +620,7 @@ export const translations = {
     tabOverview: "ꯃꯤꯑꯣꯏ ꯌꯦꯡꯁꯤꯅꯕꯥ",
     tabMemories: "ꯑꯅꯥꯕꯒꯤ ꯁꯥꯟꯅꯕꯥ ꯃꯥꯔꯛ",
     tabRoutine: "ꯅꯨꯃꯤꯠ ꯈꯨꯗꯤꯡꯒꯤ ꯍꯤꯗꯥꯛ ꯃꯇꯝ",
-    tabContacts: "ꯗꯥꯛꯇꯔ ꯑꯃꯁꯨꯡ ꯏꯃꯨꯡ SOS",
+    tabContacts: "ꯏꯃꯨꯡꯒꯤ ꯃꯤꯑꯣꯏꯁꯤꯡ (Family Contact)",
     
     // Game Score Analytics
     tabGameScores: "ꯑꯅꯥꯕꯒꯤ ꯁꯥꯟꯅꯕꯥ ꯃꯥꯔꯛ ꯑꯃꯁꯨꯡ ꯌꯦꯡꯁꯤꯅꯕꯥ",

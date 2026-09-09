@@ -132,7 +132,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
           </button>
           <button type="button" class="${getMobileTabClass('contacts')}" id="mob-tab-contacts">
             <span class="material-symbols-outlined text-xl">contact_phone</span>
-            <span>SOS & Family</span>
+            <span>Family Contact</span>
           </button>
         </div>
       </div>
@@ -178,7 +178,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
             </button>
             <button type="button" class="${getSidebarLinkClass('contacts')}" id="side-contacts">
               <span class="material-symbols-outlined text-2xl">contact_phone</span>
-              <span>Doctor & Family SOS</span>
+              <span>Family Contact</span>
             </button>
           </nav>
         </aside>
@@ -727,10 +727,10 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                 <div>
                   <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white text-[#0d631b] mb-3 shadow-sm border border-[#cdf2cb]">
                     <span class="material-symbols-outlined text-lg">contact_phone</span>
-                    <span class="text-xs font-bold uppercase tracking-wide">Doctor & Family SOS Care Network</span>
+                    <span class="text-xs font-bold uppercase tracking-wide">Family Contact</span>
                   </div>
                   <h1 class="text-2xl sm:text-3xl font-extrabold text-[#032109]">
-                    Emergency Contacts & Loved Ones
+                    Family Contacts & Loved Ones
                   </h1>
                   <p class="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
                     Direct access to primary doctors, family members, and immediate ambulance dispatch in ${patient.city || 'your area'}.

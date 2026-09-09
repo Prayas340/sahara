@@ -1223,11 +1223,11 @@ export default function CaregiverDashboardPage() {
                   <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white text-[#0d631b] mb-3 shadow-sm border border-[#cdf2cb]">
                     <span className="material-symbols-outlined text-lg">contact_phone</span>
                     <span className="text-xs font-bold uppercase tracking-wide">
-                      {t.tabContacts || 'Doctor & Family SOS Care Network'}
+                      {t.tabContacts || 'Family Contact'}
                     </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109]">
-                    {t.emergencyContactsTitle || 'Emergency Contacts & Loved Ones'}
+                    {t.emergencyContactsTitle || 'Family Contacts & Loved Ones'}
                   </h1>
                   <p className="text-sm sm:text-base text-[#40493d] max-w-2xl mt-1">
                     {t.emergencyContactsSubtitle || 'Direct access to primary doctors, family members, and immediate emergency assistance.'}
