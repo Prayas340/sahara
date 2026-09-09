@@ -234,19 +234,34 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
     updatedAt: new Date().toISOString(),
   };
 
-  // 1. Direct save to Firebase Auth (sahara-63072) with metadata
+  // 1. Direct authoritative save to Firebase Cloud Auth (sahara-63072)
+  let cloudCgSaved = false;
+  let cloudElderSaved = false;
+
   try {
     const cgRes = await firebaseSaveCaregiver(caregiverRecord, elderRecord);
-    console.log('[serverDb] Saved caregiver to Firebase Auth:', cgRes?.uid || 'ok');
+    if (cgRes && cgRes.success) {
+      cloudCgSaved = true;
+      console.log('[serverDb] Successfully saved caregiver to Firebase Auth claims:', cgRes.uid);
+    }
   } catch (fbErr) {
-    console.warn('[serverDb] Firebase Auth caregiver save notice:', fbErr.message);
+    console.error('[serverDb] Firebase Auth caregiver save error:', fbErr.message);
+    throw new Error(`Failed to save caregiver credentials to cloud database: ${fbErr.message}`);
   }
 
   try {
     const elderRes = await firebaseSaveElder(elderRecord, caregiverRecord);
-    console.log('[serverDb] Saved elder to Firebase Auth:', elderRes?.uid || 'ok');
+    if (elderRes && elderRes.success) {
+      cloudElderSaved = true;
+      console.log('[serverDb] Successfully saved elder to Firebase Auth claims:', elderRes.uid);
+    }
   } catch (fbElderErr) {
-    console.warn('[serverDb] Firebase Auth elder save notice:', fbElderErr.message);
+    console.error('[serverDb] Firebase Auth elder save error:', fbElderErr.message);
+    throw new Error(`Failed to save elder profile to cloud database: ${fbElderErr.message}`);
+  }
+
+  if (!cloudCgSaved) {
+    throw new Error('Could not synchronize caregiver account with cloud database.');
   }
 
   // 2. Persist to server store with multi-indexing
@@ -447,9 +462,6 @@ export async function saveContactsToDb(args, maybeContacts) {
       elder = store.elders[cg.elderId] || DEFAULT_STORE.elders?.[cg.elderId];
     }
   }
-  if (!elder && caregiverEmail === 'sagnikrc1407@gmail.com') {
-    elder = store.elders['+918444807833'] || DEFAULT_STORE.elders['+918444807833'];
-  }
 
   if (elder) {
     elder.contacts = contacts;
@@ -504,9 +516,6 @@ export async function getContactsFromDb(args) {
   }
   if (!elder && caregiverEmail) {
     elder = await getElderFromDb(caregiverEmail);
-  }
-  if (!elder && caregiverEmail === 'sagnikrc1407@gmail.com') {
-    elder = DEFAULT_STORE.elders['+918444807833'];
   }
   if (elder && elder.contacts && Array.isArray(elder.contacts) && elder.contacts.length > 0) {
     return elder.contacts;

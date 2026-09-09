@@ -14,7 +14,47 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
     return '<div class="min-h-screen bg-[#ebffe7] flex items-center justify-center p-6"><div class="p-6 bg-white rounded-3xl shadow-md border border-[#cdf2cb] text-sm font-bold text-[#0d631b]">Please sign in with your caregiver account. Redirecting...</div></div>';
   }
 
-  const patient = activeUser?.linkedElder || (dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {}));
+  const patient = activeUser?.linkedElder || (dataStore.getPatient ? dataStore.getPatient() : null);
+
+  if (!patient || !patient.name) {
+    setTimeout(() => {
+      document.getElementById('retry-cg-sync-btn')?.addEventListener('click', async () => {
+        showToast('Checking cloud database for linked elder...', 'info');
+        const res = await authService.syncCaregiverElderData(activeUser.email);
+        if (res?.elderProfile) {
+          showToast(`Synchronized with ${res.elderProfile.name}!`, 'success');
+          onNavigate('caregiver-dashboard', params);
+        } else {
+          showToast(`No elder linked to ${activeUser.email} in database.`, 'error');
+        }
+      });
+      document.getElementById('back-cg-login-btn')?.addEventListener('click', () => {
+        onNavigate('caregiver-login');
+      });
+    }, 0);
+
+    return `
+      <div class="min-h-screen bg-[#ebffe7] flex items-center justify-center p-6">
+        <div class="max-w-md w-full p-8 bg-white rounded-3xl shadow-lg border border-amber-300 text-center space-y-4">
+          <div class="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
+            <span class="material-symbols-outlined text-3xl">cloud_sync</span>
+          </div>
+          <h2 class="text-xl font-extrabold text-[#032109]">Elder Profile Not Synchronized</h2>
+          <p class="text-xs text-[#40493d]">
+            No elder profile is associated with caregiver "${activeUser?.email || ''}" in the cloud database.
+          </p>
+          <div class="flex items-center justify-center gap-3 pt-2">
+            <button id="retry-cg-sync-btn" class="px-5 py-2.5 rounded-xl bg-[#0d631b] text-white font-bold text-xs shadow-sm cursor-pointer">
+              Retry Sync
+            </button>
+            <button id="back-cg-login-btn" class="px-4 py-2.5 rounded-xl bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb] font-bold text-xs cursor-pointer">
+              Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
   const caregiver = activeUser;
   const medicines = dataStore.state.medicines || [];
   const contacts = dataStore.state.contacts || [];

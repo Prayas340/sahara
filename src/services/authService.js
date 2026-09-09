@@ -516,25 +516,10 @@ export const authService = {
       honorific: cleanHonorific,
     };
 
-    if (patientData) {
-      dataStore.updatePatientProfile(mergedPatientData);
-    }
-    if (caregiverData) {
-      dataStore.updateCaregiverProfile(caregiverData);
-      this.registerCaregiverAccount({
-        name: caregiverData.name,
-        email: caregiverData.email,
-        password: caregiverData.password,
-        patientData: mergedPatientData,
-      });
-    }
-
     const elderIdentifier = customIdentifier || patientData?.phone || patientData?.email || 'elder_' + Date.now().toString(36);
 
-    // Persist directly to Server Database & Firebase Auth Cloud
-    let dbSuccess = false;
-    let dbErrorMsg = '';
-
+    // 1. Authoritative write to Server Database & Firebase Auth Cloud Claims FIRST
+    let resData = null;
     try {
       const res = await fetch('/api/auth/elder-save', {
         method: 'POST',
@@ -546,70 +531,64 @@ export const authService = {
           caregiverData,
         }),
       });
-      const resData = await res.json().catch(() => ({}));
-      if (res.ok && resData.success) {
-        dbSuccess = true;
-        console.log('[authService] Saved to database successfully:', resData);
-      } else {
-        dbErrorMsg = resData.error || resData.message || ('Server database returned status ' + res.status);
+
+      resData = await res.json().catch(() => ({}));
+      if (!res.ok || !resData || !resData.success) {
+        const errorDetail = resData?.error || resData?.message || (`Database returned HTTP status ${res.status}`);
+        throw new Error(errorDetail);
       }
     } catch (err) {
-      dbErrorMsg = err.message || 'Network request failed';
-      console.warn('[authService] Server database save endpoint notice:', err);
+      console.error('[authService] Cloud database save failure:', err);
+      throw new Error(`Failed to save setup to cloud database: ${err.message || 'Network error'}. Please verify connection and try again.`);
     }
 
-    // Direct Firebase client fallback if server endpoint had network issues
-    if (!dbSuccess && firebaseClientAuth && caregiverData?.email && caregiverData?.password) {
-      try {
-        const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
-        const cred = await createUserWithEmailAndPassword(
-          firebaseClientAuth,
-          caregiverData.email.trim().toLowerCase(),
-          caregiverData.password.trim()
-        );
-        if (cred.user && caregiverData.name) {
-          await updateProfile(cred.user, { displayName: caregiverData.name });
-        }
-        dbSuccess = true;
-      } catch (clientAuthErr) {
-        console.warn('[authService] Firebase client create notice:', clientAuthErr.code, clientAuthErr.message);
-        if (clientAuthErr.code === 'auth/email-already-in-use') {
-          dbSuccess = true;
-        }
-      }
-    }
+    // 2. Only after confirmed cloud persistence: update client store & browser session
+    const savedElder = resData.elder || mergedPatientData;
+    const savedCaregiver = resData.caregiver || caregiverData;
 
-    if (!dbSuccess && dbErrorMsg) {
-      throw new Error('Database Error: ' + dbErrorMsg);
+    dataStore.updatePatientProfile(savedElder);
+    if (savedCaregiver) {
+      dataStore.updateCaregiverProfile(savedCaregiver);
+      this.registerCaregiverAccount({
+        name: savedCaregiver.name,
+        email: savedCaregiver.email,
+        password: caregiverData?.password || 'care123',
+        patientData: savedElder,
+      });
     }
 
     const user = {
-      id: elderIdentifier,
+      id: savedElder.id || elderIdentifier,
       name: cleanElderName,
       honorific: cleanHonorific,
-      age: patientData?.age || 74,
-      city: patientData?.city || 'Guwahati',
-      state: patientData?.state || 'Assam',
-      status: mergedPatientData.status || mergedPatientData.problemStatement || 'Mild Cognitive Support Mode',
-      problemStatement: mergedPatientData.problemStatement || mergedPatientData.status || 'Mild Cognitive Support Mode',
+      age: savedElder.age || patientData?.age || 74,
+      city: savedElder.city || 'Guwahati',
+      state: savedElder.state || 'Assam',
+      status: savedElder.status || savedElder.problemStatement || 'Mild Cognitive Support Mode',
+      problemStatement: savedElder.problemStatement || savedElder.status || 'Mild Cognitive Support Mode',
       role: 'elder',
-      avatar: patientData?.avatar || '/avatar.png',
+      avatar: savedElder.avatar || '/avatar.png',
       authProvider: 'sahara-flow',
-      caregiver: caregiverData?.email || '',
+      caregiver: savedCaregiver?.email || caregiverData?.email || '',
     };
     this.setCurrentUser(user);
 
     if (typeof window !== 'undefined' && window.localStorage) {
-      const cleanEmail = (mergedPatientData.email || customIdentifier || '').trim().toLowerCase();
+      const cleanEmail = (savedElder.email || customIdentifier || '').trim().toLowerCase();
       if (cleanEmail && cleanEmail.includes('@')) {
         localStorage.setItem('sahara_elder_setup_completed_' + cleanEmail, 'true');
-        localStorage.setItem('sahara_google_elder_' + cleanEmail, JSON.stringify(mergedPatientData));
+        localStorage.setItem('sahara_google_elder_' + cleanEmail, JSON.stringify(savedElder));
       }
-      localStorage.setItem('sahara_patient_profile', JSON.stringify(mergedPatientData));
+      localStorage.setItem('sahara_patient_profile', JSON.stringify(savedElder));
       localStorage.setItem('sahara_elder_setup_completed', 'true');
     }
 
-    return user;
+    return {
+      success: true,
+      elder: savedElder,
+      caregiver: savedCaregiver,
+      user,
+    };
   },
 
   // Register caregiver account created during Elder Step 3

@@ -162,6 +162,35 @@ export default function CaregiverDashboardPage() {
     };
   }, [router]);
 
+  const handleRetrySync = async () => {
+    const curUser = (authService.getCurrentUser ? authService.getCurrentUser() : null) || caregiver;
+    const cgEmail = curUser?.email;
+    if (!cgEmail) {
+      router.push('/caregiver-login');
+      return;
+    }
+    setIsSyncing(true);
+    setSyncError('');
+    try {
+      const res = await authService.syncCaregiverElderData(cgEmail);
+      setIsSyncing(false);
+      const elder = res?.elderProfile || res?.elder;
+      if (elder && elder.name) {
+        setPatient(elder);
+        if (res.user || res.caregiver) setCaregiver(res.user || res.caregiver);
+        setMedicines([...(dataStore.state?.medicines || [])]);
+        const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
+        setContacts([...loadedContacts]);
+        showToast(`Synchronized with ${elder.name}'s profile!`, 'success');
+      } else {
+        setSyncError(`No elder profile associated with caregiver "${cgEmail}" in the cloud database.`);
+      }
+    } catch (err) {
+      setIsSyncing(false);
+      setSyncError('Sync failed: ' + err.message);
+    }
+  };
+
   const takenCount = medicines.filter((m) => m.taken).length;
   const totalMeds = medicines.length;
   const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 100;
@@ -292,36 +321,55 @@ export default function CaregiverDashboardPage() {
 
         {/* Main Content Area */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[80rem] mx-auto w-full pb-28 pt-12 lg:pt-6">
-          {/* Explicit Error Banner if Database Read Failed */}
-          {syncError && !patient && (
-            <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-300 text-red-900 flex items-center justify-between gap-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-2xl text-red-600">error</span>
-                <div>
-                  <p className="text-sm font-bold">{syncError}</p>
-                  <p className="text-xs text-red-700">Failed to query linked elder from database. Failures fail explicitly without falling back to mock data.</p>
-                </div>
+          {/* Explicit Sync Status if Database Read Failed or No Elder Linked */}
+          {!isSyncing && !patient && (
+            <div className="mb-6 p-8 rounded-3xl bg-white border border-amber-300 text-[#032109] flex flex-col items-center justify-center text-center space-y-4 shadow-md max-w-2xl mx-auto my-12">
+              <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+                <span className="material-symbols-outlined text-3xl">cloud_sync</span>
               </div>
-              <button
-                type="button"
-                onClick={() => router.push('/caregiver-login')}
-                className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition-colors shrink-0 cursor-pointer"
-              >
-                Back to Login
-              </button>
+              <div className="space-y-1.5">
+                <h3 className="text-xl font-extrabold text-[#032109]">Elder Profile Not Synchronized</h3>
+                <p className="text-xs sm:text-sm text-[#40493d]">
+                  {syncError || `No elder profile is associated with caregiver "${caregiver?.email || 'this account'}" in the cloud database.`}
+                </p>
+                <p className="text-xs text-[#40493d]">
+                  To sync across devices, please ensure the Elder Profile setup was completed on Device A with this caregiver email.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={handleRetrySync}
+                  className="btn-tactile btn-primary px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">refresh</span>
+                  <span>Retry Cloud Sync</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/caregiver-login')}
+                  className="px-4 py-2.5 rounded-xl bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb] font-bold text-xs hover:bg-[#d9fdd6] transition-colors cursor-pointer"
+                >
+                  Switch Account / Back to Login
+                </button>
+              </div>
             </div>
           )}
 
           {/* Syncing Indicator */}
-          {isSyncing && !patient && !syncError && (
-            <div className="mb-6 p-6 rounded-2xl bg-white border border-[#cdf2cb] flex items-center justify-center gap-3 shadow-sm">
-              <span className="material-symbols-outlined text-2xl text-[#0d631b] animate-spin">sync</span>
-              <span className="text-sm font-bold text-[#0d631b]">Connecting to Elder Sanctuary & Synchronizing Cloud Database...</span>
+          {isSyncing && !patient && (
+            <div className="mb-6 p-8 rounded-3xl bg-white border border-[#cdf2cb] flex flex-col items-center justify-center text-center space-y-3 shadow-md max-w-xl mx-auto my-12">
+              <span className="material-symbols-outlined text-3xl text-[#0d631b] animate-spin">sync</span>
+              <p className="text-sm font-bold text-[#0d631b]">Connecting to Elder Sanctuary & Synchronizing Cloud Database...</p>
+              <p className="text-xs text-[#40493d]">Retrieving real elder profile and vitals across devices...</p>
             </div>
           )}
 
-          {/* TAB 1: OVERVIEW */}
-          {activeTab === 'overview' && (
+          {/* REAL SYNCHRONIZED DASHBOARD (Rendered when real elder profile is present) */}
+          {patient && patient.name && (
+            <>
+              {/* TAB 1: OVERVIEW */}
+              {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Top Greeting */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1192,7 +1240,9 @@ export default function CaregiverDashboardPage() {
               </div>
             </div>
           )}
-        </main>
+        </>
+      )}
+    </main>
       </div>
 
       <AddReminderModal

@@ -3,31 +3,8 @@ const STORAGE_KEY_DATA = 'sahara_app_state_v1';
 
 const defaultState = {
   language: 'English',
-  patient: {
-    id: 'asha_devi',
-    name: 'Asha Devi Borah',
-    honorific: 'Asha ji',
-    age: 72,
-    location: 'Room 2, Garden Terrace Wing',
-    city: 'Guwahati',
-    state: 'Assam',
-    wing: 'Room 2, Garden Terrace Wing',
-    status: 'Mild Cognitive Support Mode',
-    tabletBattery: 92,
-    deviceConnected: true,
-    lastActive: '12 min ago',
-    avatar: '/avatar.png',
-  },
-  caregiver: {
-    name: 'Riya Borah',
-    relation: 'Primary Daughter',
-    email: 'riya@sahara.care',
-    password: 'care123',
-    phone: '+91 98540 12345',
-    status: 'Available now · At home',
-    location: 'In the tea room or backyard garden',
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
-  },
+  patient: null,
+  caregiver: null,
   contacts: [
     {
       id: 'riya',
@@ -137,6 +114,13 @@ class DataStore {
           if (parsed.patient && (!parsed.patient.avatar || parsed.patient.avatar.includes('AB6AXuAFC'))) {
             parsed.patient.avatar = '/avatar.png';
           }
+          // Do not restore legacy hardcoded mock patient
+          if (parsed.patient?.name === 'Asha Devi Borah' && !localStorage.getItem('sahara_keep_asha')) {
+            parsed.patient = null;
+          }
+          if (parsed.caregiver?.email === 'riya@sahara.care' && !localStorage.getItem('sahara_keep_riya')) {
+            parsed.caregiver = null;
+          }
           return { ...defaultState, ...parsed };
         }
       }
@@ -185,7 +169,7 @@ class DataStore {
     this.saveState();
   }
 
-  sendWellnessBroadcast(message = 'Asha ji is smiling and doing well.') {
+  sendWellnessBroadcast(message = 'Elder sanctuary is peaceful and calm.') {
     this.state.wellnessBroadcasts.unshift({
       id: 'broad_' + Date.now(),
       message,
@@ -196,7 +180,7 @@ class DataStore {
 
   updatePatientProfile(data = {}) {
     if (!this.state.patient || typeof this.state.patient !== 'object') {
-      this.state.patient = { ...defaultState.patient };
+      this.state.patient = {};
     }
     const { name, age, location, city, state, avatar, honorific, phone, email, status, wing } = data;
     if (name && name.trim()) {
@@ -299,20 +283,20 @@ class DataStore {
       return this.state.patient;
     }
 
-    // Safe fallback to defaultState so UI components never crash on patient.name
-    return (this.state.patient && typeof this.state.patient === 'object') ? this.state.patient : defaultState.patient;
+    // Do not fall back to mock data: return null so components know real patient is pending
+    return null;
   }
 
   clearPatient() {
-    this.state.patient = { ...defaultState.patient, name: '', honorific: '' };
+    this.state.patient = null;
     this.saveState();
   }
 
   resetStore() {
     this.state = {
       language: this.state.language || 'English',
-      patient: { ...defaultState.patient },
-      caregiver: { ...defaultState.caregiver },
+      patient: null,
+      caregiver: null,
       contacts: [...defaultState.contacts],
       medicines: [...defaultState.medicines],
       reminders: [...defaultState.reminders],
@@ -346,16 +330,17 @@ class DataStore {
       } catch (e) {}
 
       const fresh = this.loadState();
-      if (fresh && fresh.caregiver) {
+      if (fresh && fresh.caregiver && fresh.caregiver.email) {
         this.state.caregiver = fresh.caregiver;
+        return this.state.caregiver;
       }
     }
-    return this.state.caregiver || defaultState.caregiver;
+    return (this.state.caregiver && this.state.caregiver.email) ? this.state.caregiver : null;
   }
 
   updateCaregiverProfile({ name, email, password, phone, relation }) {
     if (!this.state.caregiver) {
-      this.state.caregiver = { ...defaultState.caregiver };
+      this.state.caregiver = {};
     }
     if (name && name.trim()) {
       this.state.caregiver.name = name.trim();

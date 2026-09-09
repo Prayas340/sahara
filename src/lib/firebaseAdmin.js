@@ -116,65 +116,77 @@ export async function firebaseLookupCaregiver(email) {
  */
 export async function firebaseSaveElder(elderRecord, caregiverRecord) {
   const auth = getAdminAuth();
-  if (!elderRecord || !auth) return null;
+  if (!elderRecord) throw new Error('Elder profile data is required for database persistence.');
+  if (!auth) throw new Error('Firebase Admin Auth service is not initialized.');
+
   const rawEmail = elderRecord.email ? elderRecord.email.trim().toLowerCase() : null;
   const cgEmail = caregiverRecord?.email ? caregiverRecord.email.trim().toLowerCase() : null;
   const email = (rawEmail && rawEmail !== cgEmail) ? rawEmail : null;
-  const phone = elderRecord.phone || null;
+  const phone = elderRecord.phone && elderRecord.phone.startsWith('+') ? elderRecord.phone : null;
+  const predictableId = elderRecord.id || (phone ? phone : (email ? email : `elder_${Date.now().toString(36)}`));
 
-  try {
-    let user = null;
-    if (email) {
-      user = await auth.getUserByEmail(email).catch(() => null);
-    }
-    if (!user && phone && phone.startsWith('+')) {
-      user = await auth.getUserByPhoneNumber(phone).catch(() => null);
-    }
-
-    if (!user) {
-      const createData = {
-        displayName: elderRecord.name || 'Sahara Elder',
-      };
-      if (email) createData.email = email;
-      if (phone && phone.startsWith('+') && phone.length >= 10) {
-        createData.phoneNumber = phone;
-      }
-      user = await auth.createUser(createData).catch(err => {
-        console.warn('[firebaseAdmin] createUser notice for elder:', err.message);
-        return null;
-      });
-    }
-
-    if (user) {
-      const claims = {
-        role: 'elder',
-        elder: {
-          id: elderRecord.id || elderRecord.identifier || user.uid,
-          name: elderRecord.name || 'Sahara Member',
-          honorific: elderRecord.honorific || `${(elderRecord.name || 'Member').split(' ')[0]} ji`,
-          age: elderRecord.age || 74,
-          city: elderRecord.city || 'Guwahati',
-          state: elderRecord.state || 'Assam',
-          wing: elderRecord.wing || 'Garden Terrace Wing',
-          location: elderRecord.location || `${elderRecord.city || 'Guwahati'}, ${elderRecord.state || 'Assam'}`,
-          status: elderRecord.status || elderRecord.problemStatement || 'Mild Cognitive Support Mode',
-          avatar: elderRecord.avatar || '/avatar.png',
-          caregiverEmail: caregiverRecord?.email || elderRecord.caregiverEmail || '',
-        },
-        caregiverEmail: caregiverRecord?.email || '',
-        caregiverName: caregiverRecord?.name || '',
-        updatedAt: new Date().toISOString(),
-      };
-
-      await auth.setCustomUserClaims(user.uid, claims);
-      return { success: true, uid: user.uid };
-    }
-
-    return null;
-  } catch (err) {
-    console.warn('[firebaseAdmin] firebaseSaveElder error:', err.message);
-    return null;
+  let user = null;
+  if (email) {
+    user = await auth.getUserByEmail(email).catch(() => null);
   }
+  if (!user && phone) {
+    user = await auth.getUserByPhoneNumber(phone).catch(() => null);
+  }
+  if (!user && predictableId) {
+    user = await auth.getUser(predictableId).catch(() => null);
+  }
+
+  if (!user) {
+    const createData = {
+      displayName: elderRecord.name || 'Sahara Elder',
+    };
+    if (email) createData.email = email;
+    if (phone && phone.startsWith('+') && phone.length >= 10) {
+      createData.phoneNumber = phone;
+    }
+    // Set custom predictable UID when email and phone are not set
+    if (!email && !phone && predictableId && predictableId.length <= 128) {
+      createData.uid = predictableId;
+    }
+
+    try {
+      user = await auth.createUser(createData);
+    } catch (createErr) {
+      console.warn('[firebaseAdmin] createUser notice for elder:', createErr.message);
+      // If already exists with that email/phone, re-fetch
+      if (email) user = await auth.getUserByEmail(email).catch(() => null);
+      if (!user && phone) user = await auth.getUserByPhoneNumber(phone).catch(() => null);
+      if (!user) throw new Error(`Could not provision Elder in cloud database: ${createErr.message}`);
+    }
+  }
+
+  if (user) {
+    const claims = {
+      role: 'elder',
+      elder: {
+        id: elderRecord.id || elderRecord.identifier || user.uid,
+        name: elderRecord.name || 'Sahara Member',
+        honorific: elderRecord.honorific || `${(elderRecord.name || 'Member').split(' ')[0]} ji`,
+        age: parseInt(elderRecord.age, 10) || 74,
+        city: elderRecord.city || 'Guwahati',
+        state: elderRecord.state || 'Assam',
+        wing: elderRecord.wing || 'Garden Terrace Wing',
+        location: elderRecord.location || `${elderRecord.city || 'Guwahati'}, ${elderRecord.state || 'Assam'}`,
+        status: elderRecord.status || elderRecord.problemStatement || 'Mild Cognitive Support Mode',
+        avatar: elderRecord.avatar || '/avatar.png',
+        caregiverEmail: caregiverRecord?.email || elderRecord.caregiverEmail || '',
+      },
+      caregiverEmail: caregiverRecord?.email || '',
+      caregiverName: caregiverRecord?.name || '',
+      updatedAt: new Date().toISOString(),
+    };
+
+    await auth.setCustomUserClaims(user.uid, claims);
+    console.log('[firebaseAdmin] Successfully set elder claims for:', user.uid);
+    return { success: true, uid: user.uid, claims };
+  }
+
+  throw new Error('Failed to resolve or create elder user in Firebase Auth.');
 }
 
 /**
@@ -182,74 +194,77 @@ export async function firebaseSaveElder(elderRecord, caregiverRecord) {
  */
 export async function firebaseSaveCaregiver(caregiverRecord, elderRecord) {
   const auth = getAdminAuth();
-  if (!caregiverRecord?.email || !auth) return null;
+  if (!caregiverRecord?.email) throw new Error('Caregiver email is required for registration.');
+  if (!auth) throw new Error('Firebase Admin Auth service is not initialized.');
+
   const cleanEmail = caregiverRecord.email.trim().toLowerCase();
   const password = caregiverRecord.password || 'care123';
   const cleanPassword = password.length >= 6 ? password : `${password}123`;
   const cleanName = (caregiverRecord.name || 'Caregiver Companion').trim();
 
-  try {
-    let user = await auth.getUserByEmail(cleanEmail).catch(() => null);
+  let user = await auth.getUserByEmail(cleanEmail).catch(() => null);
 
-    if (!user) {
+  if (!user) {
+    try {
       user = await auth.createUser({
         email: cleanEmail,
         password: cleanPassword,
         displayName: cleanName,
-      }).catch(err => {
-        console.warn('[firebaseAdmin] createUser notice for caregiver:', err.message);
-        return null;
       });
-    } else {
-      // Update display name or password if provided
+    } catch (createErr) {
+      console.warn('[firebaseAdmin] createUser notice for caregiver:', createErr.message);
+      user = await auth.getUserByEmail(cleanEmail).catch(() => null);
+      if (!user) throw new Error(`Could not create Caregiver in Firebase Auth: ${createErr.message}`);
+    }
+  } else {
+    // Update display name or password if provided
+    try {
       await auth.updateUser(user.uid, {
         displayName: cleanName,
         password: cleanPassword,
-      }).catch((err) => {
-        console.warn('[firebaseAdmin] updateUser notice for caregiver:', err.message);
       });
+    } catch (updErr) {
+      console.warn('[firebaseAdmin] updateUser notice for caregiver:', updErr.message);
     }
-
-    if (user) {
-      const elderName = elderRecord?.name || 'Sahara Member';
-      const firstName = elderName.split(' ')[0];
-      const honorific = elderRecord?.honorific || `${firstName} ji`;
-
-      const claims = {
-        role: 'caregiver',
-        password: caregiverRecord.password || 'care123',
-        elderId: elderRecord?.id || elderRecord?.identifier || caregiverRecord.elderId || '',
-        linkedElder: {
-          id: elderRecord?.id || elderRecord?.identifier || caregiverRecord.elderId || '',
-          name: elderName,
-          honorific: honorific,
-          age: parseInt(elderRecord?.age, 10) || 74,
-          city: elderRecord?.city || 'Guwahati',
-          state: elderRecord?.state || 'Assam',
-          wing: elderRecord?.wing || 'Garden Terrace Wing',
-          location: elderRecord?.location || `${elderRecord?.city || 'Guwahati'}, ${elderRecord?.state || 'Assam'}`,
-          status: elderRecord?.status || elderRecord?.problemStatement || 'Mild Cognitive Support Mode',
-          problemStatement: elderRecord?.problemStatement || elderRecord?.status || 'Mild Cognitive Support Mode',
-          tabletBattery: elderRecord?.tabletBattery || 94,
-          lastActive: 'Just now',
-          avatar: elderRecord?.avatar || '/avatar.png',
-          phone: elderRecord?.phone || '',
-          email: elderRecord?.email || '',
-          caregiverEmail: cleanEmail,
-          updatedAt: new Date().toISOString(),
-        },
-        updatedAt: new Date().toISOString(),
-      };
-
-      await auth.setCustomUserClaims(user.uid, claims);
-      return { success: true, uid: user.uid };
-    }
-
-    return null;
-  } catch (err) {
-    console.warn('[firebaseAdmin] firebaseSaveCaregiver error:', err.message);
-    return null;
   }
+
+  if (user) {
+    const elderName = elderRecord?.name || 'Sahara Member';
+    const firstName = elderName.split(' ')[0];
+    const honorific = elderRecord?.honorific || `${firstName} ji`;
+
+    const claims = {
+      role: 'caregiver',
+      password: cleanPassword,
+      elderId: elderRecord?.id || elderRecord?.identifier || caregiverRecord.elderId || '',
+      linkedElder: {
+        id: elderRecord?.id || elderRecord?.identifier || caregiverRecord.elderId || '',
+        name: elderName,
+        honorific: honorific,
+        age: parseInt(elderRecord?.age, 10) || 74,
+        city: elderRecord?.city || 'Guwahati',
+        state: elderRecord?.state || 'Assam',
+        wing: elderRecord?.wing || 'Garden Terrace Wing',
+        location: elderRecord?.location || `${elderRecord?.city || 'Guwahati'}, ${elderRecord?.state || 'Assam'}`,
+        status: elderRecord?.status || elderRecord?.problemStatement || 'Mild Cognitive Support Mode',
+        problemStatement: elderRecord?.problemStatement || elderRecord?.status || 'Mild Cognitive Support Mode',
+        tabletBattery: elderRecord?.tabletBattery || 94,
+        lastActive: 'Just now',
+        avatar: elderRecord?.avatar || '/avatar.png',
+        phone: elderRecord?.phone || '',
+        email: elderRecord?.email || '',
+        caregiverEmail: cleanEmail,
+        updatedAt: new Date().toISOString(),
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    await auth.setCustomUserClaims(user.uid, claims);
+    console.log('[firebaseAdmin] Successfully set caregiver claims for:', user.uid);
+    return { success: true, uid: user.uid, claims };
+  }
+
+  throw new Error('Failed to resolve or create caregiver user in Firebase Auth.');
 }
 
 /**
