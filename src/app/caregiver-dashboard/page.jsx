@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar.jsx';
 import CaregiverSidebar from '../../components/CaregiverSidebar.jsx';
 import AddReminderModal from '../../components/AddReminderModal.jsx';
+import ContactModal from '../../components/ContactModal.jsx';
+import SendSafeMessageModal from '../../components/SendSafeMessageModal.jsx';
 import { authService } from '../../services/authService.js';
 import { dataStore } from '../../services/dataStore.js';
 import { speakText } from '../../utils/speech.js';
@@ -20,6 +22,9 @@ export default function CaregiverDashboardPage() {
   const [syncError, setSyncError] = useState('');
   const [medicines, setMedicines] = useState([]);
   const [contacts, setContacts] = useState([]);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [contactToEdit, setContactToEdit] = useState(null);
+  const [isSafeMessageModalOpen, setIsSafeMessageModalOpen] = useState(false);
 
   // Memory game state
   const initialCards = [
@@ -110,7 +115,8 @@ export default function CaregiverDashboardPage() {
           setPatient(elder);
           if (res.user || res.caregiver) setCaregiver(res.user || res.caregiver);
           setMedicines([...(dataStore.state?.medicines || [])]);
-          setContacts([...(dataStore.state?.contacts || [])]);
+          const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
+          setContacts([...loadedContacts]);
         } else if (!curUser.linkedElder) {
           setSyncError(`No elder profile associated with caregiver "${cgEmail}" in the database.`);
         }
@@ -134,7 +140,8 @@ export default function CaregiverDashboardPage() {
         setCaregiver(activeUser);
       }
       setMedicines([...(dataStore.state?.medicines || [])]);
-      setContacts([...(dataStore.state?.contacts || [])]);
+      const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
+      setContacts([...loadedContacts]);
     };
 
     window.addEventListener('sahara:datastore-change', syncData);
@@ -219,6 +226,56 @@ export default function CaregiverDashboardPage() {
       dataStore.notifyChange();
       showToast(med.taken ? `✓ "${med.title}" marked as taken` : `Pending: "${med.title}"`, 'info');
     }
+  };
+
+  const handleOpenAddContact = () => {
+    setContactToEdit(null);
+    setIsContactModalOpen(true);
+  };
+
+  const handleOpenEditContact = (c) => {
+    setContactToEdit(c);
+    setIsContactModalOpen(true);
+  };
+
+  const handleSaveContact = (contactData) => {
+    if (contactData.id) {
+      dataStore.updateContact(contactData.id, contactData);
+      showToast(`Contact "${contactData.name}" updated successfully!`, 'success');
+    } else {
+      dataStore.addContact(contactData);
+      showToast(`Contact "${contactData.name}" added successfully!`, 'success');
+    }
+    const updated = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
+    setContacts([...updated]);
+    setIsContactModalOpen(false);
+  };
+
+  const handleDeleteContact = (contactId, contactName) => {
+    if (typeof window !== 'undefined' && window.confirm(`Are you sure you want to remove "${contactName}" from emergency contacts?`)) {
+      dataStore.deleteContact(contactId);
+      const updated = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
+      setContacts([...updated]);
+      showToast(`Contact "${contactName}" removed.`, 'info');
+    }
+  };
+
+  const handleWhatsAppContact = (contact) => {
+    if (!contact?.phone) {
+      showToast('No phone number saved for this contact.', 'error');
+      return;
+    }
+    let digits = contact.phone.replace(/\D/g, '');
+    if (digits.length === 10) digits = `91${digits}`;
+    if (digits.length < 10) {
+      showToast('Invalid phone number format for WhatsApp.', 'error');
+      return;
+    }
+    const elderName = patient?.honorific || patient?.name || 'Our elder';
+    const city = patient?.city || 'Kolkata';
+    const msg = encodeURIComponent(`Namaste! 🙏 Update from Sahara Care: ${elderName} is safe, healthy, and doing well today in ${city}. 🌿`);
+    window.open(`https://wa.me/${digits}?text=${msg}`, '_blank', 'noopener,noreferrer');
+    showToast(`Opening WhatsApp for ${contact.name}...`, 'info');
   };
 
   return (
@@ -954,18 +1011,21 @@ export default function CaregiverDashboardPage() {
 
                 <div className="flex items-center gap-3 shrink-0 flex-wrap">
                   <button
-                    onClick={() =>
-                      showToast(
-                        `💚 Broadcast sent to all family: "${patient?.honorific || patient?.name} is resting well and active today."`,
-                        'heart',
-                        6000
-                      )
-                    }
+                    onClick={() => setIsSafeMessageModalOpen(true)}
                     type="button"
                     className="btn-tactile btn-primary flex items-center gap-2 px-5 py-3 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-lg">volunteer_activism</span>
                     <span>Send &ldquo;{patient?.name?.split(' ')[0] || 'Loved One'} is Safe&rdquo; to Everyone</span>
+                  </button>
+
+                  <button
+                    onClick={handleOpenAddContact}
+                    type="button"
+                    className="btn-tactile flex items-center gap-2 px-4 py-3 rounded-full bg-white text-[#0d631b] border-2 border-[#006e1c] text-xs sm:text-sm font-bold shadow-sm hover:bg-[#d9fdd6] transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-lg">person_add</span>
+                    <span>+ Add Contact</span>
                   </button>
                 </div>
               </div>
@@ -976,10 +1036,11 @@ export default function CaregiverDashboardPage() {
                   <div>
                     <span className="text-xs font-bold text-red-700 uppercase">Emergency Service</span>
                     <h3 className="text-lg font-extrabold text-red-900">108 Ambulance</h3>
-                    <p className="text-xs text-red-600">{patient?.state || 'National'} Emergency Network</p>
+                    <p className="text-xs text-red-600">{patient?.state || 'West Bengal'} Emergency Network</p>
                   </div>
                   <a
                     href="tel:108"
+                    title="Call 108 Ambulance"
                     className="p-3 bg-red-600 text-white rounded-full shadow-md hover:bg-red-700 transition-colors"
                   >
                     <span className="material-symbols-outlined text-xl">emergency</span>
@@ -989,71 +1050,140 @@ export default function CaregiverDashboardPage() {
                 <div className="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
                   <div>
                     <span className="text-xs font-bold text-[#0d631b] uppercase">Primary Physician</span>
-                    <h3 className="text-lg font-extrabold text-[#032109]">Dr. {(patient?.city || 'Health').slice(0, 8)} Clinic</h3>
-                    <p className="text-xs text-[#40493d]">{patient?.city || 'Local'} Health Center · +91 98640 99887</p>
+                    <h3 className="text-lg font-extrabold text-[#032109]">Dr. {(patient?.city || 'Kolkata').slice(0, 8)} Clinic</h3>
+                    <p className="text-xs text-[#40493d]">{patient?.city || 'Kolkata'} Health Center · +91 98640 99887</p>
                   </div>
-                  <a
-                    href="tel:+919864099887"
-                    className="p-3 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-xl">call</span>
-                  </a>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleWhatsAppContact({ name: `Dr. ${(patient?.city || 'Kolkata').slice(0, 8)} Clinic`, phone: '+919864099887' })}
+                      title="WhatsApp Doctor"
+                      type="button"
+                      className="p-2.5 bg-[#25D366] text-white rounded-full shadow-md hover:bg-[#128C7E] transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-lg">chat</span>
+                    </button>
+                    <a
+                      href="tel:+919864099887"
+                      title="Call Doctor"
+                      className="p-2.5 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-lg">call</span>
+                    </a>
+                  </div>
                 </div>
 
                 <div className="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
                   <div>
                     <span className="text-xs font-bold text-[#0d631b] uppercase">Primary Caregiver</span>
-                    <h3 className="text-lg font-extrabold text-[#032109]">{caregiver?.name || 'Family Caregiver'}</h3>
+                    <h3 className="text-lg font-extrabold text-[#032109]">{caregiver?.name || 'sagnik'}</h3>
                     <p className="text-xs text-[#40493d]">{caregiver?.relation || 'Primary Caregiver'} · {caregiver?.phone || '+91 98540 12345'}</p>
                   </div>
-                  <a
-                    href={`tel:${(caregiver?.phone || '+91 98540 12345').replace(/\s+/g, '')}`}
-                    className="p-3 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-xl">call</span>
-                  </a>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleWhatsAppContact({ name: caregiver?.name || 'Primary Caregiver', phone: caregiver?.phone || '+919854012345' })}
+                      title="WhatsApp Caregiver"
+                      type="button"
+                      className="p-2.5 bg-[#25D366] text-white rounded-full shadow-md hover:bg-[#128C7E] transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-lg">chat</span>
+                    </button>
+                    <a
+                      href={`tel:${(caregiver?.phone || '+91 98540 12345').replace(/\s+/g, '')}`}
+                      title="Call Caregiver"
+                      className="p-2.5 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-lg">call</span>
+                    </a>
+                  </div>
                 </div>
               </div>
 
               {/* Family Contacts List */}
               <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
-                <h3 className="text-xl font-extrabold text-[#032109]">All Linked Family Members & Caregivers</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xl font-extrabold text-[#032109]">All Linked Family Members & Caregivers</h3>
+                    <p className="text-xs text-[#40493d] mt-0.5">Customize names, phone numbers, and send instant WhatsApp safe updates.</p>
+                  </div>
+                  <button
+                    onClick={handleOpenAddContact}
+                    type="button"
+                    className="btn-tactile inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#006e1c] text-white text-xs font-bold shadow-sm hover:bg-[#0d631b] transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <span className="material-symbols-outlined text-base">person_add</span>
+                    <span>+ Add Contact</span>
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
                   {contacts.map((c, i) => (
                     <div
-                      key={i}
-                      className="p-5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col justify-between gap-4"
+                      key={c.id || i}
+                      className="p-5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col justify-between gap-4 relative group"
                     >
-                      <div className="flex items-center gap-4">
-                        <img
-                          className="w-14 h-14 rounded-2xl object-cover border border-[#cdf2cb] bg-white"
-                          src={c.avatar}
-                          alt={c.name}
-                        />
-                        <div>
-                          <h4 className="text-base font-extrabold text-[#032109]">{c.name}</h4>
-                          <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold inline-block mt-0.5">
-                            {c.relation}
-                          </span>
-                          <p className="text-xs text-[#40493d] mt-1">{c.location}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            className="w-14 h-14 rounded-2xl object-cover border border-[#cdf2cb] bg-white shadow-xs shrink-0"
+                            src={c.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80'}
+                            alt={c.name}
+                          />
+                          <div className="min-w-0">
+                            <h4 className="text-base font-extrabold text-[#032109] truncate">{c.name}</h4>
+                            <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold inline-block mt-0.5 truncate max-w-full">
+                              {c.relation}
+                            </span>
+                            <p className="text-xs font-semibold text-[#0d631b] mt-0.5">{c.phone}</p>
+                            <p className="text-xs text-[#40493d] truncate">{c.location}</p>
+                          </div>
+                        </div>
+
+                        {/* Edit and Delete action buttons */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleOpenEditContact(c)}
+                            title="Edit Contact"
+                            className="p-1.5 rounded-xl bg-white text-[#0d631b] hover:bg-[#c9f6c7] border border-[#cdf2cb] shadow-xs transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteContact(c.id, c.name)}
+                            title="Remove Contact"
+                            className="p-1.5 rounded-xl bg-white text-red-600 hover:bg-red-50 border border-red-200 shadow-xs transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-2 border-t border-[#cdf2cb]">
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#cdf2cb]">
                         <a
                           href={`tel:${c.phone}`}
-                          className="btn-tactile btn-primary flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
+                          className="btn-tactile btn-primary py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
                         >
                           <span className="material-symbols-outlined text-base">call</span>
-                          <span>Call Direct</span>
+                          <span>Call</span>
                         </a>
+
+                        <button
+                          onClick={() => handleWhatsAppContact(c)}
+                          type="button"
+                          className="btn-tactile py-2.5 rounded-xl bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm cursor-pointer transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-base">chat</span>
+                          <span>WhatsApp</span>
+                        </button>
+
                         <button
                           onClick={() => showToast(`🎙️ Recording 15s voice note for ${c.name}...`, 'info')}
                           type="button"
-                          className="flex-1 py-2.5 rounded-xl bg-white text-[#0d631b] border border-[#cdf2cb] text-xs font-bold flex items-center justify-center gap-1 hover:bg-[#d9fdd6] transition-colors cursor-pointer"
+                          className="py-2.5 rounded-xl bg-white text-[#0d631b] border border-[#cdf2cb] text-xs font-bold flex items-center justify-center gap-1 hover:bg-[#d9fdd6] transition-colors cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-base">mic</span>
-                          <span>Voice Note</span>
+                          <span>Voice</span>
                         </button>
                       </div>
                     </div>
@@ -1068,6 +1198,22 @@ export default function CaregiverDashboardPage() {
       <AddReminderModal
         isOpen={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}
+      />
+
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        onSave={handleSaveContact}
+        contactToEdit={contactToEdit}
+        patientCity={patient?.city}
+      />
+
+      <SendSafeMessageModal
+        isOpen={isSafeMessageModalOpen}
+        onClose={() => setIsSafeMessageModalOpen(false)}
+        contacts={contacts}
+        elderName={patient?.honorific || patient?.name}
+        elderLocation={patient?.city || 'Kolkata'}
       />
     </div>
   );

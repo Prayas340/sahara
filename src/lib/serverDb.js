@@ -73,6 +73,7 @@ export function readLocalStore() {
     memoryStore = {
       elders: { ...mem.elders, ...(parsed.elders || {}) },
       caregivers: { ...mem.caregivers, ...(parsed.caregivers || {}) },
+      customContacts: { ...(mem.customContacts || {}), ...(parsed.customContacts || {}) },
     };
     return memoryStore;
   } catch (err) {
@@ -420,3 +421,106 @@ export async function authenticateCaregiverFromDb({ email, password }) {
     message: `Welcome back, ${caregiver.name}! Synchronized with ${linkedElder.name}'s care sanctuary.`,
   };
 }
+
+/**
+ * Save customized contacts for an elder/caregiver account
+ */
+export async function saveContactsToDb(args, maybeContacts) {
+  let elderId, caregiverEmail, contacts;
+  if (typeof args === 'object' && args !== null && !Array.isArray(args)) {
+    elderId = args.elderId;
+    caregiverEmail = args.caregiverEmail;
+    contacts = args.contacts;
+  } else {
+    elderId = args;
+    contacts = maybeContacts;
+  }
+
+  if (!Array.isArray(contacts)) return { success: false, message: 'Contacts must be an array' };
+  const store = readLocalStore();
+  if (!store.elders) store.elders = {};
+  if (!store.caregivers) store.caregivers = {};
+  if (!store.customContacts) store.customContacts = {};
+
+  // Store in direct contacts index
+  if (elderId) store.customContacts[elderId] = contacts;
+  if (caregiverEmail) store.customContacts[caregiverEmail.trim().toLowerCase()] = contacts;
+
+  let elder = null;
+  if (elderId) {
+    elder = store.elders[elderId] || DEFAULT_STORE.elders?.[elderId];
+  }
+  if (!elder && caregiverEmail) {
+    const cleanCg = caregiverEmail.trim().toLowerCase();
+    const cg = store.caregivers[cleanCg] || DEFAULT_STORE.caregivers?.[cleanCg];
+    if (cg?.elderId) {
+      elder = store.elders[cg.elderId] || DEFAULT_STORE.elders?.[cg.elderId];
+    }
+  }
+  if (!elder && caregiverEmail === 'sagnikrc1407@gmail.com') {
+    elder = store.elders['+918444807833'] || DEFAULT_STORE.elders['+918444807833'];
+  }
+
+  if (elder) {
+    elder.contacts = contacts;
+    store.elders[elder.id] = elder;
+    if (elder.phone) store.elders[elder.phone] = elder;
+    if (elder.email) store.elders[elder.email] = elder;
+  }
+
+  if (caregiverEmail) {
+    const cleanCg = caregiverEmail.trim().toLowerCase();
+    if (store.caregivers[cleanCg]) {
+      store.caregivers[cleanCg].contacts = contacts;
+      if (store.caregivers[cleanCg].linkedElder) {
+        store.caregivers[cleanCg].linkedElder.contacts = contacts;
+      }
+    }
+  }
+
+  writeLocalStore(store);
+  return { success: true, contacts };
+}
+
+/**
+ * Get customized contacts for an elder/caregiver account
+ */
+export async function getContactsFromDb(args) {
+  let elderId, caregiverEmail;
+  if (typeof args === 'object' && args !== null) {
+    elderId = args.elderId;
+    caregiverEmail = args.caregiverEmail;
+  } else if (typeof args === 'string') {
+    if (args.includes('@')) {
+      caregiverEmail = args;
+    } else {
+      elderId = args;
+    }
+  }
+
+  const store = readLocalStore();
+
+  // Check direct customContacts index first
+  if (elderId && store.customContacts?.[elderId]) {
+    return store.customContacts[elderId];
+  }
+  if (caregiverEmail && store.customContacts?.[caregiverEmail.trim().toLowerCase()]) {
+    return store.customContacts[caregiverEmail.trim().toLowerCase()];
+  }
+
+  let elder = null;
+  if (elderId) {
+    elder = await getElderFromDb(elderId);
+  }
+  if (!elder && caregiverEmail) {
+    elder = await getElderFromDb(caregiverEmail);
+  }
+  if (!elder && caregiverEmail === 'sagnikrc1407@gmail.com') {
+    elder = DEFAULT_STORE.elders['+918444807833'];
+  }
+  if (elder && elder.contacts && Array.isArray(elder.contacts) && elder.contacts.length > 0) {
+    return elder.contacts;
+  }
+  return null;
+}
+

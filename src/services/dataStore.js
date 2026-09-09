@@ -434,37 +434,45 @@ class DataStore {
           location: city,
         };
 
-        // Update contacts dynamically to match this connected caregiver and elder!
-        this.state.contacts = [
-          {
-            id: 'primary_caregiver',
-            name: cgName,
-            relation: cgRelation,
-            location: `Lives with you · ${city}`,
-            status: 'Connected · Available',
-            phone: cgPhone,
-            email: cgEmail,
-            avatar: this.state.caregiver.avatar,
-          },
-          {
-            id: 'dr_physician',
-            name: `Dr. ${city.slice(0, 8)} Clinic`,
-            relation: `Family Physician · ${city} Health Center`,
-            location: `${city} Medical Center`,
-            status: 'Clinic hours 9 AM - 6 PM',
-            phone: '+91 98640 99887',
-            avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80',
-          },
-          {
-            id: 'emergency_108',
-            name: '108 Ambulance SOS',
-            relation: `${state} Emergency Response`,
-            location: `${city}, ${state}`,
-            status: '24/7 Rapid Response',
-            phone: '108',
-            avatar: 'https://images.unsplash.com/photo-1587745416684-47953f16f02f?w=300&auto=format&fit=crop&q=80',
-          }
-        ];
+        // Check if elder has saved customized contacts, else build initial contacts
+        const customContacts = (patientData.contacts && Array.isArray(patientData.contacts) && patientData.contacts.length > 0)
+          ? patientData.contacts
+          : this.loadCustomContacts(this.state.patient.id);
+
+        if (customContacts && customContacts.length > 0) {
+          this.state.contacts = customContacts;
+        } else {
+          this.state.contacts = [
+            {
+              id: 'primary_caregiver',
+              name: cgName,
+              relation: cgRelation,
+              location: `Lives with you · ${city}`,
+              status: 'Connected · Available',
+              phone: cgPhone,
+              email: cgEmail,
+              avatar: this.state.caregiver.avatar,
+            },
+            {
+              id: 'dr_physician',
+              name: `Dr. ${city.slice(0, 8)} Clinic`,
+              relation: `Family Physician · ${city} Health Center`,
+              location: `${city} Medical Center`,
+              status: 'Clinic hours 9 AM - 6 PM',
+              phone: '+91 98640 99887',
+              avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80',
+            },
+            {
+              id: 'emergency_108',
+              name: '108 Ambulance SOS',
+              relation: `${state} Emergency Response`,
+              location: `${city}, ${state}`,
+              status: '24/7 Rapid Response',
+              phone: '108',
+              avatar: 'https://images.unsplash.com/photo-1587745416684-47953f16f02f?w=300&auto=format&fit=crop&q=80',
+            }
+          ];
+        }
       }
 
       // Update medicines tailored to this elder
@@ -504,6 +512,92 @@ class DataStore {
       this.saveState();
       this.notifyChange();
     }
+  }
+
+  getContacts() {
+    if (!this.state.contacts || this.state.contacts.length === 0) {
+      const saved = this.loadCustomContacts();
+      if (saved && saved.length > 0) {
+        this.state.contacts = saved;
+      } else {
+        this.state.contacts = [...(defaultState.contacts || [])];
+      }
+    }
+    return this.state.contacts;
+  }
+
+  loadCustomContacts(elderId = null) {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    try {
+      const targetId = elderId || this.state.patient?.id || this.state.patient?.phone || 'global';
+      const raw = localStorage.getItem(`sahara_contacts_${targetId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      const general = localStorage.getItem('sahara_contacts');
+      if (general) {
+        const parsedGen = JSON.parse(general);
+        if (Array.isArray(parsedGen) && parsedGen.length > 0) return parsedGen;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  saveContacts(contacts) {
+    if (!Array.isArray(contacts)) return;
+    this.state.contacts = contacts;
+    this.saveState();
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
+        localStorage.setItem(`sahara_contacts_${targetId}`, JSON.stringify(contacts));
+        localStorage.setItem('sahara_contacts', JSON.stringify(contacts));
+      } catch (e) {}
+    }
+    // Async persist to server database
+    try {
+      const elderId = this.state.patient?.id || this.state.patient?.phone;
+      const caregiverEmail = this.state.caregiver?.email || this.state.patient?.caregiverEmail;
+      fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elderId, caregiverEmail, contacts }),
+      }).catch(err => console.warn('[dataStore] Failed to sync contacts to server:', err));
+    } catch (e) {}
+
+    this.notifyChange();
+  }
+
+  addContact(contact) {
+    const newContact = {
+      id: contact.id || `contact_${Date.now().toString(36)}`,
+      name: contact.name || 'Family Member',
+      relation: contact.relation || 'Loved One',
+      phone: contact.phone || '',
+      email: contact.email || '',
+      location: contact.location || `${this.state.patient?.city || 'Home'}`,
+      status: contact.status || 'Available',
+      avatar: contact.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
+    };
+    const updated = [...(this.state.contacts || []), newContact];
+    this.saveContacts(updated);
+    return newContact;
+  }
+
+  updateContact(contactId, updatedData) {
+    const updated = (this.state.contacts || []).map(c => {
+      if (c.id === contactId) {
+        return { ...c, ...updatedData };
+      }
+      return c;
+    });
+    this.saveContacts(updated);
+  }
+
+  deleteContact(contactId) {
+    const updated = (this.state.contacts || []).filter(c => c.id !== contactId);
+    this.saveContacts(updated);
   }
 
   getLanguage() {
