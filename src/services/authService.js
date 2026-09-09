@@ -480,7 +480,7 @@ export const authService = {
 
     const elderIdentifier = customIdentifier || patientData?.phone || patientData?.email || 'elder_' + Date.now().toString(36);
 
-    // Persist to Server Database & Firestore
+    // Persist to Server Database & Firebase Auth Cloud
     try {
       const res = await fetch('/api/auth/elder-save', {
         method: 'POST',
@@ -495,9 +495,26 @@ export const authService = {
       if (res.ok) {
         const savedData = await res.json();
         console.log('[authService] Saved to database successfully:', savedData);
+      } else {
+        throw new Error('Server save endpoint returned status ' + res.status);
       }
     } catch (err) {
-      console.warn('[authService] Server database save note:', err);
+      console.warn('[authService] Server database save note, engaging direct Firebase client fallback:', err);
+      if (firebaseClientAuth && caregiverData?.email && caregiverData?.password) {
+        try {
+          const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+          const cred = await createUserWithEmailAndPassword(
+            firebaseClientAuth,
+            caregiverData.email.trim().toLowerCase(),
+            caregiverData.password.trim()
+          );
+          if (cred.user && caregiverData.name) {
+            await updateProfile(cred.user, { displayName: caregiverData.name });
+          }
+        } catch (clientAuthErr) {
+          console.warn('[authService] Firebase client create notice:', clientAuthErr.code, clientAuthErr.message);
+        }
+      }
     }
 
     const user = {
@@ -635,13 +652,70 @@ export const authService = {
           message: result.message || `Welcome back, ${result.user.name}! Connected to ${result.elderProfile?.name}'s care overview.`
         };
       } else if (result && !result.success) {
-        return {
-          success: false,
-          message: result.message || 'Invalid caregiver credentials. Please check your email and password.'
-        };
+        console.warn('[authService] API caregiver-login notice:', result.message);
       }
     } catch (apiErr) {
-      console.warn('[authService] Caregiver API login fallback to local cache:', apiErr);
+      console.warn('[authService] Caregiver API login fallback to direct Firebase Cloud:', apiErr);
+    }
+
+    // 2. Direct Firebase Client Authentication (accessible across any device anywhere in the world!)
+    if (firebaseClientAuth) {
+      try {
+        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const userCred = await signInWithEmailAndPassword(firebaseClientAuth, cleanEmail, cleanPassword);
+        const fbUser = userCred.user;
+        const tokenResult = await fbUser.getIdTokenResult(true);
+        const claims = tokenResult?.claims || {};
+
+        let linkedElder = claims.linkedElder || null;
+        if (!linkedElder) {
+          const registeredList = this.getRegisteredCaregivers();
+          const defaultCg = registeredList.find(c => c.email.toLowerCase() === cleanEmail);
+          linkedElder = defaultCg?.patientData || null;
+        }
+
+        const caregiverUser = {
+          id: fbUser.uid,
+          name: fbUser.displayName || cleanEmail.split('@')[0] || 'Caregiver',
+          email: cleanEmail,
+          role: 'caregiver',
+          relation: 'Primary Caregiver',
+          elderPatient: linkedElder?.name || 'Elder Patient',
+          elderPatientId: linkedElder?.id || '',
+          linkedElder: linkedElder,
+          authProvider: 'firebase-cloud-auth',
+          avatar: fbUser.photoURL || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
+        };
+
+        if (linkedElder) {
+          dataStore.loadLinkedPatient(linkedElder);
+        }
+        if (dataStore.updateCaregiverProfile) {
+          dataStore.updateCaregiverProfile(caregiverUser);
+        }
+        this.setCurrentUser(caregiverUser);
+        this.registerCaregiverAccount({
+          name: caregiverUser.name,
+          email: cleanEmail,
+          password: cleanPassword,
+          patientData: linkedElder || dataStore.getPatient(),
+        });
+
+        return {
+          success: true,
+          user: caregiverUser,
+          elderProfile: linkedElder || dataStore.getPatient(),
+          message: `Welcome back, ${caregiverUser.name}! Connected to ${linkedElder?.name || 'your elder'}'s care overview via Firebase Cloud.`
+        };
+      } catch (fbAuthErr) {
+        console.warn('[authService] Direct Firebase client auth notice:', fbAuthErr.code, fbAuthErr.message);
+        if (fbAuthErr.code === 'auth/wrong-password' || fbAuthErr.code === 'auth/invalid-credential') {
+          return {
+            success: false,
+            message: 'Incorrect password for this caregiver account. Please check your credentials.'
+          };
+        }
+      }
     }
 
     // 2. Client-side local fallback
