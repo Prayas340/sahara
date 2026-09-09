@@ -762,70 +762,63 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                 </div>
               </div>
 
-              <!-- Quick Hotlines Row -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="p-5 bg-red-50 border border-red-200 rounded-3xl flex items-center justify-between shadow-sm">
-                  <div>
-                    <span class="text-xs font-bold text-red-700 uppercase">Emergency Service</span>
-                    <h3 class="text-lg font-extrabold text-red-900">${patient.city || 'Local'} 108 Ambulance</h3>
-                    <p class="text-xs text-red-600">${patient.state || 'National'} Emergency Network</p>
+              <!-- Emergency Contacts & Family Grid or Empty State -->
+              ${(!contacts || contacts.length === 0) ? `
+                <div class="card-tactile bg-white rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-md border border-[#cdf2cb] space-y-4">
+                  <div class="w-20 h-20 rounded-3xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center mx-auto text-3xl font-extrabold shadow-sm">
+                    <span class="material-symbols-outlined text-4xl">contacts_product</span>
                   </div>
-                  <a href="tel:108" class="p-3 bg-red-600 text-white rounded-full shadow-md hover:bg-red-700 transition-colors">
-                    <span class="material-symbols-outlined text-xl">emergency</span>
-                  </a>
+                  <h3 class="text-2xl font-extrabold text-[#032109]">No Loved Ones or Emergency Contacts Added Yet</h3>
+                  <p class="text-sm text-[#40493d]">
+                    Customize your contact list with family members, primary caregivers, and doctors. All contacts are safely stored in your account.
+                  </p>
                 </div>
+              ` : `
+                <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
+                  <h3 class="text-xl font-extrabold text-[#032109]">All Linked Family Members & Caregivers (${contacts.length})</h3>
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    ${contacts.map(c => `
+                      <div class="p-5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                          <img class="w-14 h-14 rounded-2xl object-cover border border-[#cdf2cb] bg-white" src="${c.avatar || '/avatars/default.png'}" alt="${c.name}" />
+                          <div>
+                            <h4 class="text-base font-extrabold text-[#032109]">${c.name}</h4>
+                            <span class="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold inline-block mt-0.5">${c.relation || 'Contact'}</span>
+                            <p class="text-xs text-[#40493d] mt-1">${c.location || ''} · ${c.phone || ''}</p>
+                          </div>
+                        </div>
 
-                ${contacts.slice(0, 2).map(c => `
-                  <div class="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
-                    <div>
-                      <span class="text-xs font-bold text-[#0d631b] uppercase">${c.relation || 'Emergency Contact'}</span>
-                      <h3 class="text-lg font-extrabold text-[#032109]">${c.name}</h3>
-                      <p class="text-xs text-[#40493d]">${c.location || patient.city || ''} · ${c.phone || ''}</p>
-                    </div>
-                    <a href="tel:${c.phone || ''}" class="p-3 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors">
-                      <span class="material-symbols-outlined text-xl">call</span>
-                    </a>
-                  </div>
-                `).join('')}
-              </div>
-              </div>
-
-              <!-- Full Loved Ones & Family Grid -->
-              <div class="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
-                <h3 class="text-xl font-extrabold text-[#032109]">All Linked Family Members & Caregivers</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                  ${contacts.map(c => `
-                    <div class="p-5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col justify-between gap-4">
-                      <div class="flex items-center gap-4">
-                        <img class="w-14 h-14 rounded-2xl object-cover border border-[#cdf2cb] bg-white" src="${c.avatar}" alt="${c.name}" />
-                        <div>
-                          <h4 class="text-base font-extrabold text-[#032109]">${c.name}</h4>
-                          <span class="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold inline-block mt-0.5">${c.relation}</span>
-                          <p class="text-xs text-[#40493d] mt-1">${c.location}</p>
+                        <div class="flex items-center gap-2 pt-2 border-t border-[#cdf2cb]">
+                          <a 
+                            href="tel:${c.phone}" 
+                            class="btn-tactile btn-primary flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
+                          >
+                            <span class="material-symbols-outlined text-base">call</span>
+                            <span>Call</span>
+                          </a>
+                          <a 
+                            href="https://wa.me/${(c.phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`${patient.name || 'Elder'} is safe and doing well.`)}" 
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="flex-1 py-2.5 rounded-xl bg-[#25D366] text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm hover:bg-[#128C7E] transition-colors"
+                          >
+                            <span class="material-symbols-outlined text-base">chat</span>
+                            <span>WhatsApp</span>
+                          </a>
+                          <button 
+                            class="cg-voice-msg-btn flex-1 py-2.5 rounded-xl bg-white text-[#0d631b] border border-[#cdf2cb] text-xs font-bold flex items-center justify-center gap-1 hover:bg-[#d9fdd6] transition-colors cursor-pointer"
+                            data-name="${c.name}"
+                            type="button"
+                          >
+                            <span class="material-symbols-outlined text-base">mic</span>
+                            <span>Voice</span>
+                          </button>
                         </div>
                       </div>
-
-                      <div class="flex items-center gap-2 pt-2 border-t border-[#cdf2cb]">
-                        <a 
-                          href="tel:${c.phone}" 
-                          class="btn-tactile btn-primary flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
-                        >
-                          <span class="material-symbols-outlined text-base">call</span>
-                          <span>Call Direct</span>
-                        </a>
-                        <button 
-                          class="cg-voice-msg-btn flex-1 py-2.5 rounded-xl bg-white text-[#0d631b] border border-[#cdf2cb] text-xs font-bold flex items-center justify-center gap-1 hover:bg-[#d9fdd6] transition-colors cursor-pointer"
-                          data-name="${c.name}"
-                          type="button"
-                        >
-                          <span class="material-symbols-outlined text-base">mic</span>
-                          <span>Voice Note</span>
-                        </button>
-                      </div>
-                    </div>
-                  `).join('')}
+                    `).join('')}
+                  </div>
                 </div>
-              </div>
+              `}
             </div>
           ` : ''}
 

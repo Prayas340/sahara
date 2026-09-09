@@ -115,8 +115,24 @@ export default function CaregiverDashboardPage() {
           setPatient(elder);
           if (res.user || res.caregiver) setCaregiver(res.user || res.caregiver);
           setMedicines([...(dataStore.state?.medicines || [])]);
-          const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : (dataStore.state?.contacts || []);
-          setContacts([...loadedContacts]);
+          
+          // Load contacts from database
+          const elderId = elder.id || elder.phone || elder.email;
+          fetch(`/api/contacts?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(cgEmail || '')}`)
+            .then(r => r.json())
+            .then(cData => {
+              if (cData?.contacts && Array.isArray(cData.contacts)) {
+                dataStore.saveContacts(cData.contacts);
+                setContacts([...cData.contacts]);
+              } else {
+                const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : [];
+                setContacts([...loadedContacts]);
+              }
+            })
+            .catch(() => {
+              const loadedContacts = dataStore.getContacts ? dataStore.getContacts() : [];
+              setContacts([...loadedContacts]);
+            });
         } else if (!curUser.linkedElder) {
           setSyncError(`No elder profile associated with caregiver "${cgEmail}" in the database.`);
         }
@@ -1078,166 +1094,118 @@ export default function CaregiverDashboardPage() {
                 </div>
               </div>
 
-              {/* Emergency Hotlines */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-5 bg-red-50 border border-red-200 rounded-3xl flex items-center justify-between shadow-sm">
-                  <div>
-                    <span className="text-xs font-bold text-red-700 uppercase">Emergency Service</span>
-                    <h3 className="text-lg font-extrabold text-red-900">108 Ambulance</h3>
-                    <p className="text-xs text-red-600">{patient?.state || 'West Bengal'} Emergency Network</p>
+              {/* Family Contacts List & Empty State */}
+              {contacts.length === 0 ? (
+                <div className="card-tactile bg-white rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-md border border-[#cdf2cb] space-y-4">
+                  <div className="w-20 h-20 rounded-3xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center mx-auto text-3xl font-extrabold shadow-sm">
+                    <span className="material-symbols-outlined text-4xl">contacts_product</span>
                   </div>
-                  <a
-                    href="tel:108"
-                    title="Call 108 Ambulance"
-                    className="p-3 bg-red-600 text-white rounded-full shadow-md hover:bg-red-700 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-xl">emergency</span>
-                  </a>
-                </div>
-
-                <div className="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
-                  <div>
-                    <span className="text-xs font-bold text-[#0d631b] uppercase">Primary Physician</span>
-                    <h3 className="text-lg font-extrabold text-[#032109]">Dr. {(patient?.city || 'Kolkata').slice(0, 8)} Clinic</h3>
-                    <p className="text-xs text-[#40493d]">{patient?.city || 'Kolkata'} Health Center · +91 98640 99887</p>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleWhatsAppContact({ name: `Dr. ${(patient?.city || 'Kolkata').slice(0, 8)} Clinic`, phone: '+919864099887' })}
-                      title="WhatsApp Doctor"
-                      type="button"
-                      className="p-2.5 bg-[#25D366] text-white rounded-full shadow-md hover:bg-[#128C7E] transition-colors cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-lg">chat</span>
-                    </button>
-                    <a
-                      href="tel:+919864099887"
-                      title="Call Doctor"
-                      className="p-2.5 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-lg">call</span>
-                    </a>
-                  </div>
-                </div>
-
-                <div className="p-5 bg-white border border-[#cdf2cb] rounded-3xl flex items-center justify-between shadow-sm">
-                  <div>
-                    <span className="text-xs font-bold text-[#0d631b] uppercase">Primary Caregiver</span>
-                    <h3 className="text-lg font-extrabold text-[#032109]">{caregiver?.name || 'sagnik'}</h3>
-                    <p className="text-xs text-[#40493d]">{caregiver?.relation || 'Primary Caregiver'} · {caregiver?.phone || '+91 98540 12345'}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleWhatsAppContact({ name: caregiver?.name || 'Primary Caregiver', phone: caregiver?.phone || '+919854012345' })}
-                      title="WhatsApp Caregiver"
-                      type="button"
-                      className="p-2.5 bg-[#25D366] text-white rounded-full shadow-md hover:bg-[#128C7E] transition-colors cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-lg">chat</span>
-                    </button>
-                    <a
-                      href={`tel:${(caregiver?.phone || '+91 98540 12345').replace(/\s+/g, '')}`}
-                      title="Call Caregiver"
-                      className="p-2.5 bg-[#006e1c] text-white rounded-full shadow-md hover:bg-[#0d631b] transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-lg">call</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              {/* Family Contacts List */}
-              <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-xl font-extrabold text-[#032109]">All Linked Family Members & Caregivers</h3>
-                    <p className="text-xs text-[#40493d] mt-0.5">Customize names, phone numbers, and send instant WhatsApp safe updates.</p>
-                  </div>
+                  <h2 className="text-2xl font-extrabold text-[#032109]">No Emergency Contacts or Loved Ones Added</h2>
+                  <p className="text-sm text-[#40493d]">
+                    Customize your own trusted contact numbers (family members, personal doctors, local emergency responders) to enable 1-tap WhatsApp updates and direct calling.
+                  </p>
                   <button
                     onClick={handleOpenAddContact}
                     type="button"
-                    className="btn-tactile inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#006e1c] text-white text-xs font-bold shadow-sm hover:bg-[#0d631b] transition-colors cursor-pointer self-start sm:self-auto"
+                    className="btn-tactile btn-primary inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold shadow-md cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-base">person_add</span>
-                    <span>+ Add Contact</span>
+                    <span className="material-symbols-outlined text-xl">person_add</span>
+                    <span>+ Add First Contact</span>
                   </button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                  {contacts.map((c, i) => (
-                    <div
-                      key={c.id || i}
-                      className="p-5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col justify-between gap-4 relative group"
+              ) : (
+                <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-extrabold text-[#032109]">All Linked Family Members & Caregivers</h3>
+                      <p className="text-xs text-[#40493d] mt-0.5">Customize names, phone numbers, and send instant WhatsApp safe updates.</p>
+                    </div>
+                    <button
+                      onClick={handleOpenAddContact}
+                      type="button"
+                      className="btn-tactile inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#006e1c] text-white text-xs font-bold shadow-sm hover:bg-[#0d631b] transition-colors cursor-pointer self-start sm:self-auto"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <img
-                            className="w-14 h-14 rounded-2xl object-cover border border-[#cdf2cb] bg-white shadow-xs shrink-0"
-                            src={c.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80'}
-                            alt={c.name}
-                          />
-                          <div className="min-w-0">
-                            <h4 className="text-base font-extrabold text-[#032109] truncate">{c.name}</h4>
-                            <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold inline-block mt-0.5 truncate max-w-full">
-                              {c.relation}
-                            </span>
-                            <p className="text-xs font-semibold text-[#0d631b] mt-0.5">{c.phone}</p>
-                            <p className="text-xs text-[#40493d] truncate">{c.location}</p>
+                      <span className="material-symbols-outlined text-base">person_add</span>
+                      <span>+ Add Contact</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {contacts.map((c, i) => (
+                      <div
+                        key={c.id || i}
+                        className="p-5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col justify-between gap-4 relative group"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              className="w-14 h-14 rounded-2xl object-cover border border-[#cdf2cb] bg-white shadow-xs shrink-0"
+                              src={c.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80'}
+                              alt={c.name}
+                            />
+                            <div className="min-w-0">
+                              <h4 className="text-base font-extrabold text-[#032109] truncate">{c.name}</h4>
+                              <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold inline-block mt-0.5 truncate max-w-full">
+                                {c.relation}
+                              </span>
+                              <p className="text-xs font-semibold text-[#0d631b] mt-0.5">{c.phone}</p>
+                              <p className="text-xs text-[#40493d] truncate">{c.location}</p>
+                            </div>
+                          </div>
+
+                          {/* Edit and Delete action buttons */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => handleOpenEditContact(c)}
+                              title="Edit Contact"
+                              className="p-1.5 rounded-xl bg-white text-[#0d631b] hover:bg-[#c9f6c7] border border-[#cdf2cb] shadow-xs transition-colors cursor-pointer"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-sm">edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteContact(c.id, c.name)}
+                              title="Remove Contact"
+                              className="p-1.5 rounded-xl bg-white text-red-600 hover:bg-red-50 border border-red-200 shadow-xs transition-colors cursor-pointer"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                            </button>
                           </div>
                         </div>
 
-                        {/* Edit and Delete action buttons */}
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => handleOpenEditContact(c)}
-                            title="Edit Contact"
-                            className="p-1.5 rounded-xl bg-white text-[#0d631b] hover:bg-[#c9f6c7] border border-[#cdf2cb] shadow-xs transition-colors cursor-pointer"
-                            type="button"
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#cdf2cb]">
+                          <a
+                            href={`tel:${c.phone}`}
+                            className="btn-tactile btn-primary py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
                           >
-                            <span className="material-symbols-outlined text-sm">edit</span>
+                            <span className="material-symbols-outlined text-base">call</span>
+                            <span>Call</span>
+                          </a>
+
+                          <button
+                            onClick={() => handleWhatsAppContact(c)}
+                            type="button"
+                            className="btn-tactile py-2.5 rounded-xl bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm cursor-pointer transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-base">chat</span>
+                            <span>WhatsApp</span>
                           </button>
+
                           <button
-                            onClick={() => handleDeleteContact(c.id, c.name)}
-                            title="Remove Contact"
-                            className="p-1.5 rounded-xl bg-white text-red-600 hover:bg-red-50 border border-red-200 shadow-xs transition-colors cursor-pointer"
+                            onClick={() => showToast(`🎙️ Recording 15s voice note for ${c.name}...`, 'info')}
                             type="button"
+                            className="py-2.5 rounded-xl bg-white text-[#0d631b] border border-[#cdf2cb] text-xs font-bold flex items-center justify-center gap-1 hover:bg-[#d9fdd6] transition-colors cursor-pointer"
                           >
-                            <span className="material-symbols-outlined text-sm">delete</span>
+                            <span className="material-symbols-outlined text-base">mic</span>
+                            <span>Voice</span>
                           </button>
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#cdf2cb]">
-                        <a
-                          href={`tel:${c.phone}`}
-                          className="btn-tactile btn-primary py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
-                        >
-                          <span className="material-symbols-outlined text-base">call</span>
-                          <span>Call</span>
-                        </a>
-
-                        <button
-                          onClick={() => handleWhatsAppContact(c)}
-                          type="button"
-                          className="btn-tactile py-2.5 rounded-xl bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm cursor-pointer transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-base">chat</span>
-                          <span>WhatsApp</span>
-                        </button>
-
-                        <button
-                          onClick={() => showToast(`🎙️ Recording 15s voice note for ${c.name}...`, 'info')}
-                          type="button"
-                          className="py-2.5 rounded-xl bg-white text-[#0d631b] border border-[#cdf2cb] text-xs font-bold flex items-center justify-center gap-1 hover:bg-[#d9fdd6] transition-colors cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-base">mic</span>
-                          <span>Voice</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </>

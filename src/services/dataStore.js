@@ -5,35 +5,7 @@ const defaultState = {
   language: 'English',
   patient: null,
   caregiver: null,
-  contacts: [
-    {
-      id: 'riya',
-      name: 'Riya',
-      relation: 'Daughter · Primary Caregiver',
-      location: 'Lives with you · Guwahati',
-      status: 'With You · At home',
-      phone: '+91 98540 12345',
-      avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
-    },
-    {
-      id: 'anil',
-      name: 'Anil',
-      relation: 'Son · Engineer',
-      location: 'Bangalore · Calls daily at 7 PM',
-      status: 'Online · Free to talk',
-      phone: '+91 98640 54321',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'dr_das',
-      name: 'Dr. B. Das',
-      relation: 'Family Physician · Guwahati Clinic',
-      location: 'Dispur Medical Center',
-      status: 'Clinic hours 9 AM - 6 PM',
-      phone: '+91 98640 99887',
-      avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80',
-    },
-  ],
+  contacts: [],
   medicines: [
     {
       id: 'med_morning',
@@ -289,6 +261,7 @@ class DataStore {
 
   clearPatient() {
     this.state.patient = null;
+    this.state.contacts = [];
     this.saveState();
   }
 
@@ -419,45 +392,12 @@ class DataStore {
           location: city,
         };
 
-        // Check if elder has saved customized contacts, else build initial contacts
-        const customContacts = (patientData.contacts && Array.isArray(patientData.contacts) && patientData.contacts.length > 0)
+        // Check if elder has saved customized contacts, else start with empty list for user customization
+        const customContacts = (patientData.contacts && Array.isArray(patientData.contacts))
           ? patientData.contacts
-          : this.loadCustomContacts(this.state.patient.id);
+          : (this.loadCustomContacts(this.state.patient.id) || []);
 
-        if (customContacts && customContacts.length > 0) {
-          this.state.contacts = customContacts;
-        } else {
-          this.state.contacts = [
-            {
-              id: 'primary_caregiver',
-              name: cgName,
-              relation: cgRelation,
-              location: `Lives with you · ${city}`,
-              status: 'Connected · Available',
-              phone: cgPhone,
-              email: cgEmail,
-              avatar: this.state.caregiver.avatar,
-            },
-            {
-              id: 'dr_physician',
-              name: `Dr. ${city.slice(0, 8)} Clinic`,
-              relation: `Family Physician · ${city} Health Center`,
-              location: `${city} Medical Center`,
-              status: 'Clinic hours 9 AM - 6 PM',
-              phone: '+91 98640 99887',
-              avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80',
-            },
-            {
-              id: 'emergency_108',
-              name: '108 Ambulance SOS',
-              relation: `${state} Emergency Response`,
-              location: `${city}, ${state}`,
-              status: '24/7 Rapid Response',
-              phone: '108',
-              avatar: 'https://images.unsplash.com/photo-1587745416684-47953f16f02f?w=300&auto=format&fit=crop&q=80',
-            }
-          ];
-        }
+        this.state.contacts = customContacts;
       }
 
       // Update medicines tailored to this elder
@@ -500,15 +440,11 @@ class DataStore {
   }
 
   getContacts() {
-    if (!this.state.contacts || this.state.contacts.length === 0) {
+    if (!this.state.contacts) {
       const saved = this.loadCustomContacts();
-      if (saved && saved.length > 0) {
-        this.state.contacts = saved;
-      } else {
-        this.state.contacts = [...(defaultState.contacts || [])];
-      }
+      this.state.contacts = saved || [];
     }
-    return this.state.contacts;
+    return this.state.contacts || [];
   }
 
   loadCustomContacts(elderId = null) {

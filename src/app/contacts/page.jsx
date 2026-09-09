@@ -162,86 +162,106 @@ export default function ContactsPage() {
             </div>
           </div>
 
-          {/* Contacts Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {contacts.map((contact, idx) => (
-              <div
-                key={contact.id || idx}
-                className="card-tactile bg-white rounded-3xl p-6 shadow-md border border-[#cdf2cb] flex flex-col justify-between space-y-6"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="relative shrink-0">
-                      <img
-                        className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl object-cover border border-[#cdf2cb] bg-white shadow-sm"
-                        src={contact.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80'}
-                        alt={contact.name}
-                      />
-                      <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#006e1c] border-2 border-white"></span>
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-[#0d631b] uppercase tracking-wider block">
-                        {contact.relation}
-                      </span>
-                      <h3 className="text-xl sm:text-2xl font-extrabold text-[#032109] mt-0.5">
-                        {contact.name}
-                      </h3>
-                      <p className="text-xs font-semibold text-[#0d631b] mt-0.5">{contact.phone}</p>
-                      <p className="text-xs text-[#40493d] mt-0.5">{contact.location}</p>
-                    </div>
-                  </div>
-
-                  {/* Edit and delete icons */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleOpenEditContact(contact)}
-                      title="Edit Contact"
-                      type="button"
-                      className="p-2 rounded-xl bg-white text-[#0d631b] hover:bg-[#d9fdd6] border border-[#cdf2cb] shadow-xs transition-colors cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-sm">edit</span>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteContact(contact.id, contact.name)}
-                      title="Delete Contact"
-                      type="button"
-                      className="p-2 rounded-xl bg-white text-red-600 hover:bg-red-50 border border-red-200 shadow-xs transition-colors cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#cdf2cb]">
-                  <a
-                    href={`tel:${contact.phone}`}
-                    className="btn-tactile btn-primary py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1 shadow-sm"
-                  >
-                    <span className="material-symbols-outlined text-base sm:text-lg">call</span>
-                    <span>Call</span>
-                  </a>
-
-                  <button
-                    onClick={() => handleWhatsAppContact(contact)}
-                    type="button"
-                    className="btn-tactile py-3 rounded-2xl bg-[#25D366] hover:bg-[#128C7E] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1 shadow-sm cursor-pointer transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-base sm:text-lg">chat</span>
-                    <span>WhatsApp</span>
-                  </button>
-
-                  <button
-                    onClick={() => showToast(`🎙️ Recording voice note for ${contact.name}...`, 'info')}
-                    type="button"
-                    className="btn-tactile btn-secondary py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1 bg-[#d3f8d0] text-[#032109] cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base sm:text-lg">mic</span>
-                    <span>Voice</span>
-                  </button>
-                </div>
+          {/* Contacts Grid or Empty State */}
+          {contacts.length === 0 ? (
+            <div className="card-tactile bg-white rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-md border border-[#cdf2cb] space-y-4">
+              <div className="w-20 h-20 rounded-3xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center mx-auto text-3xl font-extrabold shadow-sm">
+                <span className="material-symbols-outlined text-4xl">contacts_product</span>
               </div>
-            ))}
-          </div>
+              <h2 className="text-2xl font-extrabold text-[#032109]">No Loved Ones or Emergency Contacts Added Yet</h2>
+              <p className="text-sm text-[#40493d]">
+                Customize your contacts list with family members, your personal caregiver, and doctors to enable 1-tap WhatsApp updates and direct emergency calling.
+              </p>
+              <button
+                onClick={handleOpenAddContact}
+                type="button"
+                className="btn-tactile btn-primary inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold shadow-md cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-xl">person_add</span>
+                <span>+ Add First Contact</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {contacts.map((contact, idx) => (
+                <div
+                  key={contact.id || idx}
+                  className="card-tactile bg-white rounded-3xl p-6 shadow-md border border-[#cdf2cb] flex flex-col justify-between space-y-6"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative shrink-0">
+                        <img
+                          className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl object-cover border border-[#cdf2cb] bg-white shadow-sm"
+                          src={contact.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80'}
+                          alt={contact.name}
+                        />
+                        <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#006e1c] border-2 border-white"></span>
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-[#0d631b] uppercase tracking-wider block">
+                          {contact.relation}
+                        </span>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-[#032109] mt-0.5">
+                          {contact.name}
+                        </h3>
+                        <p className="text-xs font-semibold text-[#0d631b] mt-0.5">{contact.phone}</p>
+                        <p className="text-xs text-[#40493d] mt-0.5">{contact.location}</p>
+                      </div>
+                    </div>
+
+                    {/* Edit and delete icons */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleOpenEditContact(contact)}
+                        title="Edit Contact"
+                        type="button"
+                        className="p-2 rounded-xl bg-white text-[#0d631b] hover:bg-[#d9fdd6] border border-[#cdf2cb] shadow-xs transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteContact(contact.id, contact.name)}
+                        title="Delete Contact"
+                        type="button"
+                        className="p-2 rounded-xl bg-white text-red-600 hover:bg-red-50 border border-red-200 shadow-xs transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#cdf2cb]">
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="btn-tactile btn-primary py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1 shadow-sm"
+                    >
+                      <span className="material-symbols-outlined text-base sm:text-lg">call</span>
+                      <span>Call</span>
+                    </a>
+
+                    <button
+                      onClick={() => handleWhatsAppContact(contact)}
+                      type="button"
+                      className="btn-tactile py-3 rounded-2xl bg-[#25D366] hover:bg-[#128C7E] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1 shadow-sm cursor-pointer transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-base sm:text-lg">chat</span>
+                      <span>WhatsApp</span>
+                    </button>
+
+                    <button
+                      onClick={() => showToast(`🎙️ Recording voice note for ${contact.name}...`, 'info')}
+                      type="button"
+                      className="btn-tactile btn-secondary py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1 bg-[#d3f8d0] text-[#032109] cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base sm:text-lg">mic</span>
+                      <span>Voice</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 

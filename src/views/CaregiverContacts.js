@@ -60,58 +60,70 @@ export function renderCaregiverContacts(onNavigate) {
                 </button>
                 <span class="text-xs text-[#40493d] flex items-center gap-1">
                   <span class="material-symbols-outlined text-base text-[#0d631b]">done_all</span>
-                  Notifies Riya, Anil & Dr. Das with one touch
+                  ${contacts && contacts.length > 0 ? `Notifies ${contacts.map(c => c.name).slice(0, 3).join(', ')} with one touch` : 'Notifies your saved family & doctors'}
                 </span>
               </div>
             </div>
           </div>
 
-          <!-- Caregiver & Family Contact Cards Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            ${contacts.map(c => `
-              <div class="card-tactile bg-white rounded-3xl p-6 shadow-md border border-[#cdf2cb] flex flex-col justify-between hover:shadow-xl transition-all">
-                <div>
-                  <div class="flex items-center gap-4 mb-4">
-                    <div class="w-20 h-20 rounded-2xl overflow-hidden shadow-sm shrink-0 border border-[#cdf2cb]">
-                      <img class="w-full h-full object-cover" src="${c.avatar}" alt="${c.name}" />
-                    </div>
-                    <div class="flex flex-col">
-                      <h2 class="text-xl font-extrabold text-[#032109] leading-tight">${c.name}</h2>
-                      <span class="text-xs font-bold text-[#0d631b]">${c.relation}</span>
-                      <span class="text-xs text-[#40493d] mt-1">${c.location}</span>
-                    </div>
-                  </div>
-
-                  <!-- Status pill -->
-                  <div class="p-3 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] mb-6 flex items-start gap-2.5">
-                    <span class="material-symbols-outlined text-[#0d631b] text-xl shrink-0 mt-0.5">home_pin</span>
-                    <div>
-                      <p class="text-xs font-bold text-[#032109]">${c.status}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="flex flex-col gap-2">
-                  <a 
-                    href="tel:${c.phone}" 
-                    class="btn-tactile btn-primary w-full min-h-[50px] flex items-center justify-center gap-2 rounded-full text-sm font-bold shadow-md"
-                  >
-                    <span class="material-symbols-outlined text-xl">call</span>
-                    <span>Call ${c.name}</span>
-                  </a>
-                  <button 
-                    class="btn-tactile btn-secondary w-full min-h-[46px] flex items-center justify-center gap-2 rounded-full text-xs sm:text-sm font-bold bg-[#d3f8d0] text-[#0d631b] hover:bg-[#cdf2cb]" 
-                    onclick="window.openVoiceModal && window.openVoiceModal('${c.name}')" 
-                    type="button"
-                  >
-                    <span class="material-symbols-outlined text-xl">mic</span>
-                    <span>Send Voice Message</span>
-                  </button>
-                </div>
+          <!-- Caregiver & Family Contact Cards Grid or Empty State -->
+          ${(!contacts || contacts.length === 0) ? `
+            <div class="card-tactile bg-white rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-md border border-[#cdf2cb] space-y-4">
+              <div class="w-20 h-20 rounded-3xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center mx-auto text-3xl font-extrabold shadow-sm">
+                <span class="material-symbols-outlined text-4xl">contacts_product</span>
               </div>
-            `).join('')}
-          </div>
+              <h2 class="text-2xl font-extrabold text-[#032109]">No Loved Ones Added Yet</h2>
+              <p class="text-sm text-[#40493d]">
+                Customize your contacts list with family members and caregivers to enable 1-tap WhatsApp updates and direct emergency calling.
+              </p>
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ${contacts.map(c => `
+                <div class="card-tactile bg-white rounded-3xl p-6 shadow-md border border-[#cdf2cb] flex flex-col justify-between hover:shadow-xl transition-all">
+                  <div>
+                    <div class="flex items-center gap-4 mb-4">
+                      <div class="w-20 h-20 rounded-2xl overflow-hidden shadow-sm shrink-0 border border-[#cdf2cb]">
+                        <img class="w-full h-full object-cover" src="${c.avatar || '/avatars/default.png'}" alt="${c.name}" />
+                      </div>
+                      <div class="flex flex-col">
+                        <h2 class="text-xl font-extrabold text-[#032109] leading-tight">${c.name}</h2>
+                        <span class="text-xs font-bold text-[#0d631b]">${c.relation || 'Emergency Contact'}</span>
+                        <span class="text-xs text-[#40493d] mt-1">${c.location || ''}</span>
+                      </div>
+                    </div>
+
+                    <!-- Status pill -->
+                    <div class="p-3 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] mb-6 flex items-start gap-2.5">
+                      <span class="material-symbols-outlined text-[#0d631b] text-xl shrink-0 mt-0.5">home_pin</span>
+                      <div>
+                        <p class="text-xs font-bold text-[#032109]">${c.status || 'Active & Linked'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Action Buttons -->
+                  <div class="flex flex-col gap-2">
+                    <a 
+                      href="tel:${c.phone}" 
+                      class="btn-tactile btn-primary w-full min-h-[50px] flex items-center justify-center gap-2 rounded-full text-sm font-bold shadow-md"
+                    >
+                      <span class="material-symbols-outlined text-xl">call</span>
+                      <span>Call ${c.name}</span>
+                    </a>
+                    <button 
+                      class="btn-tactile btn-secondary w-full min-h-[46px] flex items-center justify-center gap-2 rounded-full text-xs sm:text-sm font-bold bg-[#d3f8d0] text-[#0d631b] hover:bg-[#cdf2cb]" 
+                      onclick="window.openVoiceModal && window.openVoiceModal('${c.name}')" 
+                      type="button"
+                    >
+                      <span class="material-symbols-outlined text-xl">mic</span>
+                      <span>Send Voice Message</span>
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
 
         </div>
       </main>
@@ -124,9 +136,10 @@ export function renderCaregiverContacts(onNavigate) {
 
     document.getElementById('contacts-broadcast-btn')?.addEventListener('click', () => {
       const patient = dataStore.state.patient || {};
-      const patientHonorific = patient.honorific || (patient.name ? `${patient.name.split(' ')[0]} ji` : 'Asha ji');
+      const patientHonorific = patient.honorific || (patient.name ? `${patient.name.split(' ')[0]} ji` : 'Elder ji');
+      const contactNames = contacts && contacts.length > 0 ? contacts.map(c => c.name).join(', ') : 'your loved ones';
       dataStore.sendWellnessBroadcast(`${patientHonorific} tapped "I am doing well" at ` + new Date().toLocaleTimeString());
-      showToast(`❤️ Sweet reassurance sent! Riya, Anil & Dr. Das have received your update: "${patientHonorific} is smiling and doing well."`, 'heart', 6000);
+      showToast(`❤️ Reassurance sent! ${contactNames} have received your update: "${patientHonorific} is doing well."`, 'heart', 6000);
       speakText("Reassurance sent! Your loved ones know you are doing well.");
     });
 
