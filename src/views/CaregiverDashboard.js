@@ -416,13 +416,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                     Daily and weekly memory game scores, pattern recognition recall, and cognitive stability tracking.
                   </p>
                 </div>
-
-                <div class="flex items-center gap-3 shrink-0 flex-wrap">
-                  <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-[#cdf2cb] shadow-sm">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
-                    <span class="text-xs font-bold text-[#0d631b]">Live Database Synced</span>
-                  </div>
-                </div>
               </div>
 
               <!-- 4 KPI Stat Cards -->

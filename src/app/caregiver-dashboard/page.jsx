@@ -1052,33 +1052,6 @@ export default function CaregiverDashboardPage() {
                     {t.weeklyTrend || 'Daily and weekly memory game scores, pattern recognition recall, and cognitive stability tracking.'}
                   </p>
                 </div>
-
-                <div className="flex items-center gap-3 shrink-0 flex-wrap">
-                  <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-[#cdf2cb] shadow-sm">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
-                    <span className="text-xs font-bold text-[#0d631b]">Live Database Synced</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const elderId = patient?.id || patient?.phone || patient?.email;
-                      const cgEmail = caregiver?.email;
-                      fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(cgEmail || '')}`)
-                        .then(r => r.json())
-                        .then(sData => {
-                          if (sData?.success && sData?.analytics) {
-                            setGameAnalytics(sData.analytics);
-                            showToast('score synchronized', 'success', 2500);
-                          }
-                        })
-                        .catch(() => showToast('Refreshed local analytics', 'info', 2000));
-                    }}
-                    type="button"
-                    className="btn-tactile btn-primary flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold shadow-sm cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base">sync</span>
-                    <span>Sync Scores</span>
-                  </button>
-                </div>
               </div>
 
               {/* 4 Analytics Summary Cards */}

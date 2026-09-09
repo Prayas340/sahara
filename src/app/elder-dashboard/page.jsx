@@ -417,24 +417,15 @@ export default function ElderDashboardPage() {
     const effectiveCgEmail = cgEmail || patient?.caregiverEmail || 'prayasdey10@gmail.com';
     const effectiveCgName = cgName || patient?.caregiverName || 'Caregiver';
 
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+
     setIsSosModalOpen(true);
     setSosStatus('countdown');
-    setSosCountdown(3);
 
-    speakText(`Emergency SOS button pressed. Sending warning to ${effectiveCgName} in 3 seconds. Tap cancel if this was a mistake.`);
-
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-
-    let count = 3;
-    countdownIntervalRef.current = setInterval(() => {
-      count -= 1;
-      setSosCountdown(count);
-      if (count <= 0) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-        triggerSosDispatch();
-      }
-    }, 1000);
+    speakText(`Emergency SOS alert. Tap Send SOS Immediately to notify ${effectiveCgName}.`);
   };
 
   const handleCancelSos = () => {
@@ -1027,15 +1018,11 @@ Web3Forms Access Key: ${web3formsAccessKey}
                   <h2 className="text-2xl sm:text-3xl font-black text-[#032109] tracking-tight">
                     Sending Emergency Warning
                   </h2>
-                  <p className="text-sm sm:text-base text-[#40493d]">
-                    Auto-sending in <strong className="text-red-600 text-xl font-black">{sosCountdown}s</strong>...
-                  </p>
                 </div>
 
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-left space-y-1.5 shadow-inner">
-                  <div className="flex items-center justify-between text-xs text-red-800 font-bold">
+                  <div className="text-xs text-red-800 font-bold">
                     <span>RECIPIENT CAREGIVER:</span>
-                    <span className="bg-red-200 px-2 py-0.5 rounded text-[10px] font-black uppercase">Web3Forms Email</span>
                   </div>
                   <p className="text-base font-black text-red-950">
                     {caregiverName || 'Primary Caregiver'}
