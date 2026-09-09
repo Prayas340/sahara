@@ -38,9 +38,20 @@ export default function ElderDashboardPage() {
         dataStore.saveMedicines(reset);
         // Persist the reset to server DB
         try {
-          const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
-          const elderId = u?.phone || u?.email || u?.id;
-          const caregiverEmail = dataStore.state?.caregiver?.email || dataStore.state?.patient?.caregiverEmail;
+          let elderId = null;
+          let caregiverEmail = null;
+          try {
+            const stored = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
+            if (stored?.role === 'elder') {
+              elderId = stored.phone || stored.email || stored.id;
+              caregiverEmail = stored.caregiverEmail || null;
+            }
+          } catch (e) {}
+          if (!elderId) {
+            const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
+            elderId = u?.phone || u?.email || u?.id;
+          }
+          if (!caregiverEmail) caregiverEmail = dataStore.state?.caregiver?.email || dataStore.state?.patient?.caregiverEmail;
           if (elderId) {
             fetch('/api/reminders', {
               method: 'POST',
@@ -61,8 +72,17 @@ export default function ElderDashboardPage() {
 
     // Multi-Device Cloud Sync for Elder
     try {
-      const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
-      const identifier = u?.phone || u?.email || u?.id;
+      let identifier = null;
+      try {
+        const stored = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
+        if (stored?.role === 'elder') {
+          identifier = stored.phone || stored.email || stored.id;
+        }
+      } catch (e) {}
+      if (!identifier) {
+        const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
+        identifier = u?.phone || u?.email || u?.id;
+      }
       if (identifier) {
         // Sync elder profile
         if (authService.syncElderData) {
@@ -129,29 +149,57 @@ export default function ElderDashboardPage() {
       }
       return m;
     });
-    dataStore.saveMedicines(updatedMeds);
 
-    // Persist to server DB (tied to elder's account)
+    // Resolve elder identity from session
+    let elderId = null;
+    let caregiverEmail = null;
     try {
-      const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
-      const elderId = u?.phone || u?.email || u?.id || dataStore.state?.patient?.id || dataStore.state?.patient?.phone;
-      const caregiverEmail = dataStore.state?.caregiver?.email || dataStore.state?.patient?.caregiverEmail;
-      if (elderId) {
-        fetch('/api/reminders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'toggle',
-            elderId,
-            caregiverEmail,
-            reminderId: medId,
-            taken: true,
-            takenAt: takenAtTime,
-            takenDate: todayStr,
-          }),
-        }).catch(() => {});
+      const stored = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
+      if (stored?.role === 'elder') {
+        elderId = stored.phone || stored.email || stored.id;
+        caregiverEmail = stored.caregiverEmail || null;
       }
     } catch (e) {}
+    if (!elderId) {
+      const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
+      elderId = u?.phone || u?.email || u?.id;
+    }
+    if (!caregiverEmail) caregiverEmail = dataStore.state?.caregiver?.email || dataStore.state?.patient?.caregiverEmail;
+
+    // Save locally (also persists to server via saveMedicines)
+    dataStore.state.medicines = updatedMeds;
+    dataStore.saveState();
+    setMedicines([...updatedMeds]);
+
+    // Persist directly to server DB via toggle action
+    if (elderId) {
+      fetch('/api/reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggle',
+          elderId,
+          caregiverEmail,
+          reminderId: medId,
+          taken: true,
+          takenAt: takenAtTime,
+          takenDate: todayStr,
+        }),
+      }).then(r => r.json()).then(res => {
+        // After server confirms, sync the full updated list locally
+        if (res?.success && res?.medicines) {
+          dataStore.state.medicines = res.medicines;
+          dataStore.saveState();
+          setMedicines([...res.medicines]);
+        }
+        // Notify caregiver portal
+        window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: updatedMeds } }));
+      }).catch(() => {
+        window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: updatedMeds } }));
+      });
+    } else {
+      window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: updatedMeds } }));
+    }
 
     const remainingAfterThis = pendingMeds.filter(m => m.id !== medId);
     if (remainingAfterThis.length === 0) {
@@ -163,6 +211,7 @@ export default function ElderDashboardPage() {
       speakText(`Marked ${currentMed.title} as taken.`);
     }
   };
+
 
   const avatarInputRef = useRef(null);
 

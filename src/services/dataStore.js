@@ -550,21 +550,33 @@ class DataStore {
         localStorage.setItem('sahara_medicines', JSON.stringify(medicines));
       } catch (e) {}
     }
-    // Async persist to server database
+
+    // Resolve identity: prefer active session, fall back to state
+    let elderId = null;
+    let caregiverEmail = null;
     try {
-      const elderId = this.state.patient?.id || this.state.patient?.phone;
-      const caregiverEmail = this.state.caregiver?.email || this.state.patient?.caregiverEmail;
+      if (typeof window !== 'undefined') {
+        const activeUser = JSON.parse(localStorage.getItem('sahara_active_user') || 'null');
+        if (activeUser?.role === 'elder') {
+          elderId = activeUser.phone || activeUser.email || activeUser.id;
+          caregiverEmail = activeUser.caregiverEmail || null;
+        } else if (activeUser?.role === 'caregiver') {
+          caregiverEmail = activeUser.email || null;
+          elderId = activeUser.linkedElder?.phone || activeUser.linkedElder?.id || activeUser.linkedElder?.email || null;
+        }
+      }
+    } catch (e) {}
+    if (!elderId) elderId = this.state.patient?.id || this.state.patient?.phone || this.state.patient?.email;
+    if (!caregiverEmail) caregiverEmail = this.state.caregiver?.email || this.state.patient?.caregiverEmail;
+
+    // Async persist to server database
+    if (elderId || caregiverEmail) {
       fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'save',
-          elderId,
-          caregiverEmail,
-          medicines,
-        }),
+        body: JSON.stringify({ elderId, caregiverEmail, medicines }),
       }).catch(err => console.warn('[dataStore] Failed to sync reminders to server:', err));
-    } catch (e) {}
+    }
 
     this.notifyChange();
     if (typeof window !== 'undefined') {
@@ -593,6 +605,7 @@ class DataStore {
   }
 
   toggleMedicineStatus(identifier) {
+    const todayStr = new Date().toISOString().split('T')[0];
     const list = this.getMedicines().map((m, idx) => {
       if (m.id === identifier || idx === identifier) {
         const nowTaken = !m.taken;
@@ -600,6 +613,7 @@ class DataStore {
           ...m,
           taken: nowTaken,
           takenAt: nowTaken ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
+          takenDate: nowTaken ? todayStr : null,
         };
       }
       return m;

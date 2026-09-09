@@ -735,6 +735,29 @@ export async function getRemindersFromDb(args) {
     medicines = JSON.parse(JSON.stringify(DEFAULT_MEDICINES));
   }
 
+  // Check for midnight daily reset: if any reminder has takenDate from previous day, reset status
+  const todayStr = new Date().toISOString().split('T')[0];
+  let needsDailyReset = false;
+  medicines = medicines.map(m => {
+    if (m.taken && m.takenDate && m.takenDate !== todayStr) {
+      needsDailyReset = true;
+      return { ...m, taken: false, takenAt: null, takenDate: null };
+    }
+    return m;
+  });
+
+  if (needsDailyReset) {
+    if (elderId) {
+      const cleanId = normalizeIdentifier(elderId);
+      store.reminders[cleanId] = medicines;
+    }
+    if (caregiverEmail) {
+      const cleanCg = caregiverEmail.trim().toLowerCase();
+      store.reminders[cleanCg] = medicines;
+    }
+    writeLocalStore(store);
+  }
+
   const total = medicines.length;
   const takenCount = medicines.filter(m => m.taken).length;
   const completionPercentage = total > 0 ? Math.round((takenCount / total) * 100) : 0;
@@ -760,17 +783,45 @@ export async function getRemindersFromDb(args) {
 export async function saveRemindersToDb({ elderId, caregiverEmail, medicines }) {
   const store = readLocalStore();
   if (!store.reminders) store.reminders = {};
+  if (!store.routineCompletions) store.routineCompletions = {};
 
   const cleanList = Array.isArray(medicines) ? medicines : [];
+  const cleanElderId = elderId ? normalizeIdentifier(elderId) : null;
+  const cleanCg = caregiverEmail ? caregiverEmail.trim().toLowerCase() : null;
 
-  if (elderId) {
-    const cleanId = normalizeIdentifier(elderId);
-    store.reminders[cleanId] = cleanList;
+  if (cleanElderId) {
+    store.reminders[cleanElderId] = cleanList;
   }
-  if (caregiverEmail) {
-    const cleanCg = caregiverEmail.trim().toLowerCase();
+  if (cleanCg) {
     store.reminders[cleanCg] = cleanList;
   }
+
+  // Record completions in database under user accounts
+  const todayStr = new Date().toISOString().split('T')[0];
+  cleanList.forEach(m => {
+    if (m.taken) {
+      const compKey = cleanElderId || cleanCg;
+      if (compKey) {
+        if (!store.routineCompletions[compKey]) store.routineCompletions[compKey] = [];
+        const alreadyLogged = store.routineCompletions[compKey].some(
+          c => c.reminderId === m.id && c.takenDate === (m.takenDate || todayStr)
+        );
+        if (!alreadyLogged) {
+          store.routineCompletions[compKey].unshift({
+            id: 'comp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            elderId: cleanElderId,
+            caregiverEmail: cleanCg,
+            reminderId: m.id,
+            title: m.title,
+            scheduledTime: m.scheduledTime,
+            takenAt: m.takenAt || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            takenDate: m.takenDate || todayStr,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    }
+  });
 
   writeLocalStore(store);
 
@@ -828,18 +879,54 @@ export async function deleteReminderFromDb({ elderId, caregiverEmail, reminderId
  */
 export async function toggleReminderStatusInDb({ elderId, caregiverEmail, reminderId, taken, takenAt, takenDate }) {
   const existing = await getRemindersFromDb({ elderId, caregiverEmail });
+  let toggledItem = null;
   const list = (existing.medicines || []).map(m => {
     if (m.id === reminderId) {
       const isTaken = taken !== undefined ? Boolean(taken) : !m.taken;
       const todayStr = takenDate || new Date().toISOString().split('T')[0];
-      return {
+      const updated = {
         ...m,
         taken: isTaken,
         takenAt: isTaken ? (takenAt || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })) : null,
         takenDate: isTaken ? todayStr : null,
       };
+      toggledItem = updated;
+      return updated;
     }
     return m;
   });
+
+  // Record completion log directly in database under user accounts
+  if (toggledItem?.taken) {
+    try {
+      const store = readLocalStore();
+      if (!store.routineCompletions) store.routineCompletions = {};
+      const cleanElderId = elderId ? normalizeIdentifier(elderId) : null;
+      const cleanCgEmail = caregiverEmail ? caregiverEmail.trim().toLowerCase() : null;
+      const completionRecord = {
+        id: 'comp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        elderId: cleanElderId,
+        caregiverEmail: cleanCgEmail,
+        reminderId,
+        title: toggledItem.title,
+        scheduledTime: toggledItem.scheduledTime,
+        takenAt: toggledItem.takenAt,
+        takenDate: toggledItem.takenDate,
+        timestamp: new Date().toISOString(),
+      };
+      if (cleanElderId) {
+        if (!store.routineCompletions[cleanElderId]) store.routineCompletions[cleanElderId] = [];
+        store.routineCompletions[cleanElderId].unshift(completionRecord);
+      }
+      if (cleanCgEmail) {
+        if (!store.routineCompletions[cleanCgEmail]) store.routineCompletions[cleanCgEmail] = [];
+        store.routineCompletions[cleanCgEmail].unshift(completionRecord);
+      }
+      writeLocalStore(store);
+    } catch (e) {
+      console.warn('Error recording routine completion:', e);
+    }
+  }
+
   return saveRemindersToDb({ elderId, caregiverEmail, medicines: list });
 }

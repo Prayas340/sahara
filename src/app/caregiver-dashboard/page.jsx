@@ -196,6 +196,10 @@ export default function CaregiverDashboardPage() {
       }
     };
 
+    // Store elderId/email for score and reminder refreshes
+    let _elderId = curUser?.linkedElder?.id || curUser?.linkedElder?.phone || curUser?.linkedElder?.email || null;
+    let _caregiverEmail = curUser?.email || null;
+
     // Fetch fresh scores from server DB and update analytics
     const fetchServerScores = (elderId, caregiverEmail) => {
       if (!elderId && !caregiverEmail) return;
@@ -214,9 +218,20 @@ export default function CaregiverDashboardPage() {
         });
     };
 
-    // Store elderId/email for score refreshes
-    let _elderId = null;
-    let _caregiverEmail = curUser?.email || null;
+    // Fetch fresh reminders and routines from server DB
+    const fetchServerReminders = (elderId, caregiverEmail) => {
+      if (!elderId && !caregiverEmail) return;
+      fetch(`/api/reminders?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}`)
+        .then(r => r.json())
+        .then(rData => {
+          if (rData?.success && rData?.medicines) {
+            dataStore.state.medicines = rData.medicines;
+            dataStore.saveState();
+            setMedicines([...rData.medicines]);
+          }
+        })
+        .catch(() => {});
+    };
 
     // On game score change, re-fetch from server for real data
     const onGameScoreChange = () => {
@@ -224,17 +239,24 @@ export default function CaregiverDashboardPage() {
       fetchServerScores(_elderId, _caregiverEmail);
     };
 
+    // On medicines change event, sync and re-fetch from server
+    const onMedicinesChange = () => {
+      syncData();
+      fetchServerReminders(_elderId, _caregiverEmail);
+    };
+
     window.addEventListener('sahara:datastore-change', syncData);
     window.addEventListener('sahara:auth-change', syncData);
     window.addEventListener('sahara:game-score-change', onGameScoreChange);
-    window.addEventListener('sahara:medicines-change', syncData);
+    window.addEventListener('sahara:medicines-change', onMedicinesChange);
 
-    // Poll scores from server every 30 seconds for cross-device sync
+    // Poll scores and routine completions from server every 15 seconds for real-time cross-device sync
     const pollInterval = setInterval(() => {
       if (_elderId || _caregiverEmail) {
         fetchServerScores(_elderId, _caregiverEmail);
+        fetchServerReminders(_elderId, _caregiverEmail);
       }
-    }, 30000);
+    }, 15000);
 
     // Read initial tab from URL if present
     if (typeof window !== 'undefined') {
@@ -248,14 +270,15 @@ export default function CaregiverDashboardPage() {
     // Set _elderId after sync resolves (via closure ref)
     setTimeout(() => {
       const storedPatient = dataStore.state?.patient;
-      _elderId = storedPatient?.id || storedPatient?.phone || storedPatient?.email || null;
+      const resolved = storedPatient?.id || storedPatient?.phone || storedPatient?.email;
+      if (resolved) _elderId = resolved;
     }, 2000);
 
     return () => {
       window.removeEventListener('sahara:datastore-change', syncData);
       window.removeEventListener('sahara:auth-change', syncData);
       window.removeEventListener('sahara:game-score-change', onGameScoreChange);
-      window.removeEventListener('sahara:medicines-change', syncData);
+      window.removeEventListener('sahara:medicines-change', onMedicinesChange);
       clearInterval(pollInterval);
     };
   }, [router]);

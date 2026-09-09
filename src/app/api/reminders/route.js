@@ -24,7 +24,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { action, elderId, caregiverEmail, reminder, reminderId, medicines, taken, takenAt } = body;
+    const { action, elderId, caregiverEmail, reminder, reminderId, medicines, taken, takenAt, takenDate } = body;
 
     let result;
     if (action === 'add' && reminder) {
@@ -32,7 +32,7 @@ export async function POST(request) {
     } else if (action === 'delete' && reminderId) {
       result = await deleteReminderFromDb({ elderId, caregiverEmail, reminderId });
     } else if (action === 'toggle' && reminderId) {
-      result = await toggleReminderStatusInDb({ elderId, caregiverEmail, reminderId, taken, takenAt });
+      result = await toggleReminderStatusInDb({ elderId, caregiverEmail, reminderId, taken, takenAt, takenDate });
     } else if (medicines && Array.isArray(medicines)) {
       result = await saveRemindersToDb({ elderId, caregiverEmail, medicines });
     } else {
