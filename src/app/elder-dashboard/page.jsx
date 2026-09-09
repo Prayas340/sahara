@@ -129,18 +129,6 @@ export default function ElderDashboardPage() {
                 <p className="text-sm sm:text-base text-[#40493d] max-w-xl">
                   The morning air in {patient?.city || 'your area'} is calm and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.
                 </p>
-
-                <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3">
-                  <button
-                    onClick={handleListenPlan}
-                    type="button"
-                    className="btn-tactile btn-secondary flex items-center gap-2 min-h-[48px] px-5 bg-[#d3f8d0] hover:bg-[#cdf2cb] text-[#0d631b] text-sm sm:text-base rounded-full shadow-sm cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-2xl text-[#0d631b] animate-pulse">volume_up</span>
-                    <span>Listen to Today&apos;s Plan</span>
-                    <span className="text-xs opacity-75">(Suniyé)</span>
-                  </button>
-                </div>
               </div>
             </div>
           </div>

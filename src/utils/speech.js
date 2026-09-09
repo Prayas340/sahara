@@ -1,27 +1,10 @@
-// Sahara Voice Guidance & Speech Synthesis Utility
+// Sahara Voice Guidance & Speech Synthesis Utility (Disabled as requested)
 
 let currentSpeechUtterance = null;
 
 export function speakText(text, lang = 'en-IN') {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    console.warn('Speech synthesis not supported in this environment.');
-    return;
-  }
-
-  try {
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    // Warm, slow, gentle pace for elderly comfort (0.85x)
-    utterance.rate = 0.85;
-    utterance.pitch = 1.0;
-    utterance.lang = lang;
-
-    currentSpeechUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.warn('Speech synthesis error:', err);
-  }
+  // Voice guidance disabled across portals
+  return;
 }
 
 export function stopSpeech() {

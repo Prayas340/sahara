@@ -120,14 +120,6 @@ export default function MemoryMatchGamePage() {
                 <span className="material-symbols-outlined text-[#006e1c] text-lg">spa</span>
                 <span className="text-xs sm:text-sm font-semibold text-[#032109]">Pace: Gentle & Free</span>
               </div>
-              <button
-                onClick={handleVoiceGuide}
-                className="btn-tactile btn-primary inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-bold shadow-sm cursor-pointer"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-xl">volume_up</span>
-                <span>Voice Guide</span>
-              </button>
             </div>
           </div>
 

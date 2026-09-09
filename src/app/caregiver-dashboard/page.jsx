@@ -719,22 +719,10 @@ export default function CaregiverDashboardPage() {
                   <button
                     onClick={() => showToast('Opening Memory Deck Photo Uploader...', 'info')}
                     type="button"
-                    className="btn-tactile btn-secondary flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-white text-[#0d631b] border border-[#cdf2cb] cursor-pointer"
+                    className="btn-tactile btn-primary flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-lg">add_photo_alternate</span>
                     <span>Add New Photo Memory</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const msg = "Playing voice guidance: Tap two matching cards gently to discover familiar treasures.";
-                      speakText(msg);
-                      showToast('🔊 ' + msg, 'info');
-                    }}
-                    type="button"
-                    className="btn-tactile btn-primary flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-lg">volume_up</span>
-                    <span>Play Voice Guidance</span>
                   </button>
                 </div>
               </div>

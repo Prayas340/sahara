@@ -61,19 +61,6 @@ export function renderElderDashboard(onNavigate) {
                 <p class="text-sm sm:text-base text-[#40493d] max-w-xl">
                   The morning air in the tea hills is crisp and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.
                 </p>
-
-                <!-- Voice Guidance Hero Button -->
-                <div class="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3">
-                  <button 
-                    class="btn-tactile btn-secondary flex items-center gap-2 min-h-[48px] px-5 bg-[#d3f8d0] hover:bg-[#cdf2cb] text-[#0d631b] text-sm sm:text-base rounded-full shadow-sm" 
-                    id="elder-listen-plan-btn" 
-                    type="button"
-                  >
-                    <span class="material-symbols-outlined text-2xl text-[#0d631b] animate-pulse">volume_up</span>
-                    <span>Listen to Today's Plan</span>
-                    <span class="text-xs opacity-75">(Suniyé)</span>
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -253,14 +240,6 @@ export function renderElderDashboard(onNavigate) {
 
   // Attach event handlers
   setTimeout(() => {
-    // Listen to Today's Plan
-    document.getElementById('elder-listen-plan-btn')?.addEventListener('click', () => {
-      const todayDay = new Intl.DateTimeFormat('en-IN', { weekday: 'long' }).format(new Date());
-      const planText = `Good morning ${displayHonorific}. Today is ${todayDay}. After your warm chai, please remember your blood pressure medicine. Then at 10 AM, we will enjoy a gentle 5 minute memory game together.`;
-      speakText(planText);
-      showToast(`🔊 Reading Today's Plan for ${displayHonorific}...`, 'info', 6000);
-    });
-
     // Listen to Medicine Instructions
     document.getElementById('elder-listen-med-btn')?.addEventListener('click', () => {
       const medText = morningMed.instruction;

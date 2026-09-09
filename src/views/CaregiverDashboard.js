@@ -454,20 +454,12 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
 
                 <div class="flex items-center gap-3 shrink-0 flex-wrap">
                   <button 
-                    class="btn-tactile btn-secondary flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-white text-[#0d631b] border border-[#cdf2cb] cursor-pointer"
+                    class="btn-tactile btn-primary flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
                     id="memories-add-photo-btn"
                     type="button"
                   >
                     <span class="material-symbols-outlined text-lg">add_photo_alternate</span>
                     <span>Add New Photo Memory</span>
-                  </button>
-                  <button 
-                    class="btn-tactile btn-primary flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-md cursor-pointer"
-                    id="memories-voice-guide-btn"
-                    type="button"
-                  >
-                    <span class="material-symbols-outlined text-lg">volume_up</span>
-                    <span>Play Voice Guidance</span>
                   </button>
                 </div>
               </div>
@@ -873,11 +865,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
     });
     document.getElementById('memories-add-photo-btn')?.addEventListener('click', () => {
       showToast('Opening Memory Deck Uploader...', 'info');
-    });
-    document.getElementById('memories-voice-guide-btn')?.addEventListener('click', () => {
-      const guide = "Playing voice guidance: Tap two matching cards gently to discover familiar memories.";
-      speakText(guide);
-      showToast('🔊 ' + guide, 'info');
     });
 
     // Emergency Alerts

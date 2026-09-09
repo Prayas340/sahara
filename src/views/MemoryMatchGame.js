@@ -64,14 +64,6 @@ export function renderMemoryMatchGame(onNavigate) {
                 <span class="material-symbols-outlined text-[#006e1c] text-lg" style="font-variation-settings: 'FILL' 1;">spa</span>
                 <span class="text-xs sm:text-sm font-semibold text-[#032109]">Pace: Gentle & Free</span>
               </div>
-              <button 
-                class="btn-tactile btn-primary inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-bold shadow-sm cursor-pointer" 
-                id="game-voice-guide-btn" 
-                type="button"
-              >
-                <span class="material-symbols-outlined text-xl">volume_up</span>
-                <span>Voice Guide</span>
-              </button>
             </div>
           </div>
 
@@ -173,12 +165,6 @@ export function renderMemoryMatchGame(onNavigate) {
   // Attach event handlers
   setTimeout(() => {
     document.getElementById('game-back-home-btn')?.addEventListener('click', () => onNavigate('elder-dashboard'));
-
-    document.getElementById('game-voice-guide-btn')?.addEventListener('click', () => {
-      const guideText = "Welcome to Memory Match. Tap any two cards to gently turn them over and find the familiar matching treasures. There is no rush.";
-      speakText(guideText);
-      showToast('🔊 Voice Guide: ' + guideText, 'info', 6000);
-    });
 
     let flippedIndices = [];
     const cardSlots = document.querySelectorAll('.game-card-slot');
