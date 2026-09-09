@@ -569,34 +569,47 @@ export async function saveGameScoreToDb(scoreData) {
   const dateStr = scoreData.date || getLocalDateString();
   const timestamp = scoreData.timestamp || new Date().toISOString();
 
+  const scoreVal = typeof scoreData.score === 'number' ? scoreData.score : (Number(scoreData.score) || 0);
+
   const record = {
     id,
     elderId,
     caregiverEmail: caregiverEmail || '',
-    score: Number(scoreData.score) || 275,
-    moves: Number(scoreData.moves) || 6,
+    score: scoreVal,
+    moves: Number(scoreData.moves) || 3,
     matchedPairs: Number(scoreData.matchedPairs) || 3,
     accuracy: Number(scoreData.accuracy) || 100,
-    durationSeconds: Number(scoreData.durationSeconds) || 45,
+    durationSeconds: Number(scoreData.durationSeconds) || 30,
     date: dateStr,
     timestamp,
-    status: scoreData.status || 'Excellent Recall',
+    status: scoreData.status || (Number(scoreData.accuracy) >= 90 ? 'High Focus' : 'Steady Recall'),
+  };
+
+  const addUnique = (list, item) => {
+    // Avoid duplicate records within 3 seconds for same elder
+    const isDuplicate = list.some(existing => 
+      existing.id === item.id || 
+      (existing.timestamp && item.timestamp && Math.abs(new Date(existing.timestamp).getTime() - new Date(item.timestamp).getTime()) < 3000 && existing.score === item.score)
+    );
+    if (!isDuplicate) {
+      list.unshift(item);
+    }
   };
 
   // Index by elderId (normalized)
   if (!store.gameScores[elderId]) store.gameScores[elderId] = [];
-  store.gameScores[elderId].unshift(record);
+  addUnique(store.gameScores[elderId], record);
 
   // Also index by raw elderId if different
   if (scoreData.elderId && scoreData.elderId !== elderId) {
     if (!store.gameScores[scoreData.elderId]) store.gameScores[scoreData.elderId] = [];
-    store.gameScores[scoreData.elderId].unshift(record);
+    addUnique(store.gameScores[scoreData.elderId], record);
   }
 
   // Also index by caregiverEmail if available
   if (caregiverEmail) {
     if (!store.gameScores[caregiverEmail]) store.gameScores[caregiverEmail] = [];
-    store.gameScores[caregiverEmail].unshift(record);
+    addUnique(store.gameScores[caregiverEmail], record);
   }
 
   writeLocalStore(store);
@@ -620,39 +633,50 @@ export async function getGameScoresFromDb(args) {
   }
 
   const store = readLocalStore();
-  let scores = [];
+  let rawScores = [];
 
   if (elderId) {
     const cleanId = normalizeIdentifier(elderId);
     if (store.gameScores?.[cleanId] && store.gameScores[cleanId].length > 0) {
-      scores = store.gameScores[cleanId];
+      rawScores = store.gameScores[cleanId];
     } else if (store.gameScores?.[elderId] && store.gameScores[elderId].length > 0) {
-      scores = store.gameScores[elderId];
+      rawScores = store.gameScores[elderId];
     }
   }
 
-  if (scores.length === 0 && caregiverEmail) {
+  if (rawScores.length === 0 && caregiverEmail) {
     const cleanCg = caregiverEmail.trim().toLowerCase();
     if (store.gameScores?.[cleanCg] && store.gameScores[cleanCg].length > 0) {
-      scores = store.gameScores[cleanCg];
+      rawScores = store.gameScores[cleanCg];
     } else {
       const cg = store.caregivers?.[cleanCg];
       if (cg?.elderId) {
         if (store.gameScores?.[cg.elderId] && store.gameScores[cg.elderId].length > 0) {
-          scores = store.gameScores[cg.elderId];
+          rawScores = store.gameScores[cg.elderId];
         } else if (store.gameScores?.[normalizeIdentifier(cg.elderId)] && store.gameScores[normalizeIdentifier(cg.elderId)].length > 0) {
-          scores = store.gameScores[normalizeIdentifier(cg.elderId)];
+          rawScores = store.gameScores[normalizeIdentifier(cg.elderId)];
         }
       }
     }
   }
 
   // If still empty and elderId is known, check if elder has a linked caregiver
-  if (scores.length === 0 && elderId) {
+  if (rawScores.length === 0 && elderId) {
     const cleanId = normalizeIdentifier(elderId);
     const elder = store.elders?.[cleanId] || store.elders?.[elderId] || findElderInDb(cleanId) || findElderInDb(elderId);
     if (elder?.caregiverEmail && store.gameScores?.[elder.caregiverEmail.trim().toLowerCase()]) {
-      scores = store.gameScores[elder.caregiverEmail.trim().toLowerCase()];
+      rawScores = store.gameScores[elder.caregiverEmail.trim().toLowerCase()];
+    }
+  }
+
+  // Deduplicate raw scores by id
+  const seenScoreIds = new Set();
+  const scores = [];
+  for (const s of rawScores) {
+    const sKey = s.id || `${s.date}_${s.timestamp}_${s.score}`;
+    if (!seenScoreIds.has(sKey)) {
+      seenScoreIds.add(sKey);
+      scores.push(s);
     }
   }
 
@@ -671,7 +695,7 @@ export async function getGameScoresFromDb(args) {
     return false;
   });
 
-  const todayTotalScore = todayScores.reduce((sum, s) => sum + s.score, 0);
+  const todayTotalScore = todayScores.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
   const todayAvgScore = todayScores.length > 0 ? Math.round(todayTotalScore / todayScores.length) : 0;
 
   // Last 7 days breakdown in local timezone
@@ -697,7 +721,7 @@ export async function getGameScoresFromDb(args) {
       return false;
     });
 
-    const dayScore = dayRecords.reduce((sum, s) => sum + s.score, 0);
+    const dayScore = dayRecords.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
     const sessions = dayRecords.length;
     weeklyTotalScore += dayScore;
     weeklySessionsCount += sessions;
@@ -716,8 +740,12 @@ export async function getGameScoresFromDb(args) {
 
   const hasScores = scores.length > 0;
   const avgAccuracy = hasScores
-    ? Math.round(scores.reduce((sum, s) => sum + (s.accuracy || 100), 0) / scores.length)
+    ? Math.round(scores.reduce((sum, s) => sum + (Number(s.accuracy) || 100), 0) / scores.length)
     : 0;
+
+  const stabilityRating = hasScores
+    ? (avgAccuracy >= 90 ? `High Recall (${avgAccuracy}%)` : avgAccuracy >= 75 ? `Steady Recall (${avgAccuracy}%)` : `Moderate (${avgAccuracy}%)`)
+    : 'Awaiting First Game';
 
   return {
     success: true,
@@ -730,11 +758,31 @@ export async function getGameScoresFromDb(args) {
       weeklySessions: weeklySessionsCount,
       weeklyAvgDailyScore: Math.round(weeklyTotalScore / 7),
       avgAccuracy,
-      cognitiveStability: hasScores ? (avgAccuracy >= 85 ? 'High Recall (96%)' : 'Steady Recall') : 'Awaiting First Game',
+      averageAccuracy: avgAccuracy,
+      cognitiveStability: stabilityRating,
+      stabilityRating,
       last7Days,
       weeklyTrend: last7Days,
     }
   };
+}
+
+/**
+ * Clear game scores from database
+ */
+export async function clearGameScoresFromDb({ elderId, caregiverEmail }) {
+  const store = readLocalStore();
+  if (!store.gameScores) store.gameScores = {};
+  if (elderId) {
+    const cleanId = normalizeIdentifier(elderId);
+    delete store.gameScores[cleanId];
+    delete store.gameScores[elderId];
+  }
+  if (caregiverEmail) {
+    delete store.gameScores[caregiverEmail.trim().toLowerCase()];
+  }
+  writeLocalStore(store);
+  return { success: true, message: 'Game scores reset successfully' };
 }
 
 /**

@@ -61,6 +61,14 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             <span className="material-symbols-outlined text-xl">contact_phone</span>
             <span>{t.tabContacts || 'Family Contact'}</span>
           </button>
+          <button
+            type="button"
+            className={getMobileTabClass('report')}
+            onClick={() => onSelectTab('report')}
+          >
+            <span className="material-symbols-outlined text-xl">summarize</span>
+            <span>{t.tabReport || 'Report'}</span>
+          </button>
         </div>
       </div>
 
@@ -123,6 +131,14 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           >
             <span className="material-symbols-outlined text-2xl">contact_phone</span>
             <span>{t.tabContacts || 'Family Contact'}</span>
+          </button>
+          <button
+            type="button"
+            className={getSidebarLinkClass('report')}
+            onClick={() => onSelectTab('report')}
+          >
+            <span className="material-symbols-outlined text-2xl">summarize</span>
+            <span>{t.tabReport || 'AI Report Generator'}</span>
           </button>
         </nav>
       </aside>

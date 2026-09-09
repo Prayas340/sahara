@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar.jsx';
 import { authService } from '../../services/authService.js';
@@ -108,6 +108,7 @@ export default function MemoryMatchGamePage() {
   const [lastScoreEarned, setLastScoreEarned] = useState(275);
   const [lastAccuracy, setLastAccuracy] = useState(100);
   const [startTime, setStartTime] = useState(null);
+  const isRecordingRef = useRef(false);
 
   const shufflePool = () => {
     return generateRandomRoundCards();
@@ -145,10 +146,19 @@ export default function MemoryMatchGamePage() {
         // Check if all cards are matched
         const allMatched = newCards.every((c) => c.matched);
         if (allMatched) {
-          const duration = startTime ? Math.max(10, Math.round((Date.now() - startTime) / 1000)) : 30;
+          if (isRecordingRef.current) return;
+          isRecordingRef.current = true;
+
+          const duration = startTime ? Math.max(5, Math.round((Date.now() - startTime) / 1000)) : 25;
           const accuracy = Math.min(100, Math.round((3 / Math.max(3, updatedMoves)) * 100));
-          // Exactly 275 points awarded per completed round as required
-          const score = 275;
+          
+          // Actual game score based on real player moves:
+          // 3 moves (100% Recall) = 300 pts
+          // 4 moves (75% Recall)  = 275 pts
+          // 5 moves (60% Recall)  = 250 pts
+          // 6 moves (50% Recall)  = 225 pts
+          // Deducts 25 pts per extra move, minimum 100 pts.
+          const score = Math.max(100, 300 - Math.max(0, updatedMoves - 3) * 25);
           
           setLastScoreEarned(score);
           setLastAccuracy(accuracy);
@@ -164,6 +174,7 @@ export default function MemoryMatchGamePage() {
             const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
             const elderRef = doc(db, 'elders', cleanElderId);
             const gameEntry = {
+              id: `game_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
               gameName: 'Memory Match - Familiar Treasures',
               score,
               moves: updatedMoves,
@@ -173,7 +184,7 @@ export default function MemoryMatchGamePage() {
               completedAt: new Date().toISOString(),
             };
 
-            // Atomically increment gameSessions, gameScore (+275 pts), append to gamesHistory, and record serverTimestamp
+            // Atomically increment gameSessions, gameScore, append to gamesHistory
             setDoc(dailyLogRef, {
               gameSessions: increment(1),
               gameScore: increment(score),
@@ -196,7 +207,7 @@ export default function MemoryMatchGamePage() {
             }, { merge: true }).catch(() => {});
           }
 
-          // 2. Local state & DataStore update
+          // 2. Local state & DataStore update (skip duplicate server post)
           dataStore.incrementGamesCount?.();
           dataStore.recordGameScore?.({
             score,
@@ -207,9 +218,10 @@ export default function MemoryMatchGamePage() {
             date: todayDate,
             elderId,
             caregiverEmail,
+            skipServerPersist: true,
           });
 
-          // 3. Direct server DB persistence
+          // 3. Direct server DB persistence (single authoritative call)
           fetch('/api/game-scores', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -263,6 +275,7 @@ export default function MemoryMatchGamePage() {
   };
 
   const handleReplay = () => {
+    isRecordingRef.current = false;
     const shuffled = shufflePool();
     setCards(shuffled);
     setFlippedIndices([]);

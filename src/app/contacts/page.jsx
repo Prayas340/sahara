@@ -193,12 +193,10 @@ export default function ContactsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <div className="relative shrink-0">
-                        <img
-                          className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl object-cover border border-[#cdf2cb] bg-white shadow-sm"
-                          src={contact.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80'}
-                          alt={contact.name}
-                        />
-                        <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#006e1c] border-2 border-white"></span>
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-[#0d631b] to-[#006e1c] text-white flex items-center justify-center font-extrabold text-xl shadow-sm border border-[#cdf2cb]">
+                          {contact.name ? contact.name.trim().charAt(0).toUpperCase() : 'C'}
+                        </div>
+                        <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#006e1c] border-2 border-white"></span>
                       </div>
                       <div>
                         <span className="text-xs font-bold text-[#0d631b] uppercase tracking-wider block">

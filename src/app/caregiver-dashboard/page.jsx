@@ -24,7 +24,7 @@ export default function CaregiverDashboardPage() {
   const router = useRouter();
   const { t, lang } = useTranslation();
   const fileInputRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'memories' | 'routine' | 'contacts'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'memories' | 'routine' | 'contacts' | 'report'
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [patient, setPatient] = useState(null);
   const [caregiver, setCaregiver] = useState(null);
@@ -38,6 +38,11 @@ export default function CaregiverDashboardPage() {
   const [contactToEdit, setContactToEdit] = useState(null);
   const [isSafeMessageModalOpen, setIsSafeMessageModalOpen] = useState(false);
   const [activeSosAlert, setActiveSosAlert] = useState(null);
+
+  // AI Clinical Report State
+  const [aiReportData, setAiReportData] = useState(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
@@ -141,18 +146,30 @@ export default function CaregiverDashboardPage() {
           try {
             if (docSnap.exists()) {
               const data = docSnap.data() || {};
-              const sessions = typeof data.gameSessions === 'number' ? data.gameSessions : 0;
-              const score = typeof data.gameScore === 'number' ? data.gameScore : 0;
-              if (sessions > 0) setTodayGameSessions(prev => Math.max(prev, sessions));
-              if (score > 0) setTodayGameScore(prev => Math.max(prev, score));
-
               const history = Array.isArray(data.gamesHistory) ? data.gamesHistory : [];
+              const sessions = typeof data.gameSessions === 'number' ? data.gameSessions : history.length;
+              const score = typeof data.gameScore === 'number' ? data.gameScore : history.reduce((sum, g) => sum + (Number(g.score) || 0), 0);
+              
+              setTodayGameSessions(sessions);
+              setTodayGameScore(score);
+
+              const historyAcc = history.length > 0 
+                ? Math.round(history.reduce((sum, g) => sum + (Number(g.accuracy) || 100), 0) / history.length)
+                : 0;
+              const stability = history.length > 0 
+                ? (historyAcc >= 90 ? `High Recall (${historyAcc}%)` : historyAcc >= 75 ? `Steady Recall (${historyAcc}%)` : `Moderate (${historyAcc}%)`)
+                : (sessions > 0 ? 'Steady Recall' : 'Awaiting Game Today');
+
               setGameAnalytics(prev => ({
                 ...prev,
-                todaySessions: Math.max(sessions, prev?.todaySessions || 0),
-                todayScore: Math.max(score, prev?.todayScore || 0),
-                sessions: history.length > 0 ? history : (prev?.sessions || []),
-                recentScores: history.length > 0 ? history : (prev?.recentScores || []),
+                todaySessions: sessions,
+                todayScore: score,
+                averageAccuracy: historyAcc,
+                avgAccuracy: historyAcc,
+                stabilityRating: stability,
+                cognitiveStability: stability,
+                sessions: history,
+                recentScores: history,
               }));
 
               const list = data.medications || data.routines;
@@ -264,22 +281,22 @@ export default function CaregiverDashboardPage() {
               setGameAnalytics(sData.analytics);
               const tSessions = Number(sData.analytics.todaySessions) || 0;
               const tScore = Number(sData.analytics.todayScore) || 0;
-              if (tSessions > 0) setTodayGameSessions(prev => Math.max(prev, tSessions));
-              if (tScore > 0) setTodayGameScore(prev => Math.max(prev, tScore));
+              setTodayGameSessions(tSessions);
+              setTodayGameScore(tScore);
             }
           } else if (dataStore.getGameAnalytics) {
             const ga = dataStore.getGameAnalytics();
             setGameAnalytics(ga);
-            if (ga?.todaySessions > 0) setTodayGameSessions(prev => Math.max(prev, ga.todaySessions));
-            if (ga?.todayScore > 0) setTodayGameScore(prev => Math.max(prev, ga.todayScore));
+            setTodayGameSessions(Number(ga?.todaySessions) || 0);
+            setTodayGameScore(Number(ga?.todayScore) || 0);
           }
         })
         .catch(() => {
           if (dataStore.getGameAnalytics) {
             const ga = dataStore.getGameAnalytics();
             setGameAnalytics(ga);
-            if (ga?.todaySessions > 0) setTodayGameSessions(prev => Math.max(prev, ga.todaySessions));
-            if (ga?.todayScore > 0) setTodayGameScore(prev => Math.max(prev, ga.todayScore));
+            setTodayGameSessions(Number(ga?.todaySessions) || 0);
+            setTodayGameScore(Number(ga?.todayScore) || 0);
           }
         });
     };
@@ -523,13 +540,147 @@ export default function CaregiverDashboardPage() {
   const takenCount = medicines.filter((m) => m.taken).length;
   const totalMeds = medicines.length;
   const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 0;
-  const displayTodaySessions = Math.max(todayGameSessions, gameAnalytics?.todaySessions || 0);
-  const displayTodayScore = Math.max(todayGameScore, gameAnalytics?.todayScore || 0);
-  const displayWeeklyScore = Math.max(gameAnalytics?.weeklyScore || 0, displayTodayScore);
+  const displayTodaySessions = typeof todayGameSessions === 'number' && todayGameSessions > 0
+    ? todayGameSessions
+    : (Number(gameAnalytics?.todaySessions) || 0);
+  const displayTodayScore = typeof todayGameScore === 'number' && todayGameScore > 0
+    ? todayGameScore
+    : (Number(gameAnalytics?.todayScore) || 0);
+  const displayWeeklyScore = (Number(gameAnalytics?.weeklyScore) || 0) > 0
+    ? Number(gameAnalytics.weeklyScore)
+    : displayTodayScore;
+
+  const handleResetScores = async () => {
+    try {
+      const elderId = patient?.id || patient?.phone || patient?.email;
+      const cgEmail = caregiver?.email;
+
+      // 1. Reset Server DB
+      await fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(cgEmail || '')}`, {
+        method: 'DELETE',
+      }).catch(() => {});
+
+      // 2. Reset Local DataStore
+      dataStore.clearGameScores?.();
+
+      // 3. Reset Firestore if available
+      if (db) {
+        const cleanElderId = normalizeElderId(elderId || '+919854012345');
+        const todayDate = getTodayDateString();
+        const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
+        const elderRef = doc(db, 'elders', cleanElderId);
+        await Promise.allSettled([
+          setDoc(dailyLogRef, { gameSessions: 0, gameScore: 0, gamesHistory: [] }, { merge: true }),
+          setDoc(elderRef, { todayGameScore: 0, todayGameSessions: 0, lastGameScore: 0 }, { merge: true }),
+        ]);
+      }
+
+      // 4. Update UI State
+      setTodayGameSessions(0);
+      setTodayGameScore(0);
+      setGameAnalytics({
+        todayScore: 0,
+        todaySessions: 0,
+        todayAvgScore: 0,
+        weeklyScore: 0,
+        weeklySessions: 0,
+        weeklyAvgDailyScore: 0,
+        avgAccuracy: 0,
+        averageAccuracy: 0,
+        cognitiveStability: 'Awaiting Game Today',
+        stabilityRating: 'Awaiting Game Today',
+        last7Days: [],
+        weeklyTrend: [],
+        sessions: [],
+        recentScores: [],
+      });
+
+      showToast('✓ Game scores reset to 0. Ready for new games!', 'success', 3000);
+    } catch (err) {
+      console.error('Reset scores error:', err);
+      showToast('Could not reset scores: ' + err.message, 'error', 3000);
+    }
+  };
 
   const handleSelectTab = (tab) => {
     setActiveTab(tab);
     window.history.replaceState(null, '', `/caregiver-dashboard?tab=${tab}`);
+    if (tab === 'report' && !aiReportData) {
+      handleGenerateReport();
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true);
+    try {
+      const res = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient: patient || {},
+          gameAnalytics: {
+            ...gameAnalytics,
+            todaySessions: todayGameSessions,
+            todayScore: todayGameScore,
+          },
+          medications: medicines || [],
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.data) {
+        setAiReportData(data.data);
+        showToast('✓ AI Clinical Report generated successfully!', 'success', 3000);
+      } else {
+        throw new Error(data.error || 'Failed to generate report');
+      }
+    } catch (err) {
+      console.error('Generate report error:', err);
+      showToast('Could not generate report: ' + err.message, 'error', 3000);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleDownloadPdfReport = async () => {
+    setIsDownloadingPdf(true);
+    showToast('Preparing downloadable PDF patient report...', 'info', 2500);
+    try {
+      const element = document.getElementById('printable-patient-report');
+      if (!element) {
+        window.print();
+        setIsDownloadingPdf(false);
+        return;
+      }
+
+      const { jsPDF } = await import('jspdf');
+      const html2canvas = (await import('html2canvas')).default;
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      const safePatientName = (patient?.name || 'Patient').replace(/\s+/g, '_');
+      const todayDateStr = getTodayDateString();
+      pdf.save(`Sahara_Clinical_Report_${safePatientName}_${todayDateStr}.pdf`);
+      showToast('✓ Patient Report PDF downloaded successfully!', 'success', 3500);
+    } catch (err) {
+      console.error('Download PDF error:', err);
+      showToast('Exporting via browser print dialog...', 'info', 3000);
+      window.print();
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const handleDeleteReminder = (reminderId, reminderTitle) => {
@@ -1052,6 +1203,18 @@ export default function CaregiverDashboardPage() {
                     {t.weeklyTrend || 'Daily and weekly memory game scores, pattern recognition recall, and cognitive stability tracking.'}
                   </p>
                 </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={handleResetScores}
+                    type="button"
+                    title="Reset today's score test data"
+                    className="btn-tactile bg-white hover:bg-red-50 text-red-700 border border-red-200 px-3.5 py-2 rounded-2xl text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <span className="material-symbols-outlined text-base">restart_alt</span>
+                    <span>Reset Scores</span>
+                  </button>
+                </div>
               </div>
 
               {/* 4 Analytics Summary Cards */}
@@ -1113,7 +1276,9 @@ export default function CaregiverDashboardPage() {
                   </div>
                   <div>
                     <span className="text-lg font-extrabold text-[#032109] block leading-tight">
-                      {gameAnalytics.stabilityRating || 'High Recall (96%)'}
+                      {displayTodaySessions > 0
+                        ? (gameAnalytics.stabilityRating || gameAnalytics.cognitiveStability || 'Steady Recall')
+                        : 'Awaiting Game Today'}
                     </span>
                     <p className="text-xs text-[#40493d] mt-1">Pattern retention & stability</p>
                   </div>
@@ -1134,7 +1299,9 @@ export default function CaregiverDashboardPage() {
                   </div>
                   <div>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-3xl font-extrabold text-[#032109]">{gameAnalytics.averageAccuracy || 94}%</span>
+                      <span className="text-3xl font-extrabold text-[#032109]">
+                        {displayTodaySessions > 0 ? (gameAnalytics.averageAccuracy ?? gameAnalytics.avgAccuracy ?? 0) : 0}%
+                      </span>
                     </div>
                     <p className="text-xs text-[#40493d] mt-1">Average familiar cards accuracy</p>
                   </div>
@@ -1558,11 +1725,9 @@ export default function CaregiverDashboardPage() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <img
-                              className="w-14 h-14 rounded-2xl object-cover border border-[#cdf2cb] bg-white shadow-xs shrink-0"
-                              src={c.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80'}
-                              alt={c.name}
-                            />
+                            <div className="w-12 h-12 rounded-2xl bg-[#006e1c] text-white font-extrabold text-lg flex items-center justify-center border border-[#cdf2cb] shadow-xs shrink-0">
+                              {c.name ? c.name.trim().charAt(0).toUpperCase() : 'C'}
+                            </div>
                             <div className="min-w-0">
                               <h4 className="text-base font-extrabold text-[#032109] truncate">{c.name}</h4>
                               <span className="px-2.5 py-0.5 rounded-full bg-[#d9fdd6] text-[#0c7521] text-xs font-bold inline-block mt-0.5 truncate max-w-full">
@@ -1626,6 +1791,261 @@ export default function CaregiverDashboardPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 4. AI REPORT GENERATOR TAB (Combined Games Score & Routine Completion Downloadable PDF) */}
+          {activeTab === 'report' && (
+            <div className="space-y-6">
+              {/* Report Action Header */}
+              <div className="card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#cdf2cb] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#d9fdd6] text-[#0d631b] text-xs font-bold uppercase tracking-wider mb-2">
+                    <span className="material-symbols-outlined text-base">clinical_notes</span>
+                    <span>AI Report Generator</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[#032109]">
+                    Patient Cognitive & Routine Clinical Report
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#40493d] mt-1">
+                    Combined daily intelligence correlating memory game metrics with routine compliance, formatted for doctors and families.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={handleGenerateReport}
+                    disabled={isGeneratingReport}
+                    type="button"
+                    className="btn-tactile inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white hover:bg-[#ebffe7] text-[#0d631b] border border-[#cdf2cb] text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-lg ${isGeneratingReport ? 'animate-spin' : ''}`}>
+                      {isGeneratingReport ? 'autorenew' : 'refresh'}
+                    </span>
+                    <span>{isGeneratingReport ? 'Analyzing Data...' : 'Refresh AI Analysis'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleDownloadPdfReport}
+                    disabled={isDownloadingPdf}
+                    type="button"
+                    className="btn-tactile btn-primary inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-xs sm:text-sm font-extrabold shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-xl">download</span>
+                    <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download PDF Report'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Printable PDF Canvas Container */}
+              <div
+                id="printable-patient-report"
+                className="bg-white rounded-3xl p-8 sm:p-12 shadow-xl border border-[#cdf2cb] text-[#032109] space-y-8 max-w-4xl mx-auto"
+              >
+                {/* Clinical Header */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b-2 border-[#0d631b] gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-14 h-14 rounded-2xl bg-[#006e1c] text-white flex items-center justify-center font-extrabold text-2xl shadow-sm">
+                      S
+                    </div>
+                    <div>
+                      <h1 className="text-2xl font-black text-[#032109] tracking-tight">SAHARA MEMORY CARE</h1>
+                      <p className="text-xs font-bold text-[#0d631b] uppercase tracking-wider">
+                        AI Report Generator · Cognitive & Routine Summary
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-left sm:text-right text-xs text-[#40493d] space-y-0.5">
+                    <p className="font-bold text-[#032109]">Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                    <p>Report ID: SHR-{Math.abs((patient?.phone || '12345').split('').reduce((a,b)=>a+b.charCodeAt(0),0))}-AI</p>
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#ebffe7] text-[#0d631b] font-bold text-[11px] border border-[#cdf2cb]">
+                      Status: {aiReportData?.overallStatusBadge || 'Stable Recall'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Patient Profile Card Strip */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-5 rounded-2xl bg-[#ebffe7]/60 border border-[#cdf2cb]">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#40493d] uppercase block">Patient Name</span>
+                    <p className="text-base font-extrabold text-[#032109] mt-0.5">{patient?.name || 'Elder Patient'}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-[#40493d] uppercase block">Care Mode</span>
+                    <p className="text-sm font-bold text-[#0d631b] mt-0.5">{patient?.status || 'Mild Cognitive Support'}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-[#40493d] uppercase block">Residence</span>
+                    <p className="text-sm font-semibold text-[#032109] mt-0.5">{patient?.city || 'Kolkata, India'}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-[#40493d] uppercase block">Caregiver Contact</span>
+                    <p className="text-sm font-semibold text-[#032109] mt-0.5 truncate">{caregiver?.name || caregiver?.email || 'Caregiver Linked'}</p>
+                  </div>
+                </div>
+
+                {/* KPI Metrics Dashboard Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Game Score KPI */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#cdf2cb] shadow-xs space-y-1">
+                    <div className="flex items-center justify-between text-xs text-[#40493d]">
+                      <span className="font-bold uppercase tracking-wider">Game Score</span>
+                      <span className="material-symbols-outlined text-[#0d631b] text-base">extension</span>
+                    </div>
+                    <div className="text-3xl font-black text-[#032109]">{todayGameScore} <span className="text-xs font-semibold text-[#40493d]">pts</span></div>
+                    <p className="text-xs text-[#0d631b] font-bold">
+                      {todayGameSessions > 0 ? `${todayGameSessions} session(s) completed today` : '0 sessions played today'}
+                    </p>
+                  </div>
+
+                  {/* Recall Stability */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#cdf2cb] shadow-xs space-y-1">
+                    <div className="flex items-center justify-between text-xs text-[#40493d]">
+                      <span className="font-bold uppercase tracking-wider">Cognitive Stability</span>
+                      <span className="material-symbols-outlined text-[#0d631b] text-base">psychology</span>
+                    </div>
+                    <div className="text-2xl font-black text-[#032109] truncate">
+                      {gameAnalytics.stabilityRating || (todayGameSessions > 0 ? 'Steady Recall' : 'Awaiting Game')}
+                    </div>
+                    <p className="text-xs text-[#40493d]">
+                      Avg accuracy: <span className="font-bold text-[#0d631b]">{gameAnalytics.averageAccuracy ?? gameAnalytics.avgAccuracy ?? 0}%</span>
+                    </p>
+                  </div>
+
+                  {/* Routine Adherence */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#cdf2cb] shadow-xs space-y-1">
+                    <div className="flex items-center justify-between text-xs text-[#40493d]">
+                      <span className="font-bold uppercase tracking-wider">Routine Adherence</span>
+                      <span className="material-symbols-outlined text-[#0d631b] text-base">task_alt</span>
+                    </div>
+                    <div className="text-3xl font-black text-[#032109]">
+                      {medicines.length > 0 
+                        ? Math.round((medicines.filter(m => m.taken || m.completed).length / medicines.length) * 100) 
+                        : 100}%
+                    </div>
+                    <p className="text-xs text-[#0d631b] font-bold">
+                      {medicines.filter(m => m.taken || m.completed).length} of {medicines.length} completed
+                    </p>
+                  </div>
+                </div>
+
+                {/* AI Executive Clinical Summary */}
+                <div className="p-6 rounded-2xl bg-[#f7fdf7] border-l-4 border-[#0d631b] border-t border-r border-b border-[#cdf2cb] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#0d631b] text-xl">psychology_alt</span>
+                    <h3 className="text-base font-extrabold text-[#032109]">AI Clinical Executive Summary</h3>
+                  </div>
+                  <p className="text-sm text-[#40493d] leading-relaxed">
+                    {aiReportData?.executiveSummary || 
+                      'The patient maintained steady adherence to scheduled daily rhythms and memory wellness exercises. Cognitive response parameters and recall accuracy show continuous domestic stability.'}
+                  </p>
+                </div>
+
+                {/* Two-Column Deep Dive Analysis */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Cognitive Domain Analysis */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#cdf2cb] shadow-xs space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-[#ebffe7]">
+                      <span className="material-symbols-outlined text-[#0d631b] text-lg">memory</span>
+                      <h4 className="text-sm font-extrabold text-[#032109]">Cognitive Memory Analysis</h4>
+                    </div>
+                    <p className="text-xs text-[#40493d] leading-relaxed">
+                      {aiReportData?.cognitiveAssessment || 
+                        'Memory match exercises confirm intact visual pattern recognition with calm execution pacing. Moves-to-pairs ratio reflects attentive focus without signs of frustration or confusion.'}
+                    </p>
+                    <div className="pt-2 text-[11px] text-[#40493d] space-y-1">
+                      <div className="flex justify-between">
+                        <span>Today Sessions:</span>
+                        <span className="font-bold text-[#032109]">{todayGameSessions}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Score:</span>
+                        <span className="font-bold text-[#032109]">{todayGameScore} pts</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Weekly Daily Average:</span>
+                        <span className="font-bold text-[#032109]">{gameAnalytics.weeklyAvgDailyScore || 0} pts</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Routine & Medication Analysis */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#cdf2cb] shadow-xs space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-[#ebffe7]">
+                      <span className="material-symbols-outlined text-[#0d631b] text-lg">medication</span>
+                      <h4 className="text-sm font-extrabold text-[#032109]">Routine & Medication Adherence</h4>
+                    </div>
+                    <p className="text-xs text-[#40493d] leading-relaxed">
+                      {aiReportData?.routineAssessment || 
+                        'Pillbox and scheduled routine adherence remains robust. Prescribed morning and afternoon intervals were honored on schedule, reflecting calm compliance with family guidance.'}
+                    </p>
+                    <div className="pt-2 text-[11px] text-[#40493d] space-y-1">
+                      <div className="flex justify-between">
+                        <span>Completed Items:</span>
+                        <span className="font-bold text-[#032109]">{medicines.filter(m => m.taken || m.completed).length} / {medicines.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Adherence Score:</span>
+                        <span className="font-bold text-[#0d631b]">
+                          {medicines.length > 0 
+                            ? Math.round((medicines.filter(m => m.taken || m.completed).length / medicines.length) * 100) 
+                            : 100}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Observations & Recommendations */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Observations */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#0d631b] uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-base">visibility</span>
+                      Key Clinical Observations
+                    </h4>
+                    <ul className="space-y-2 text-xs text-[#40493d]">
+                      {(aiReportData?.keyObservations || [
+                        `Medication schedule has ${medicines.filter(m => m.taken || m.completed).length} of ${medicines.length} routines marked taken.`,
+                        `Visual memory game recorded ${todayGameScore} pts across ${todayGameSessions} session(s).`,
+                        `Live caregiver device sync maintains steady telemetry without alert dropoffs.`
+                      ]).map((obs, i) => (
+                        <li key={i} className="flex items-start gap-2 p-2.5 rounded-xl bg-[#ebffe7]/40 border border-[#cdf2cb]">
+                          <span className="material-symbols-outlined text-xs text-[#0d631b] mt-0.5">check</span>
+                          <span>{obs}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Recommendations */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#0d631b] uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-base">lightbulb</span>
+                      Caregiver Next Actions
+                    </h4>
+                    <ul className="space-y-2 text-xs text-[#40493d]">
+                      {(aiReportData?.recommendations || [
+                        'Continue morning warm hydration reminder alongside Donepezil regimen.',
+                        'Encourage a gentle 5-minute memory match play session in late afternoon.',
+                        'Maintain active WhatsApp touchpoints with linked loved ones.'
+                      ]).map((rec, i) => (
+                        <li key={i} className="flex items-start gap-2 p-2.5 rounded-xl bg-[#d9fdd6]/40 border border-[#cdf2cb]">
+                          <span className="material-symbols-outlined text-xs text-[#0d631b] mt-0.5">arrow_forward</span>
+                          <span>{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Footer Disclaimer */}
+                <div className="pt-6 border-t border-[#cdf2cb] flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#40493d] gap-2">
+                  <p>Generated by Sahara AI Report Generator · Confidential Medical & Caregiver Record</p>
+                  <p>© {new Date().getFullYear()} Sahara Memory Care. All rights reserved.</p>
+                </div>
+              </div>
             </div>
           )}
         </>

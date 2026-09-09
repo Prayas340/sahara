@@ -629,8 +629,8 @@ class DataStore {
       } catch (e) {}
     }
 
-    // Async persist to server database
-    if (elderId || caregiverEmail) {
+    // Async persist to server database (only if not handled by caller)
+    if (!scoreData.skipServerPersist && (elderId || caregiverEmail)) {
       fetch('/api/game-scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -644,6 +644,20 @@ class DataStore {
       window.dispatchEvent(new CustomEvent('sahara:game-score-change', { detail: { score: newScore, elderId, caregiverEmail } }));
     }
     return newScore;
+  }
+
+  clearGameScores() {
+    this.state.gameScores = [];
+    this.state.gamesPlayedCount = 0;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
+        localStorage.removeItem(`sahara_game_scores_${targetId}`);
+        localStorage.removeItem('sahara_game_scores');
+      } catch (e) {}
+    }
+    this.saveState();
+    this.notifyChange();
   }
 
   saveGameScores(scores) {
@@ -694,7 +708,7 @@ class DataStore {
       }
       return false;
     });
-    const todayTotalScore = todayScores.reduce((sum, s) => sum + s.score, 0);
+    const todayTotalScore = todayScores.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
 
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const last7Days = [];
@@ -720,7 +734,7 @@ class DataStore {
         return false;
       });
 
-      const dayScore = dayRecords.reduce((sum, s) => sum + s.score, 0);
+      const dayScore = dayRecords.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
       const sessions = dayRecords.length;
       weeklyTotalScore += dayScore;
       weeklySessions += sessions;
@@ -739,8 +753,12 @@ class DataStore {
 
     const hasScores = scores.length > 0;
     const avgAccuracy = hasScores
-      ? Math.round(scores.reduce((sum, s) => sum + (s.accuracy || 100), 0) / scores.length)
+      ? Math.round(scores.reduce((sum, s) => sum + (Number(s.accuracy) || 100), 0) / scores.length)
       : 0;
+
+    const stabilityRating = hasScores
+      ? (avgAccuracy >= 90 ? `High Recall (${avgAccuracy}%)` : avgAccuracy >= 75 ? `Steady Recall (${avgAccuracy}%)` : `Moderate (${avgAccuracy}%)`)
+      : 'Awaiting First Game';
 
     return {
       todayScore: todayTotalScore,
@@ -748,7 +766,9 @@ class DataStore {
       weeklyScore: weeklyTotalScore,
       weeklySessions,
       avgAccuracy,
-      cognitiveStability: hasScores ? (avgAccuracy >= 85 ? 'High Recall (96%)' : 'Steady Recall') : 'Awaiting First Game',
+      averageAccuracy: avgAccuracy,
+      cognitiveStability: stabilityRating,
+      stabilityRating,
       last7Days,
       weeklyTrend: last7Days,
       recentScores: scores.slice(0, 10),

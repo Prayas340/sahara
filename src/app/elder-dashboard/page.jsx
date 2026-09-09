@@ -711,10 +711,9 @@ Web3Forms Access Key: ${web3formsAccessKey}
 
       <main className="w-full pt-24 pb-28">
         <div className="w-full max-w-[68rem] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          {/* Top Section: Hero Greeting (Left) + Red SOS Button (Right in Encircled Area) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-            {/* Hero Greeting Section */}
-            <div className="lg:col-span-8 relative card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md overflow-hidden border border-[#cdf2cb] flex flex-col justify-between">
+          {/* Top Section: Hero Greeting (Full Width) */}
+          <div className="w-full">
+            <div className="relative card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-md overflow-hidden border border-[#cdf2cb] flex flex-col justify-between">
               <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-[#d9fdd6]/70 pointer-events-none blur-2xl"></div>
               <div className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full bg-[#ffdeaa]/40 pointer-events-none blur-2xl"></div>
 
@@ -768,68 +767,11 @@ Web3Forms Access Key: ${web3formsAccessKey}
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-[#032109] leading-tight">
                     {t.goodMorning || 'Good morning'}, {displayHonorific} <span className="inline-block hover:scale-110 transition-transform">🌿</span>
                   </h1>
-                  <p className="text-sm sm:text-base text-[#40493d] max-w-xl">
+                  <p className="text-sm sm:text-base text-[#40493d] max-w-2xl">
                     {t.elderGreetingDesc || `The morning air in ${patient?.city || 'your area'} is calm and fresh today. Take your time, sip warm water, and enjoy your quiet rhythm.`}
                   </p>
                 </div>
               </div>
-            </div>
-
-            {/* RED SOS BUTTON CARD - Positioned in the Encircled Area */}
-            <div className="lg:col-span-4 flex flex-col">
-              <button
-                onClick={handleOpenSosModal}
-                type="button"
-                id="elder-sos-button"
-                title="Tap to send emergency alert to caregiver"
-                className="card-tactile w-full h-full min-h-[200px] relative overflow-hidden bg-gradient-to-br from-[#e53935] via-[#d32f2f] to-[#b71c1c] rounded-3xl p-5 sm:p-6 shadow-[0_8px_0_#7f0000] hover:shadow-[0_4px_0_#7f0000] hover:translate-y-1 active:translate-y-2 active:shadow-none border-2 border-red-400/90 text-white flex flex-col justify-between transition-all cursor-pointer group text-left select-none"
-              >
-                {/* Pulsing Beacon Glow in background */}
-                <div className="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-red-400/30 blur-2xl pointer-events-none group-hover:scale-125 transition-transform"></div>
-
-                {/* Top: Emergency Beacon Pill & Radar Icon */}
-                <div className="flex items-center justify-between w-full">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/30 backdrop-blur-xs border border-white/30 text-white text-[11px] font-black uppercase tracking-wider shadow-inner">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-300"></span>
-                    </span>
-                    <span>EMERGENCY SOS</span>
-                  </span>
-                  <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
-                    <span className="material-symbols-outlined text-xl">e911_emergency</span>
-                  </span>
-                </div>
-
-                {/* Center: Tactile SOS Button Badge & Headline */}
-                <div className="my-auto py-2 flex items-center gap-4">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white text-[#d32f2f] flex items-center justify-center shadow-xl shrink-0 group-hover:scale-105 group-active:scale-95 transition-transform border-4 border-red-200">
-                    <span className="material-symbols-outlined text-4xl sm:text-5xl font-black">sos</span>
-                  </div>
-                  <div className="overflow-hidden">
-                    <div className="flex items-center gap-1">
-                      <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm leading-none">
-                        SOS HELP
-                      </h2>
-                      <span className="material-symbols-outlined text-yellow-300 text-2xl animate-pulse">priority_high</span>
-                    </div>
-                    <p className="text-xs sm:text-[13px] text-red-100 font-semibold mt-1 leading-snug">
-                      {sosStatus === 'sent' ? `✓ Alert sent at ${lastSosTime}` : 'Tap to alert caregiver immediately'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Bottom: Caregiver Recipient Email */}
-                <div className="w-full pt-2.5 border-t border-red-400/40 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 text-red-100 truncate pr-2 font-medium">
-                    <span className="material-symbols-outlined text-sm shrink-0">mail</span>
-                    <span className="truncate">Alerts: {caregiverEmail || patient?.caregiverEmail || 'prayasdey10@gmail.com'}</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-md bg-white/20 text-[10px] font-bold text-white uppercase shrink-0">
-                    1-Tap
-                  </span>
-                </div>
-              </button>
             </div>
           </div>
 
