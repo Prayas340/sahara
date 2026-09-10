@@ -1287,12 +1287,18 @@ export default function HomePage() {
 
                 {/* Password Requirement / Security Hints */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1.5 ${
                     cgPassword.length >= 6 ? 'bg-emerald-100 text-emerald-800' : 'bg-white/80 text-[#40493d] border border-[#cdf2cb]'
                   }`}>
-                    <span className="material-symbols-outlined text-xs">
-                      {cgPassword.length >= 6 ? 'check' : 'lock'}
-                    </span>
+                    {cgPassword.length >= 6 ? (
+                      <span className="material-symbols-outlined text-xs">check</span>
+                    ) : (
+                      <img
+                        src="/fingerprint-scan.gif"
+                        alt="Fingerprint Security Scan"
+                        className="w-3.5 h-3.5 object-contain inline-block"
+                      />
+                    )}
                     <span>Min 6 characters</span>
                   </span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
