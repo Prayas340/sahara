@@ -3,7 +3,7 @@ import { showToast } from '../utils/toast.js';
 
 export function renderCaregiverLogin(onNavigate) {
   const html = `
-    <div class="min-h-screen lg:h-screen lg:max-h-screen bg-[#ebffe7] flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-y-auto lg:overflow-hidden">
+    <div class="min-h-screen min-h-[100dvh] bg-[#ebffe7] flex items-center justify-center p-3 sm:p-4 lg:p-6 w-full">
       <main class="w-full max-w-lg lg:max-w-5xl xl:max-w-6xl mx-auto my-auto py-2 sm:py-4">
         
         <!-- Top Portal Switcher Bar -->

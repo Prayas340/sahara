@@ -81,7 +81,7 @@ export default function CaregiverLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ebffe7] flex items-center justify-center p-2.5 sm:p-4 lg:p-6 overflow-y-auto max-w-full">
+    <div className="min-h-screen min-h-[100dvh] bg-[#ebffe7] flex items-center justify-center p-2.5 sm:p-4 lg:p-6 w-full">
       <main className="w-full max-w-lg lg:max-w-5xl xl:max-w-6xl mx-auto my-auto py-2 sm:py-4">
         {/* Top Switcher Bar */}
         <div className="flex items-center justify-between mb-3 px-0.5">

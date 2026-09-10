@@ -5,7 +5,9 @@ import DevBadgeRemover from '../components/DevBadgeRemover.jsx';
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 5,
+  maximumScale: 1,
+  minimumScale: 1,
+  userScalable: false,
 };
 
 export const metadata = {

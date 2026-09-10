@@ -22,6 +22,30 @@ class SaharaApp {
   init() {
     initAccessibilitySettings();
 
+    // Lock mobile zoom (prevent pinch-to-zoom and double-tap zoom)
+    if (typeof window !== 'undefined') {
+      const preventGesture = (e) => e.preventDefault();
+      document.addEventListener('gesturestart', preventGesture, { passive: false });
+      document.addEventListener('gesturechange', preventGesture, { passive: false });
+      document.addEventListener('gestureend', preventGesture, { passive: false });
+      document.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length > 1) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      let lastTap = 0;
+      document.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTap <= 300) {
+          if (e.target && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+            e.preventDefault();
+          }
+        }
+        lastTap = now;
+      }, { passive: false });
+    }
+
     // Determine initial route based on session or hash
     const user = authService.getCurrentUser();
     const hash = window.location.hash.replace('#', '');

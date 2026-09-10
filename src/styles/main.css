@@ -13,12 +13,22 @@ html {
   color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: clip;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 body {
+  width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--color-background);
-  overscroll-behavior-y: none;
+  overflow-x: clip;
+  overflow-y: visible;
+  touch-action: pan-x pan-y;
 }
 
 /* Accessibility: Large Text Mode */

@@ -79,18 +79,24 @@ html {
   color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  max-width: 100vw;
-  overflow-x: hidden;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: clip;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 body {
+  width: 100%;
   min-height: 100vh;
-  max-width: 100vw;
-  overflow-x: hidden;
+  min-height: 100dvh;
   position: relative;
   background-color: var(--color-background);
   color: var(--color-on-surface);
-  overscroll-behavior-y: none;
+  overflow-x: clip;
+  overflow-y: visible;
+  touch-action: pan-x pan-y;
 }
 
 img,

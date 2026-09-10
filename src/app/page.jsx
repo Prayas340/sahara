@@ -468,7 +468,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ebffe7] flex items-center justify-center p-2.5 sm:p-4 lg:p-6 overflow-y-auto max-w-full">
+    <div className="min-h-screen min-h-[100dvh] bg-[#ebffe7] flex items-center justify-center p-2.5 sm:p-4 lg:p-6 w-full">
       {/* Firebase Phone Authentication Invisible reCAPTCHA Anchor */}
       <div id="recaptcha-container"></div>
 
