@@ -317,44 +317,68 @@ export function renderElderDashboard(onNavigate) {
   setTimeout(() => {
     // SOS Dispatch Handler
     const triggerSosDispatch = async () => {
-      const caregiverEmail = patient?.caregiverEmail || 'prayasdey10@gmail.com';
-      const caregiverName = patient?.caregiverName || 'Primary Caregiver';
-      const elderName = displayName || patient?.name || 'Asha Devi Borah';
-      const elderAge = patient?.age || 74;
-      const phone = patient?.phone || '+919854012345';
-      const location = patient?.location || (patient?.city ? `${patient.city}, ${patient.state || 'Assam'}` : 'Guwahati, Assam');
-      const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'full', timeStyle: 'medium' });
+      const caregiverEmail = patient?.caregiverEmail || 'sagnikrc1407@gmail.com';
+      const elderName = displayName || patient?.elderName || patient?.name || 'Prayas Dey';
+      const elderAge = patient?.age || '80';
+      const location = patient?.city ? `${patient.city}, ${patient.state || ''}` : (patient?.location || 'Guwahati, Assam');
+      const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
       showToast('🚨 Sending SOS to Caregiver...', 'warning', 3000);
-      speakText(`Sending emergency alert to ${caregiverName}.`);
+      speakText('Sending emergency alert to caregiver.');
 
-      const formFields = {
+      const payload = {
         access_key: '9f7c256e-6c1e-490c-8984-551b1097d7b2',
-        subject: `EMERGENCY ALERT: SOS Triggered by ${elderName}`,
-        from_name: 'Sahara Emergency Dispatch',
-        name: elderName,
+        from_name: 'Sahara Emergency System',
+        subject: `🚨 EMERGENCY SOS ALERT: Immediate Attention Needed for ${elderName}`,
+        name: 'Sahara Emergency Dispatcher',
         email: caregiverEmail,
-        to_email: caregiverEmail,
-        'Elder Name': elderName,
-        'Elder Age': String(elderAge),
-        'Location / City': location,
-        'Timestamp': timestamp,
-        'Urgent Message': `URGENT: ${elderName} (Age: ${elderAge}) pressed their Emergency SOS button on Sahara and requires immediate contact or assistance!`,
-        message: `EMERGENCY ALERT: ${elderName} (Age: ${elderAge}) pressed their Emergency SOS button from ${location} at ${timestamp}. Please call ${phone} immediately.`,
+        replyto: caregiverEmail,
+        message: `
+=====================================================
+🚨 EMERGENCY SOS TRIGGERED - IMMEDIATE ACTION REQUIRED
+=====================================================
+
+Elder Patient: ${elderName}
+Age: ${elderAge} years
+Current Registered Location: ${location}
+Triggered At: ${timestamp} IST
+Linked Caregiver Notification: ${caregiverEmail}
+
+Alert Details:
+The patient pressed the physical/digital Emergency SOS button on their Sahara Elder Sanctuary tablet. 
+Please reach out to the patient or emergency dispatch immediately.
+
+Direct Action Links:
+- Open Caregiver Portal: https://sahara-lac.vercel.app/caregiver-dashboard
+- Check Daily Vitals & Location: ${location}
+
+=====================================================
+Sent via Sahara Cognitive & Caregiver Companion
+=====================================================
+        `.trim()
       };
 
       try {
-        fetch('https://api.web3forms.com/submit', {
+        const response = await fetch('https://api.web3forms.com/submit', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify(formFields),
-        }).catch(() => {});
-      } catch (e) {}
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
 
-      setTimeout(() => {
-        showToast(`✅ Emergency Alert Sent to Caregiver (${caregiverEmail})!`, 'success', 8000);
-        speakText(`Emergency alert sent to ${caregiverName}. Help is on the way.`);
-      }, 1000);
+        const result = await response.json();
+        if (result.success) {
+          showToast(`✅ Emergency Alert Sent to Caregiver (${caregiverEmail})!`, 'success', 8000);
+          speakText('Emergency alert sent to caregiver. Help is on the way.');
+        } else {
+          throw new Error(result.message || 'Failed to dispatch SOS alert');
+        }
+      } catch (err) {
+        console.error('SOS Web3Forms error:', err);
+        showToast('⚠️ SOS Dispatch Failed: ' + (err.message || 'Network error'), 'error', 6000);
+      }
     };
 
     document.getElementById('elder-hero-sos-btn')?.addEventListener('click', triggerSosDispatch);

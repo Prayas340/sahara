@@ -466,284 +466,121 @@ export default function ElderDashboardPage() {
     setSosStatus('sending');
     setSosErrorMsg('');
 
-    const { cleanElderId, caregiverEmail: cgEmail, caregiverName: cgName, elderId: resElderId } = resolveElderAndCaregiver();
-    const effectiveCgEmail = caregiverEmail || patient?.caregiverEmail || cgEmail;
-
-    // Edge case handling: verify caregiver email is linked
-    if (!effectiveCgEmail || !effectiveCgEmail.includes('@')) {
-      setSosStatus('error');
-      const errText = 'No caregiver email address is linked to this elder profile. Please connect a caregiver in settings or call emergency services (112) immediately.';
-      setSosErrorMsg(errText);
-      speakText('No caregiver email is linked. Please call emergency services.');
-      showToast('⚠️ No caregiver email linked to this account!', 'error', 6000);
-      return;
-    }
-
-    const effectiveCgName = caregiverName || patient?.caregiverName || cgName || 'Primary Caregiver';
-    const elderName = displayName || patient?.name || activeUser?.name || 'Asha Devi Borah';
-    const elderAge = patient?.age || activeUser?.age || 74;
-    const phone = patient?.phone || resElderId || cleanElderId || '+919854012345';
-    const location = patient?.location || (patient?.city ? `${patient.city}, ${patient.state || 'Assam'}` : 'Guwahati, Assam');
-    const statusDesc = patient?.problemStatement || patient?.status || 'Active Memory Care Mode';
-
+    const { cleanElderId, caregiverEmail: cgEmail, elderId: resElderId } = resolveElderAndCaregiver();
+    const effectiveCgEmail = caregiverEmail || patient?.caregiverEmail || cgEmail || "sagnikrc1407@gmail.com";
+    const elderName = displayName || patient?.elderName || patient?.name || activeUser?.name || "Prayas Dey";
+    const elderAge = patient?.age || activeUser?.age || "80";
+    const location = patient?.city 
+      ? `${patient.city}, ${patient.state || ""}` 
+      : (patient?.location || "Guwahati, Assam");
     const exactTimestamp = new Date();
     const currentTimeStr = exactTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const fullDateStr = exactTimestamp.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      dateStyle: 'full',
-      timeStyle: 'medium',
-    });
+    const timestamp = exactTimestamp.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
-    const web3formsAccessKey = '9f7c256e-6c1e-490c-8984-551b1097d7b2';
-    const subjectLine = `EMERGENCY ALERT: SOS Triggered by ${elderName}`;
-    const urgentMessageBody = `URGENT: ${elderName} (Age: ${elderAge}) pressed their Emergency SOS button on Sahara and requires immediate contact or assistance!`;
+    const payload = {
+      access_key: "9f7c256e-6c1e-490c-8984-551b1097d7b2",
+      from_name: "Sahara Emergency System",
+      subject: `🚨 EMERGENCY SOS ALERT: Immediate Attention Needed for ${elderName}`,
+      name: "Sahara Emergency Dispatcher",
+      email: effectiveCgEmail,
+      replyto: effectiveCgEmail,
+      message: `
+=====================================================
+🚨 EMERGENCY SOS TRIGGERED - IMMEDIATE ACTION REQUIRED
+=====================================================
 
-    const warningTemplate = `
-============================================================
-🚨 EMERGENCY ALERT: SOS TRIGGERED BY ${elderName.toUpperCase()}
-============================================================
+Elder Patient: ${elderName}
+Age: ${elderAge} years
+Current Registered Location: ${location}
+Triggered At: ${timestamp} IST
+Linked Caregiver Notification: ${effectiveCgEmail}
 
-${urgentMessageBody}
+Alert Details:
+The patient pressed the physical/digital Emergency SOS button on their Sahara Elder Sanctuary tablet. 
+Please reach out to the patient or emergency dispatch immediately.
 
-------------------------------------------------------------
-PATIENT / ELDER DETAILS:
-------------------------------------------------------------
-• Elder Name:       ${elderName} (${displayHonorific})
-• Elder Age:        ${elderAge} years
-• Contact Phone:    ${phone}
-• Current Location: ${location}
-• Status Mode:      ${statusDesc}
-• Time of Alert:    ${fullDateStr} (IST)
-• Tablet / Signal:  Active & Connected
+Direct Action Links:
+- Open Caregiver Portal: https://sahara-lac.vercel.app/caregiver-dashboard
+- Check Daily Vitals & Location: ${location}
 
-------------------------------------------------------------
-CAREGIVER NOTIFIED:
-------------------------------------------------------------
-• Caregiver Name:   ${effectiveCgName}
-• Connected Email:  ${effectiveCgEmail}
+=====================================================
+Sent via Sahara Cognitive & Caregiver Companion
+=====================================================
+      `.trim()
+    };
 
-------------------------------------------------------------
-⚠️ RECOMMENDED IMMEDIATE ACTIONS:
-------------------------------------------------------------
-1. CALL YOUR LOVED ONE IMMEDIATELY at ${phone}.
-2. Check their live dashboard & recent routine log on Sahara:
-   https://sahara-lac.vercel.app/caregiver-dashboard
-3. If no response, notify local residential care staff or emergency services.
-
-------------------------------------------------------------
-Automated High-Priority Emergency Beacon generated by Sahara.
-============================================================
-`.trim();
-
-    speakText(`Sending emergency alert to ${effectiveCgName}.`);
+    speakText(`Sending emergency alert to ${effectiveCgEmail}.`);
 
     try {
-      const dispatchTasks = [];
+      const response = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
 
-      const formFields = {
-        access_key: web3formsAccessKey,
-        subject: subjectLine,
-        from_name: 'Sahara Emergency Dispatch',
-        name: `${elderName} (${displayHonorific})`,
-        email: effectiveCgEmail,
-        replyto: effectiveCgEmail,
-        to_email: effectiveCgEmail,
-        recipient: effectiveCgEmail,
-        'Elder Name': elderName,
-        'Elder Age': String(elderAge),
-        'Location / City': location,
-        'Timestamp': fullDateStr,
-        'Urgent Message': urgentMessageBody,
-        message: warningTemplate,
-      };
+      const result = await response.json();
 
-      // 1. Native Hidden HTML Form targeting hidden iframe (Guarantees browser dispatch without CORS preflight block)
-      if (typeof document !== 'undefined') {
+      if (result.success) {
+        setSosStatus('sent');
+        setLastSosTime(currentTimeStr);
+        speakText(`Emergency alert sent to ${effectiveCgEmail}. Help is on the way.`);
+        showToast(`🚨 Emergency alert sent to ${effectiveCgEmail}!`, 'success', 8000);
+
+        // Async Live Sync to Firestore & Server API for Caregiver Dashboard banner
+        const alertData = {
+          id: `sos_${Date.now()}`,
+          type: 'EMERGENCY_SOS',
+          elderName,
+          elderAge: Number(elderAge) || 80,
+          location,
+          phone: patient?.phone || resElderId || cleanElderId || '+919854012345',
+          caregiverEmail: effectiveCgEmail,
+          caregiverName: caregiverName || patient?.caregiverName || 'Caregiver',
+          time: currentTimeStr,
+          formattedTime: timestamp,
+          timestamp: exactTimestamp.toISOString(),
+          status: 'ACTIVE_SOS',
+        };
+
         try {
-          let hiddenIframe = document.getElementById('sahara_sos_w3_iframe');
-          if (!hiddenIframe) {
-            hiddenIframe = document.createElement('iframe');
-            hiddenIframe.id = 'sahara_sos_w3_iframe';
-            hiddenIframe.name = 'sahara_sos_w3_iframe';
-            hiddenIframe.style.display = 'none';
-            document.body.appendChild(hiddenIframe);
-          }
+          localStorage.setItem('sahara_active_sos', JSON.stringify(alertData));
+          window.dispatchEvent(new CustomEvent('sahara:sos-alert', { detail: alertData }));
+        } catch (e) {}
 
-          const hiddenForm = document.createElement('form');
-          hiddenForm.method = 'POST';
-          hiddenForm.action = 'https://api.web3forms.com/submit';
-          hiddenForm.target = 'sahara_sos_w3_iframe';
-          hiddenForm.style.display = 'none';
-
-          for (const [key, val] of Object.entries(formFields)) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = String(val || '');
-            hiddenForm.appendChild(input);
-          }
-
-          document.body.appendChild(hiddenForm);
-          hiddenForm.submit();
-
-          setTimeout(() => {
-            try {
-              if (hiddenForm.parentNode) hiddenForm.parentNode.removeChild(hiddenForm);
-            } catch (e) {}
-          }, 4000);
-        } catch (formErr) {
-          console.warn('Native hidden form notice:', formErr);
-        }
-      }
-
-      // 2. Parallel client fetch to Web3Forms JSON endpoint with timeout
-      try {
-        const w3Controller = new AbortController();
-        const w3Timeout = setTimeout(() => w3Controller.abort(), 2500);
-        const w3FetchPromise = fetch('https://api.web3forms.com/submit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify(formFields),
-          signal: w3Controller.signal,
-        })
-          .then(() => clearTimeout(w3Timeout))
-          .catch((e) => {
-            clearTimeout(w3Timeout);
-            console.warn('Web3Forms dispatch notice:', e.message);
-          });
-
-        dispatchTasks.push(w3FetchPromise);
-      } catch (e) {}
-
-      // 3. Fast server-side record to /api/sos
-      try {
-        const apiController = new AbortController();
-        const apiTimeout = setTimeout(() => apiController.abort(), 2000);
-        const apiPromise = fetch('/api/sos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            elderId: resElderId || cleanElderId || '+919854012345',
-            elderName,
-            elderAge,
-            displayHonorific,
-            caregiverEmail: effectiveCgEmail,
-            caregiverName: effectiveCgName,
-            location,
-            phone,
-            status: statusDesc,
-            timestamp: exactTimestamp.toISOString(),
-          }),
-          signal: apiController.signal,
-        })
-          .then(() => clearTimeout(apiTimeout))
-          .catch((e) => {
-            clearTimeout(apiTimeout);
-            console.warn('API /api/sos notice:', e.message);
-          });
-
-        dispatchTasks.push(apiPromise);
-      } catch (apiErr) {
-        console.warn('API /api/sos notice:', apiErr);
-      }
-
-      // 4. Real-time Firestore Emergency Event logging (Audit Log)
-      if (db && cleanElderId) {
-        try {
+        if (db && cleanElderId) {
           const todayStr = getTodayDateString();
-          const isoDate = exactTimestamp.toISOString().split('T')[0];
-          const alertId = `sos_${Date.now()}`;
-          const alertData = {
-            id: alertId,
-            type: 'EMERGENCY_SOS',
-            elderName,
-            elderAge: Number(elderAge) || 74,
-            location,
-            phone,
-            caregiverEmail: effectiveCgEmail,
-            caregiverName: effectiveCgName,
-            time: currentTimeStr,
-            formattedTime: fullDateStr,
-            timestamp: exactTimestamp.toISOString(),
-            status: 'DISPATCHED',
-          };
-
           const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
           const elderRef = doc(db, 'elders', cleanElderId);
-          const alertDocRef = doc(db, 'elders', cleanElderId, 'alerts', alertId);
-
-          const fsPromise = Promise.race([
-            Promise.allSettled([
-              setDoc(dailyLogRef, {
-                sosAlerts: arrayUnion(alertData),
-                lastSosAlert: {
-                  ...alertData,
-                  updatedAt: serverTimestamp(),
-                },
-                updatedAt: serverTimestamp(),
-              }, { merge: true }),
-              setDoc(alertDocRef, {
-                ...alertData,
-                createdAt: serverTimestamp(),
-              }, { merge: true }),
-              setDoc(elderRef, {
-                emergencyStatus: 'ACTIVE_SOS',
-                lastSosAlert: serverTimestamp(),
-                lastActive: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              }, { merge: true }),
-              isoDate !== todayStr ? setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', isoDate), {
-                sosAlerts: arrayUnion(alertData),
-                lastSosAlert: {
-                  ...alertData,
-                  updatedAt: serverTimestamp(),
-                },
-                updatedAt: serverTimestamp(),
-              }, { merge: true }) : Promise.resolve(),
-            ]),
-            new Promise((res) => setTimeout(res, 2000)),
-          ]).catch(() => {});
-
-          dispatchTasks.push(fsPromise);
-        } catch (fErr) {
-          console.warn('Firestore SOS notice:', fErr);
+          setDoc(dailyLogRef, {
+            sosAlerts: arrayUnion(alertData),
+            lastSosAlert: { ...alertData, updatedAt: serverTimestamp() },
+            updatedAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
+          setDoc(elderRef, {
+            emergencyStatus: 'ACTIVE_SOS',
+            lastSosAlert: serverTimestamp(),
+            lastActive: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
         }
+
+        fetch('/api/sos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(alertData),
+        }).catch(() => {});
+      } else {
+        throw new Error(result.message || "Failed to dispatch SOS alert");
       }
-
-      // 5. Broadcast instant event and persist to localStorage
-      const liveSosPayload = {
-        id: `sos_${Date.now()}`,
-        elderName,
-        elderAge,
-        caregiverEmail: effectiveCgEmail,
-        caregiverName: effectiveCgName,
-        time: currentTimeStr,
-        formattedTime: fullDateStr,
-        phone,
-        location,
-        status: 'ACTIVE_SOS',
-      };
-      try {
-        localStorage.setItem('sahara_active_sos', JSON.stringify(liveSosPayload));
-        window.dispatchEvent(new CustomEvent('sahara:sos-alert', { detail: liveSosPayload }));
-      } catch (e) {}
-
-      // 6. Guarantee completion after at most 1200ms
-      await Promise.race([
-        Promise.allSettled(dispatchTasks),
-        new Promise((res) => setTimeout(res, 1200)),
-      ]);
     } catch (err) {
-      console.warn('SOS dispatch notice:', err);
-    } finally {
-      // Transition to clear confirmation state
-      setSosStatus('sent');
-      setLastSosTime(currentTimeStr);
-      speakText(`Emergency alert sent to ${effectiveCgName}. Help is on the way.`);
-      showToast(`🚨 Emergency alert sent to ${effectiveCgEmail}!`, 'success', 8000);
+      console.error("SOS Web3Forms error:", err);
+      setSosStatus('error');
+      setSosErrorMsg(err.message || "Network error while sending SOS. Please try calling directly.");
+      speakText('Could not send emergency alert. Please call emergency services.');
+      showToast('⚠️ SOS Dispatch Failed: ' + (err.message || 'Network error'), 'error', 6000);
     }
   };
 
