@@ -1286,36 +1286,36 @@ export default function HomePage() {
                 </div>
 
                 {/* Password Requirement / Security Hints */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1.5 ${
-                    cgPassword.length >= 6 ? 'bg-emerald-100 text-emerald-800' : 'bg-white/80 text-[#40493d] border border-[#cdf2cb]'
+                <div className="flex flex-wrap items-center gap-2.5 pt-1.5">
+                  <span className={`text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all shadow-xs border ${
+                    cgPassword.length >= 6 ? 'bg-emerald-50 text-emerald-900 border-emerald-300' : 'bg-white text-[#032109] border-[#cdf2cb]'
                   }`}>
                     {cgPassword.length >= 6 ? (
-                      <span className="material-symbols-outlined text-xs">check</span>
+                      <span className="material-symbols-outlined text-lg font-bold text-emerald-700">check_circle</span>
                     ) : (
                       <img
                         src="/fingerprint-scan.gif"
                         alt="Fingerprint Security Scan"
-                        className="w-3.5 h-3.5 object-contain inline-block"
+                        className="w-7 h-7 object-contain inline-block shrink-0"
                       />
                     )}
                     <span>Min 6 characters</span>
                   </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1.5 ${
-                    EMAIL_REGEX.test((cgEmail || '').trim()) ? 'bg-emerald-100 text-emerald-800' : 'bg-white/80 text-[#40493d] border border-[#cdf2cb]'
+                  <span className={`text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all shadow-xs border ${
+                    EMAIL_REGEX.test((cgEmail || '').trim()) ? 'bg-emerald-50 text-emerald-900 border-emerald-300' : 'bg-white text-[#032109] border-[#cdf2cb]'
                   }`}>
                     {EMAIL_REGEX.test((cgEmail || '').trim()) ? (
-                      <span className="material-symbols-outlined text-xs">check</span>
+                      <span className="material-symbols-outlined text-lg font-bold text-emerald-700">check_circle</span>
                     ) : (
                       <img
                         src="/user.gif"
                         alt="User verification"
-                        className="w-3.5 h-3.5 object-contain inline-block"
+                        className="w-7 h-7 object-contain inline-block shrink-0"
                       />
                     )}
                     <span>Valid email format</span>
                   </span>
-                  <span className="text-[10px] text-[#40493d] italic ml-auto">
+                  <span className="text-xs text-[#40493d] italic ml-auto">
                     🔒 Credentials securely link to this elder's profile
                   </span>
                 </div>
