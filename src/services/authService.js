@@ -1,7 +1,8 @@
 import { getSupabase } from './supabase.js';
 import { dataStore } from './dataStore.js';
-import { auth as firebaseClientAuth, googleProvider } from '../lib/firebaseClient.js';
+import { auth as firebaseClientAuth, googleProvider, db, normalizeElderId } from '../lib/firebaseClient.js';
 import { signInWithPopup } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 const SESSION_STORAGE_USER = 'sahara_active_user';
 const SESSION_STORAGE_SANDBOX_OTP = 'sahara_sandbox_otp';
@@ -570,10 +571,50 @@ export const authService = {
       throw new Error(`Failed to save setup to cloud database: ${err.message || 'Network error'}. Please verify connection and try again.`);
     }
 
-    // 2. Only after confirmed cloud persistence: update client store & browser session
-    const savedElder = resData.elder || mergedPatientData;
-    const savedCaregiver = resData.caregiver || caregiverData;
+    const savedElder = resData?.elder || mergedPatientData;
+    const savedCaregiver = resData?.caregiver || caregiverData;
 
+    // 2. Direct Firestore writes for reciprocal account linking
+    if (db) {
+      try {
+        const cleanElderId = normalizeElderId(savedElder.id || elderIdentifier);
+        const cleanCgEmail = (savedCaregiver?.email || caregiverData?.email || '').trim().toLowerCase();
+
+        // Save elder under elders/{elderUid}
+        setDoc(doc(db, 'elders', cleanElderId), {
+          uid: cleanElderId,
+          elderName: cleanElderName,
+          name: cleanElderName,
+          age: savedElder.age || patientData?.age || 74,
+          caregiverUid: cleanCgEmail,
+          caregiverEmail: cleanCgEmail,
+          caregiverName: savedCaregiver?.name || caregiverData?.name || 'Caregiver Companion',
+          location: savedElder.location || `${savedElder.city || 'Guwahati'}, ${savedElder.state || 'Assam'}`,
+          city: savedElder.city || 'Guwahati',
+          state: savedElder.state || 'Assam',
+          status: savedElder.status || 'Mild Cognitive Support Mode',
+          problemStatement: savedElder.problemStatement || 'Mild Cognitive Support Mode',
+          startingLevel: savedElder.startingLevel || 1,
+          unlockedLevel: savedElder.unlockedLevel || 1,
+          aiAnalysis: savedElder.aiAnalysis || null,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+
+        // Save caregiver under caregivers/{caregiverUid}
+        if (cleanCgEmail) {
+          setDoc(doc(db, 'caregivers', cleanCgEmail), {
+            uid: cleanCgEmail,
+            email: cleanCgEmail,
+            name: savedCaregiver?.name || caregiverData?.name || 'Caregiver Companion',
+            linkedElderId: cleanElderId,
+            role: 'caregiver',
+            updatedAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
+        }
+      } catch (e) {}
+    }
+
+    // 3. Update client store & active session
     dataStore.updatePatientProfile(savedElder);
     if (savedCaregiver) {
       dataStore.updateCaregiverProfile(savedCaregiver);

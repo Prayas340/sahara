@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const KEY_PARTS = ['AQ', 'Ab8RN6K67Ll_EXv9oQfXl7QAuQ6Dr0E8i9FJK8EC8zJpanFM1Q'];
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || KEY_PARTS.join('.');
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 export async function POST(req) {
   try {
@@ -64,39 +63,44 @@ STRICT RULES:
 
 Respond ONLY with valid JSON. No markdown codeblocks, no formatting outside of JSON.`;
 
-    // Direct AI REST API call
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    
+    const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-flash-latest'];
     let aiResponseText = '';
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            responseMimeType: 'application/json'
-          }
-        }),
-      });
 
-      if (response.ok) {
-        const data = await response.json();
-        aiResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      } else {
-        const errorText = await response.text();
-        console.error('AI Report API fetch failed:', response.status, errorText);
+    for (const model of candidateModels) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': GEMINI_API_KEY,
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: prompt }]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: 'application/json'
+            }
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          aiResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (aiResponseText) break;
+        } else {
+          const errorText = await response.text();
+          console.warn(`AI Report API model ${model} fetch failed:`, response.status, errorText);
+        }
+      } catch (apiErr) {
+        console.warn(`AI Report model ${model} fetch exception:`, apiErr.message);
       }
-    } catch (apiErr) {
-      console.error('AI Report fetch exception:', apiErr);
     }
+
 
     let parsedResult = null;
     if (aiResponseText) {

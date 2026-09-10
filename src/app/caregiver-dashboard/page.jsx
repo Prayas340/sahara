@@ -13,7 +13,7 @@ import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
 import { db, normalizeElderId } from '../../lib/firebaseClient.js';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { COGNITIVE_LEVELS } from '../../data/gamesData.js';
 
 function getTodayDateString() {
@@ -125,6 +125,7 @@ export default function CaregiverDashboardPage() {
     const todayDate = getTodayDateString();
     let unsubDailyLog = null;
     let unsubElderDoc = null;
+    let unsubCaregiverDoc = null;
 
     // Real-time Firestore Live Listener for cross-device synchronization
     const setupFirestoreLiveListeners = (targetElderId) => {
@@ -521,6 +522,24 @@ export default function CaregiverDashboardPage() {
       setIsSyncing(false);
     }
 
+    // 3. Subscribe to Caregiver Document in Firestore for dynamic reciprocal linkedElderId
+    if (db && _caregiverEmail) {
+      const cleanCg = _caregiverEmail.trim().toLowerCase();
+      const cgDocRef = doc(db, 'caregivers', cleanCg);
+      unsubCaregiverDoc = onSnapshot(cgDocRef, (cgSnap) => {
+        if (cgSnap.exists()) {
+          const cgData = cgSnap.data() || {};
+          if (cgData.name) {
+            setCaregiver(prev => ({ ...prev, ...cgData }));
+          }
+          if (cgData.linkedElderId) {
+            _elderId = cgData.linkedElderId;
+            setIsSyncing(false);
+            setupFirestoreLiveListeners(cgData.linkedElderId);
+          }
+        }
+      }, (err) => console.warn('[CaregiverDashboard] Caregiver onSnapshot notice:', err));
+    }
 
     // On game score change, update state immediately and re-fetch from server
     const onGameScoreChange = (e) => {
@@ -630,6 +649,7 @@ export default function CaregiverDashboardPage() {
       clearInterval(pollInterval);
       if (unsubDailyLog) unsubDailyLog();
       if (unsubElderDoc) unsubElderDoc();
+      if (unsubCaregiverDoc) unsubCaregiverDoc();
     };
   }, [router]);
 
@@ -840,7 +860,7 @@ export default function CaregiverDashboardPage() {
 
     let targetNewTaken = false;
     const updated = (medicines || []).map(m => {
-      if (m.id === medId || m.title === medTitle) {
+      if (m.id === medId || m.title === medTitle || m.name === medTitle) {
         targetNewTaken = !m.taken;
         return {
           ...m,
@@ -857,6 +877,43 @@ export default function CaregiverDashboardPage() {
 
     const elderId = patient?.id || patient?.phone || patient?.email;
     const caregiverEmail = caregiver?.email;
+
+    // Direct Firestore write for instant cross-device sync
+    if (db) {
+      const cleanElderId = normalizeElderId(elderId || '+919854012345');
+      const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
+      const elderRef = doc(db, 'elders', cleanElderId);
+
+      const formattedMeds = updated.map(m => ({
+        id: m.id,
+        name: m.title || m.name,
+        title: m.title || m.name,
+        detail: m.detail || '',
+        scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+        taken: Boolean(m.taken),
+        completedAt: m.taken ? (m.takenAt || timeStr) : null,
+        takenAt: m.taken ? (m.takenAt || timeStr) : null,
+        takenDate: m.taken ? (m.takenDate || todayStr) : null,
+      }));
+
+      const formattedRoutines = updated.map(m => ({
+        id: m.id,
+        title: m.title || m.name,
+        completed: Boolean(m.taken),
+        completedAt: m.taken ? (m.takenAt || timeStr) : null,
+      }));
+
+      setDoc(dailyLogRef, {
+        medications: formattedMeds,
+        routines: formattedRoutines,
+        updatedAt: serverTimestamp(),
+      }, { merge: true }).catch(() => {});
+
+      setDoc(elderRef, {
+        medications: formattedMeds,
+        updatedAt: serverTimestamp(),
+      }, { merge: true }).catch(() => {});
+    }
 
     // Direct server toggle & sync
     fetch('/api/reminders', {
@@ -1402,13 +1459,14 @@ export default function CaregiverDashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-lg text-teal-800">clinical_notes</span>
                         <h4 className="text-xs sm:text-sm font-extrabold text-teal-950">
-                          Gemini AI Clinical Baseline Assessment
+                          Saha AI Clinical Baseline Assessment
                         </h4>
                       </div>
                       <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300">
                         Mapped to Starting Level {patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1}
                       </span>
                     </div>
+
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                       <div className="bg-white/80 p-2 rounded-xl border border-teal-200">

@@ -283,7 +283,7 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
                 </p>
               </div>
 
-              <!-- Clinical Medical Report & Gemini AI Assessment (Optional) -->
+              <!-- Clinical Medical Report & Saha AI Assessment (Optional) -->
               <div class="mt-4 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white border-2 border-[#cdf2cb] space-y-3 shadow-xs">
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2">
@@ -291,11 +291,11 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
                       <span class="material-symbols-outlined text-lg">clinical_notes</span>
                     </span>
                     <div>
-                      <h3 class="text-xs sm:text-sm font-extrabold text-[#032109]">Clinical Report & Gemini AI Assessment</h3>
+                      <h3 class="text-xs sm:text-sm font-extrabold text-[#032109]">Clinical Report & Saha AI Assessment</h3>
                       <p class="text-[11px] text-[#40493d]">Optional: Attach MMSE, MoCA, or clinical notes (PDF/Image)</p>
                     </div>
                   </div>
-                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-[#006e1c] border border-emerald-300">Gemini 2.5 Flash</span>
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-[#006e1c] border border-emerald-300">Saha AI Clinical Engine</span>
                 </div>
 
                 <div id="report-dropzone-container">
@@ -311,8 +311,9 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
                 <!-- Analysis Spinner -->
                 <div id="report-analyzing-spinner" class="hidden p-4 rounded-xl bg-[#ebffe7] border border-[#cdf2cb] text-center space-y-2">
                   <span class="material-symbols-outlined text-2xl text-[#0d631b] animate-spin inline-block">progress_activity</span>
-                  <p class="text-xs font-bold text-[#032109]">Gemini AI is assessing clinical indicators...</p>
+                  <p class="text-xs font-bold text-[#032109]">Saha AI is assessing clinical indicators...</p>
                 </div>
+
 
                 <!-- AI Assessment Result Card -->
                 <div id="report-result-card" class="hidden p-3.5 rounded-xl bg-white border-2 border-[#006e1c] space-y-2">
@@ -841,7 +842,7 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
       }
     });
 
-    // Medical Report Gemini AI Assessment
+    // Medical Report Saha AI Assessment
     let currentAiAnalysis = null;
     const reportInput = document.getElementById('profile-medical-report-input');
     const reportDropzone = document.getElementById('report-dropzone-container');
@@ -864,6 +865,7 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
       try {
         const formData = new FormData();
         formData.append('report', file);
+        formData.append('file', file);
         formData.append('elderName', nameInput?.value.trim() || 'Elder');
         formData.append('elderAge', ageInput?.value.trim() || '72');
         formData.append('problemStatement', problemSelect?.value || 'Mild Cognitive Support Mode');
@@ -882,7 +884,7 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
 
           reportSpinner?.classList.add('hidden');
           reportResultCard?.classList.remove('hidden');
-          showToast(`✨ Gemini AI recommended starting at Level ${data.recommendedStartingLevel}/10`, 'success', 5000);
+          showToast(`✨ Saha AI recommended starting at Level ${data.recommendedStartingLevel}/10`, 'success', 5000);
         } else {
           throw new Error(data.error || 'Failed to analyze document');
         }
@@ -890,9 +892,10 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
         console.warn('[AI Report Error]:', err);
         reportSpinner?.classList.add('hidden');
         reportDropzone?.classList.remove('hidden');
-        showToast('Could not evaluate document with Gemini. Defaulting to Level 1.', 'info', 5000);
+        showToast('Could not evaluate document with Saha AI. Defaulting to Level 1.', 'info', 5000);
       }
     });
+
 
     reportRemoveBtn?.addEventListener('click', () => {
       currentAiAnalysis = null;

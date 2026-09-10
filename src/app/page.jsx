@@ -79,7 +79,7 @@ export default function HomePage() {
   const [problemStatement, setProblemStatement] = useState('Mild Cognitive Support Mode');
   const [customProblem, setCustomProblem] = useState('');
 
-  // Step 3 Clinical Medical Report & Gemini AI Assessment State
+  // Step 3 Clinical Medical Report & Saha AI Assessment State
   const [reportFile, setReportFile] = useState(null);
   const [reportFileName, setReportFileName] = useState('');
   const [isAnalyzingReport, setIsAnalyzingReport] = useState(false);
@@ -98,6 +98,7 @@ export default function HomePage() {
     try {
       const formData = new FormData();
       formData.append('report', file);
+      formData.append('file', file);
       formData.append('elderName', fullName || 'Elder');
       formData.append('elderAge', age || '72');
       formData.append('problemStatement', problemStatement || 'Mild Cognitive Support Mode');
@@ -110,15 +111,15 @@ export default function HomePage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setAiAnalysis(data);
-        showToast(`✨ AI Clinical Assessment Complete: Recommended Starting Level ${data.recommendedStartingLevel}/10`, 'success', 6000);
-        speakText(`Medical report analyzed. AI recommended starting at Level ${data.recommendedStartingLevel}.`);
+        showToast(`✨ Saha AI Clinical Assessment Complete: Recommended Starting Level ${data.recommendedStartingLevel}/10`, 'success', 6000);
+        speakText(`Medical report analyzed. Saha AI recommended starting at Level ${data.recommendedStartingLevel}.`);
       } else {
         throw new Error(data.error || 'Failed to analyze report.');
       }
     } catch (err) {
       console.warn('[AI Report Analysis Error]:', err);
       setReportUploadError(err.message || 'Error processing document. Defaulting to Level 1.');
-      showToast('Notice: Could not parse report with Gemini. Defaulting to Level 1.', 'info', 5000);
+      showToast('Notice: Could not parse report with Saha AI. Defaulting to Level 1.', 'info', 5000);
     } finally {
       setIsAnalyzingReport(false);
     }
@@ -130,6 +131,7 @@ export default function HomePage() {
     setAiAnalysis(null);
     setReportUploadError('');
   };
+
 
   useEffect(() => {
     const lang = dataStore.getLanguage ? dataStore.getLanguage() : 'English';
@@ -998,21 +1000,21 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Clinical Medical Report & Gemini AI Cognitive Assessment (Optional) */}
+              {/* Clinical Medical Report & Saha AI Cognitive Assessment (Optional) */}
               <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-50/90 via-teal-50/40 to-white border-2 border-[#cdf2cb] shadow-sm space-y-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 text-sm font-bold text-[#0d631b]">
                     <span className="material-symbols-outlined text-xl text-[#0d631b]">clinical_notes</span>
-                    <span>Clinical Report & Gemini AI Assessment (Optional)</span>
+                    <span>Clinical Report & Saha AI Assessment (Optional)</span>
                   </div>
                   <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#006e1c] border border-emerald-300 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                    <span>Gemini 2.5 Flash</span>
+                    <span>Saha AI Clinical Engine</span>
                   </span>
                 </div>
 
                 <p className="text-xs text-[#40493d] leading-relaxed">
-                  Upload patient medical reports (PDF or images: MMSE, MoCA, physician notes). The Gemini API will evaluate the cognitive baseline and automatically map and unlock progressive starting levels (1–10).
+                  Upload patient medical reports (PDF or images: MMSE, MoCA, physician notes). The Saha AI engine will evaluate the cognitive baseline and automatically map and unlock progressive starting levels (1–10).
                 </p>
 
                 {/* Upload Box / Dropzone */}
@@ -1065,7 +1067,7 @@ export default function HomePage() {
                         Analyzing {reportFileName}...
                       </h4>
                       <p className="text-xs text-[#40493d] mt-0.5">
-                        Gemini AI is assessing clinical indicators, MMSE/MoCA scores, and calculating optimal baseline level.
+                        Saha AI is assessing clinical indicators, MMSE/MoCA scores, and calculating optimal baseline level.
                       </p>
                     </div>
                     <div className="w-full max-w-xs mx-auto bg-white rounded-full h-2 overflow-hidden border border-[#cdf2cb]">
@@ -1073,6 +1075,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
+
 
                 {/* AI Assessment Results Card */}
                 {aiAnalysis && !isAnalyzingReport && (

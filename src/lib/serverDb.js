@@ -275,15 +275,31 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
     updatedAt: new Date().toISOString(),
   };
 
-  // Sync to Firestore root document directly
+  // Sync to Firestore root documents directly
   try {
     firestorePatchDocument(`elders/${elderId}`, {
-      id: elderId,
+      uid: elderId,
+      elderName: elderRecord.name,
       name: elderRecord.name,
+      age: elderRecord.age || 74,
+      caregiverUid: cleanCgEmail,
+      caregiverEmail: cleanCgEmail,
+      caregiverName: caregiverRecord.name,
+      location: elderRecord.location,
+      city: elderRecord.city,
+      state: elderRecord.state,
       startingLevel,
       unlockedLevel,
       aiAnalysis: aiAnalysis || null,
-      caregiverEmail: cleanCgEmail,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+
+    firestorePatchDocument(`caregivers/${cleanCgEmail}`, {
+      uid: cleanCgEmail,
+      email: cleanCgEmail,
+      name: caregiverRecord.name,
+      linkedElderId: elderId,
+      role: 'caregiver',
       updatedAt: new Date().toISOString(),
     }).catch(() => {});
   } catch (err) {}

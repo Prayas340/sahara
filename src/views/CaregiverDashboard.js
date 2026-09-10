@@ -450,7 +450,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                         <div class="flex items-center justify-between flex-wrap gap-2">
                           <span class="font-extrabold text-teal-900 flex items-center gap-1">
                             <span class="material-symbols-outlined text-sm">clinical_notes</span>
-                            Gemini AI Clinical Assessment Baseline
+                            Saha AI Clinical Assessment Baseline
                           </span>
                           <span class="font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full border border-teal-200">
                             Recommended Starting Level ${ai.recommendedLevel || startLevel}

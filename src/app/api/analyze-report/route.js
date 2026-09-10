@@ -3,10 +3,15 @@ import { NextResponse } from 'next/server';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 /**
- * Helper to call Google Gemini API with fallback models
+ * Helper to call AI API with resilient model fallback
  */
-async function callGemini(contents, systemInstruction) {
-  const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+async function callAiClinicalEngine(contents, systemInstruction) {
+  const models = [
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
+    'gemini-flash-latest',
+  ];
   let lastError = null;
 
   for (const model of models) {
@@ -28,14 +33,17 @@ async function callGemini(contents, systemInstruction) {
 
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
         body: JSON.stringify(bodyPayload),
       });
 
       if (!res.ok) {
         const errText = await res.text();
-        console.warn(`[analyze-report] Model ${model} responded with status ${res.status}:`, errText);
-        lastError = new Error(`Gemini ${model} error: ${res.status}`);
+        console.warn(`[Saha AI Engine] Model ${model} responded with status ${res.status}:`, errText);
+        lastError = new Error(`AI Engine ${model} error: ${res.status}`);
         continue; // Try next model
       }
 
@@ -45,12 +53,12 @@ async function callGemini(contents, systemInstruction) {
         return rawText;
       }
     } catch (err) {
-      console.warn(`[analyze-report] Failed to call model ${model}:`, err.message);
+      console.warn(`[Saha AI Engine] Failed to call model ${model}:`, err.message);
       lastError = err;
     }
   }
 
-  throw lastError || new Error('All Gemini models failed to generate assessment.');
+  throw lastError || new Error('All AI models failed to generate assessment.');
 }
 
 export async function POST(request) {
@@ -64,22 +72,40 @@ export async function POST(request) {
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
-      const file = formData.get('file');
+      // Support both 'report' and 'file' parameter keys
+      const file = formData.get('report') || formData.get('file');
       elderName = formData.get('elderName') || elderName;
       elderAge = formData.get('elderAge') || elderAge;
-      textContent = formData.get('text') || '';
+      textContent = formData.get('text') || formData.get('problemStatement') || '';
 
       if (file && typeof file === 'object' && file.arrayBuffer) {
         const arrayBuf = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuf);
         fileBase64 = buffer.toString('base64');
-        mimeType = file.type || (file.name?.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+        const originalType = file.type || '';
+        const fileName = (file.name || '').toLowerCase();
+
+        if (originalType.includes('pdf') || fileName.endsWith('.pdf')) {
+          mimeType = 'application/pdf';
+        } else if (originalType.includes('png') || fileName.endsWith('.png')) {
+          mimeType = 'image/png';
+        } else if (originalType.includes('webp') || fileName.endsWith('.webp')) {
+          mimeType = 'image/webp';
+        } else if (originalType.includes('jpeg') || originalType.includes('jpg') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+          mimeType = 'image/jpeg';
+        } else if (originalType.includes('text') || fileName.endsWith('.txt')) {
+          mimeType = 'text/plain';
+          // Also append text content directly
+          textContent = (textContent ? textContent + '\n' : '') + buffer.toString('utf-8');
+        } else {
+          mimeType = originalType || 'application/pdf';
+        }
       }
     } else {
       const body = await request.json();
-      fileBase64 = body.fileBase64 || null;
+      fileBase64 = body.fileBase64 || body.reportBase64 || null;
       mimeType = body.mimeType || mimeType;
-      textContent = body.text || '';
+      textContent = body.text || body.textContent || '';
       elderName = body.elderName || elderName;
       elderAge = body.elderAge || elderAge;
     }
@@ -91,7 +117,7 @@ export async function POST(request) {
       );
     }
 
-    const systemPrompt = `You are a licensed clinical neuropsychologist specializing in geriatric memory care, dementia, and cognitive therapy.
+    const systemPrompt = `You are a licensed clinical neuropsychologist specializing in geriatric memory care, dementia, and cognitive therapy for the Saha Clinical AI platform.
 Your objective is to review an uploaded clinical report (e.g., MMSE, MoCA, Clock Drawing, SLUMS, or physician notes) for ${elderName} (Age: ${elderAge}) and determine their cognitive baseline to recommend an appropriate starting level for 10 progressive cognitive therapy games.
 
 Progression Scale:
@@ -107,16 +133,19 @@ Progression Scale:
 - Level 10: MMSE 30 or Intact Baseline (Mixed multi-faceted cognitive logic)
 
 Analyze the attached document or text.
-You MUST output ONLY valid JSON matching this exact schema:
+Strict Rules:
+1. Do NOT mention third-party AI brand names like "Gemini" or Google.
+2. Refer only to clinical indicators, test scores, and therapeutic mappings.
+3. You MUST output ONLY valid JSON matching this exact schema:
 {
   "recommendedStartingLevel": 3,
   "cognitiveSummary": "Concise 2-sentence clinical assessment of short-term recall, attention, and executive orientation.",
-  "identifiedCondition": "e.g. Mild Cognitive Impairment (MCI) / Early Alzheimer's / Age-Associated Memory Loss / Intact",
+  "identifiedCondition": "e.g. Mild Cognitive Impairment (MCI) / Early Alzheimer's / Age-Associated Memory Loss / Intact Baseline",
   "estimatedScore": "e.g. MoCA 18/30 or MMSE 22/30 if detected, else Clinical Observation"
 }`;
 
     const parts = [];
-    if (fileBase64) {
+    if (fileBase64 && mimeType !== 'text/plain') {
       parts.push({
         inlineData: {
           mimeType,
@@ -125,7 +154,7 @@ You MUST output ONLY valid JSON matching this exact schema:
       });
     }
 
-    const textPrompt = `Please assess this clinical document for ${elderName}, age ${elderAge}. Extract cognitive test scores (MMSE/MoCA if present), identify the condition, write a concise summary, and assign the starting cognitive game level from 1 to 10.${textContent ? `\nAdditional Clinical Notes:\n${textContent}` : ''}`;
+    const textPrompt = `Please assess this clinical document for ${elderName}, age ${elderAge}. Extract cognitive test scores (MMSE/MoCA if present), identify the condition, write a concise summary, and assign the starting cognitive game level from 1 to 10.${textContent ? `\nAdditional Clinical Notes / Context:\n${textContent}` : ''}`;
     parts.push({ text: textPrompt });
 
     const contents = [{ role: 'user', parts }];
@@ -133,11 +162,11 @@ You MUST output ONLY valid JSON matching this exact schema:
     let analysisResult = null;
 
     try {
-      const rawResponse = await callGemini(contents, systemPrompt);
-      const cleanJson = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+      const rawResponse = await callAiClinicalEngine(contents, systemPrompt);
+      const cleanJson = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
       analysisResult = JSON.parse(cleanJson);
     } catch (aiErr) {
-      console.warn('[analyze-report] Gemini invocation error, using clinical heuristic fallback:', aiErr.message);
+      console.warn('[analyze-report] AI Engine invocation error, using clinical heuristic fallback:', aiErr.message);
       // Fallback heuristic based on clinical text keywords if AI call was unavailable
       const lower = (textContent || '').toLowerCase();
       let level = 3;
@@ -190,3 +219,4 @@ You MUST output ONLY valid JSON matching this exact schema:
     );
   }
 }
+

@@ -12,16 +12,16 @@ import { db, normalizeElderId, getTodayDateString } from '../../lib/firebaseClie
 import { doc, onSnapshot, setDoc, increment, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import {
   COGNITIVE_LEVELS,
-  LEVEL_1_CARDS,
-  LEVEL_2_WORD_SEARCH,
-  LEVEL_3_CROSSWORD,
-  LEVEL_4_ANAGRAMS,
-  LEVEL_5_WORD_WHEEL,
-  LEVEL_6_PROVERBS,
-  LEVEL_7_RHYMES,
-  LEVEL_8_CATEGORIES,
-  LEVEL_9_HANGMAN,
-  LEVEL_10_CHALLENGES,
+  LEVEL_1_CARDS_POOL,
+  LEVEL_2_WORD_SEARCH_POOLS,
+  LEVEL_3_CROSSWORD_POOLS,
+  LEVEL_4_ANAGRAMS_POOL,
+  LEVEL_5_WORD_WHEELS_POOL,
+  LEVEL_6_PROVERBS_POOL,
+  LEVEL_7_RHYMES_POOL,
+  LEVEL_8_CATEGORIES_POOL,
+  LEVEL_9_HANGMAN_POOL,
+  LEVEL_10_CHALLENGES_POOL,
 } from '../../data/gamesData.js';
 
 function resolveElderAndCaregiver() {
@@ -92,6 +92,12 @@ function resolveElderAndCaregiver() {
   };
 }
 
+// Utility: pick N distinct random items from an array
+function sampleRandom(arr, count) {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
 export default function ProgressiveCognitiveSuitePage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -122,12 +128,12 @@ export default function ProgressiveCognitiveSuitePage() {
   const timerRef = useRef(null);
 
   // -------------------------------------------------------------
-  // LEVEL SPECIFIC GAMEPLAY STATES
+  // DYNAMIC LEVEL SPECIFIC GAMEPLAY DATA & STATES (50 Variations)
   // -------------------------------------------------------------
-  // Level 1: Memory Match
+
+  // Level 1: Memory Match (Sample 3 pairs from 50-card pool)
   const generateLevel1Cards = () => {
-    const poolCopy = [...LEVEL_1_CARDS].sort(() => Math.random() - 0.5);
-    const chosen = poolCopy.slice(0, 3);
+    const chosen = sampleRandom(LEVEL_1_CARDS_POOL, 3);
     const pairs = [...chosen, ...chosen].sort(() => Math.random() - 0.5);
     return pairs.map((c, i) => ({ id: i, ...c, matched: false, flipped: false }));
   };
@@ -135,37 +141,49 @@ export default function ProgressiveCognitiveSuitePage() {
   const [flippedIndices, setFlippedIndices] = useState([]);
   const [moves, setMoves] = useState(0);
 
-  // Level 2: Word Search
+  // Level 2: Word Search (50 Random Grid Pools)
+  const [activeWordSearchL2, setActiveWordSearchL2] = useState(() => LEVEL_2_WORD_SEARCH_POOLS[0]);
   const [foundWordsL2, setFoundWordsL2] = useState([]);
+  const [selectedCellsL2, setSelectedCellsL2] = useState([]);
+  const [isDraggingL2, setIsDraggingL2] = useState(false);
+  const [dragStartCellL2, setDragStartCellL2] = useState(null);
 
-  // Level 3: Quick Crossword
-  const [crosswordAnswers, setCrosswordAnswers] = useState({ 1: '', 2: '', 3: '' });
+  // Level 3: Quick Crossword (50 Random Clue Pools)
+  const [activeCrosswordL3, setActiveCrosswordL3] = useState(() => LEVEL_3_CROSSWORD_POOLS[0]);
+  const [crosswordAnswers, setCrosswordAnswers] = useState({});
 
-  // Level 4: Anagrams / Unscramble
+  // Level 4: Anagrams / Unscramble (50 Words Pool, 3 per round)
+  const [activeAnagramsL4, setActiveAnagramsL4] = useState(() => LEVEL_4_ANAGRAMS_POOL.slice(0, 3));
   const [currentAnagramIdx, setCurrentAnagramIdx] = useState(0);
   const [assembledLetters, setAssembledLetters] = useState([]);
   const [solvedAnagrams, setSolvedAnagrams] = useState([]);
 
-  // Level 5: Word Wheel
+  // Level 5: Word Wheel (50 Word Wheel Pools)
+  const [activeWheelL5, setActiveWheelL5] = useState(() => LEVEL_5_WORD_WHEELS_POOL[0]);
   const [wheelWordsFound, setWheelWordsFound] = useState([]);
   const [currentWheelWord, setCurrentWheelWord] = useState('');
 
-  // Level 6: Fill-in-the-Blank Proverbs
+  // Level 6: Fill-in-the-Blank Proverbs (50 Proverbs Pool, 3 per round)
+  const [activeProverbsL6, setActiveProverbsL6] = useState(() => LEVEL_6_PROVERBS_POOL.slice(0, 3));
   const [currentProverbIdx, setCurrentProverbIdx] = useState(0);
   const [solvedProverbs, setSolvedProverbs] = useState([]);
 
-  // Level 7: Rhyming Games
+  // Level 7: Rhyming Games (50 Rhymes Pool, 3 per round)
+  const [activeRhymesL7, setActiveRhymesL7] = useState(() => LEVEL_7_RHYMES_POOL.slice(0, 3));
   const [currentRhymeIdx, setCurrentRhymeIdx] = useState(0);
   const [solvedRhymes, setSolvedRhymes] = useState([]);
 
-  // Level 8: Category Sorting
+  // Level 8: Category Sorting (50 Category Pools)
+  const [activeCategoryL8, setActiveCategoryL8] = useState(() => LEVEL_8_CATEGORIES_POOL[0]);
   const [categorizedItems, setCategorizedItems] = useState({});
 
-  // Level 9: Hangman Vocabulary
+  // Level 9: Hangman Vocabulary (50 Mystery Words Pool)
+  const [activeHangmanL9, setActiveHangmanL9] = useState(() => LEVEL_9_HANGMAN_POOL[0]);
   const [hangmanGuessed, setHangmanGuessed] = useState([]);
   const [hangmanAttemptsLeft, setHangmanAttemptsLeft] = useState(7);
 
-  // Level 10: Mixed Cognitive Master
+  // Level 10: Mixed Cognitive Master (50 Challenges Pool, 3 per round)
+  const [activeChallengesL10, setActiveChallengesL10] = useState(() => LEVEL_10_CHALLENGES_POOL.slice(0, 3));
   const [challengeStep, setChallengeStep] = useState(0);
   const [challengeAnswers, setChallengeAnswers] = useState([]);
 
@@ -445,7 +463,7 @@ export default function ProgressiveCognitiveSuitePage() {
   };
 
   // -------------------------------------------------------------
-  // 4. Start Level Gameplay
+  // 4. Start Level Gameplay (Dynamically Randomize from 50 Pools)
   // -------------------------------------------------------------
   const handleStartLevel = (lvlNum) => {
     if (todaySessions >= 5) {
@@ -465,34 +483,55 @@ export default function ProgressiveCognitiveSuitePage() {
     setLevelJustUnlocked(null);
     isRecordingRef.current = false;
 
-    // Reset Level Specific State
+    // Reset and Randomize 50-Item Variation Pools per Level
     if (lvlNum === 1) {
       setCards(generateLevel1Cards());
       setFlippedIndices([]);
       setMoves(0);
     } else if (lvlNum === 2) {
+      const pickedL2 = LEVEL_2_WORD_SEARCH_POOLS[Math.floor(Math.random() * LEVEL_2_WORD_SEARCH_POOLS.length)];
+      setActiveWordSearchL2(pickedL2);
       setFoundWordsL2([]);
+      setSelectedCellsL2([]);
+      setIsDraggingL2(false);
+      setDragStartCellL2(null);
     } else if (lvlNum === 3) {
-      setCrosswordAnswers({ 1: '', 2: '', 3: '' });
+      const pickedL3 = LEVEL_3_CROSSWORD_POOLS[Math.floor(Math.random() * LEVEL_3_CROSSWORD_POOLS.length)];
+      setActiveCrosswordL3(pickedL3);
+      setCrosswordAnswers({});
     } else if (lvlNum === 4) {
+      const pickedL4 = sampleRandom(LEVEL_4_ANAGRAMS_POOL, 3);
+      setActiveAnagramsL4(pickedL4);
       setCurrentAnagramIdx(0);
       setAssembledLetters([]);
       setSolvedAnagrams([]);
     } else if (lvlNum === 5) {
+      const pickedL5 = LEVEL_5_WORD_WHEELS_POOL[Math.floor(Math.random() * LEVEL_5_WORD_WHEELS_POOL.length)];
+      setActiveWheelL5(pickedL5);
       setWheelWordsFound([]);
       setCurrentWheelWord('');
     } else if (lvlNum === 6) {
+      const pickedL6 = sampleRandom(LEVEL_6_PROVERBS_POOL, 3);
+      setActiveProverbsL6(pickedL6);
       setCurrentProverbIdx(0);
       setSolvedProverbs([]);
     } else if (lvlNum === 7) {
+      const pickedL7 = sampleRandom(LEVEL_7_RHYMES_POOL, 3);
+      setActiveRhymesL7(pickedL7);
       setCurrentRhymeIdx(0);
       setSolvedRhymes([]);
     } else if (lvlNum === 8) {
+      const pickedL8 = LEVEL_8_CATEGORIES_POOL[Math.floor(Math.random() * LEVEL_8_CATEGORIES_POOL.length)];
+      setActiveCategoryL8(pickedL8);
       setCategorizedItems({});
     } else if (lvlNum === 9) {
+      const pickedL9 = LEVEL_9_HANGMAN_POOL[Math.floor(Math.random() * LEVEL_9_HANGMAN_POOL.length)];
+      setActiveHangmanL9(pickedL9);
       setHangmanGuessed([]);
       setHangmanAttemptsLeft(7);
     } else if (lvlNum === 10) {
+      const pickedL10 = sampleRandom(LEVEL_10_CHALLENGES_POOL, 3);
+      setActiveChallengesL10(pickedL10);
       setChallengeStep(0);
       setChallengeAnswers([]);
     }
@@ -503,7 +542,7 @@ export default function ProgressiveCognitiveSuitePage() {
   };
 
   // -------------------------------------------------------------
-  // 5. Individual Game Mode Handlers
+  // 5. Individual Game Mode Handlers (Level 1 to Level 10)
   // -------------------------------------------------------------
 
   // Level 1: Memory Match Card Click
@@ -545,16 +584,148 @@ export default function ProgressiveCognitiveSuitePage() {
     }
   };
 
-  // Level 2: Word Search Word Discovery
-  const handleSelectWordL2 = (wObj) => {
+  // Level 2: Word Search Interactive Tracing & Validation
+  const getCellsBetweenL2 = (start, end) => {
+    if (!start || !end) return [];
+    const dr = end.r - start.r;
+    const dc = end.c - start.c;
+    const absDr = Math.abs(dr);
+    const absDc = Math.abs(dc);
+
+    if (dr === 0) {
+      // Horizontal
+      const step = dc >= 0 ? 1 : -1;
+      const cells = [];
+      for (let c = start.c; c !== end.c + step; c += step) {
+        cells.push({ r: start.r, c });
+      }
+      return cells;
+    }
+    if (dc === 0) {
+      // Vertical
+      const step = dr >= 0 ? 1 : -1;
+      const cells = [];
+      for (let r = start.r; r !== end.r + step; r += step) {
+        cells.push({ r, c: start.c });
+      }
+      return cells;
+    }
+    if (absDr === absDc) {
+      // Diagonal
+      const stepR = dr > 0 ? 1 : -1;
+      const stepC = dc > 0 ? 1 : -1;
+      const cells = [];
+      for (let i = 0; i <= absDr; i++) {
+        cells.push({ r: start.r + i * stepR, c: start.c + i * stepC });
+      }
+      return cells;
+    }
+    // Dominant axis fallback
+    if (absDc >= absDr) {
+      const step = dc > 0 ? 1 : -1;
+      const cells = [];
+      for (let c = start.c; c !== end.c + step; c += step) {
+        cells.push({ r: start.r, c });
+      }
+      return cells;
+    } else {
+      const step = dr > 0 ? 1 : -1;
+      const cells = [];
+      for (let r = start.r; r !== end.r + step; r += step) {
+        cells.push({ r, c: start.c });
+      }
+      return cells;
+    }
+  };
+
+  const checkSelectedWordL2 = (cells) => {
+    if (!cells || cells.length < 2 || !activeWordSearchL2) {
+      setSelectedCellsL2([]);
+      setIsDraggingL2(false);
+      setDragStartCellL2(null);
+      return;
+    }
+
+    const letters = cells
+      .map(pt => activeWordSearchL2.grid[pt.r]?.[pt.c] || '')
+      .join('');
+    const reversed = letters.split('').reverse().join('');
+
+    const matchedWordObj = activeWordSearchL2.words.find(
+      w => (w.word === letters || w.word === reversed) && !foundWordsL2.includes(w.word)
+    );
+
+    if (matchedWordObj) {
+      const next = [...foundWordsL2, matchedWordObj.word];
+      setFoundWordsL2(next);
+      setSelectedCellsL2([]);
+      setIsDraggingL2(false);
+      setDragStartCellL2(null);
+      speakText(`Wonderful! You found ${matchedWordObj.word}!`);
+      showToast(`✨ Found: ${matchedWordObj.word}! (${matchedWordObj.hint})`, 'success', 2500);
+
+      if (next.length >= activeWordSearchL2.words.length) {
+        handleRoundVictory(100);
+      }
+    } else {
+      // Clear selection if not matched
+      setSelectedCellsL2([]);
+      setIsDraggingL2(false);
+      setDragStartCellL2(null);
+    }
+  };
+
+  const handleCellPointerDownL2 = (r, c) => {
     if (isTimedOut || roundCompleted) return;
-    if (foundWordsL2.includes(wObj.word)) return;
-    const next = [...foundWordsL2, wObj.word];
-    setFoundWordsL2(next);
-    speakText(`Found word: ${wObj.word}!`);
-    showToast(`Found: ${wObj.word}!`, 'success', 2000);
-    if (next.length >= LEVEL_2_WORD_SEARCH.words.length) {
-      handleRoundVictory(100);
+    setIsDraggingL2(true);
+    setDragStartCellL2({ r, c });
+    setSelectedCellsL2([{ r, c }]);
+  };
+
+  const handleCellPointerEnterL2 = (r, c) => {
+    if (isTimedOut || roundCompleted || !isDraggingL2 || !dragStartCellL2) return;
+    const line = getCellsBetweenL2(dragStartCellL2, { r, c });
+    setSelectedCellsL2(line);
+  };
+
+  const handleCellPointerUpL2 = () => {
+    if (isTimedOut || roundCompleted) return;
+    if (selectedCellsL2.length > 1) {
+      checkSelectedWordL2(selectedCellsL2);
+    } else {
+      setIsDraggingL2(false);
+      setDragStartCellL2(null);
+    }
+  };
+
+  const handleCellTapL2 = (r, c) => {
+    if (isTimedOut || roundCompleted) return;
+    if (selectedCellsL2.length === 0) {
+      setSelectedCellsL2([{ r, c }]);
+      const letter = activeWordSearchL2.grid[r][c];
+      showToast(`Selected "${letter}". Now drag or tap the ending letter.`, 'info', 1800);
+    } else if (selectedCellsL2.length === 1) {
+      const first = selectedCellsL2[0];
+      if (first.r === r && first.c === c) {
+        setSelectedCellsL2([]);
+      } else {
+        const line = getCellsBetweenL2(first, { r, c });
+        setSelectedCellsL2(line);
+        checkSelectedWordL2(line);
+      }
+    } else {
+      setSelectedCellsL2([{ r, c }]);
+    }
+  };
+
+  const handleWordHintL2 = (wObj) => {
+    if (isTimedOut || roundCompleted) return;
+    if (foundWordsL2.includes(wObj.word)) {
+      speakText(`${wObj.word} is already found!`);
+      showToast(`✓ ${wObj.word} is already completed!`, 'success', 2000);
+    } else {
+      speakText(`Look for ${wObj.word} in the grid. Hint: ${wObj.hint}. Drag across letters in the grid.`);
+      showToast(`💡 Look for "${wObj.word}" in the grid (${wObj.hint})`, 'info', 3500);
     }
   };
 
@@ -567,7 +738,7 @@ export default function ProgressiveCognitiveSuitePage() {
       speakText(`Correct: ${correctAnswer}!`);
       showToast(`Correct! ${correctAnswer}`, 'success', 1500);
     }
-    const allFilledCorrect = LEVEL_3_CROSSWORD.words.every(
+    const allFilledCorrect = activeCrosswordL3.words.every(
       w => (w.id === wordId ? chosenAnswer : updated[w.id]) === w.answer
     );
     if (allFilledCorrect) {
@@ -587,7 +758,7 @@ export default function ProgressiveCognitiveSuitePage() {
       const nextSolved = [...solvedAnagrams, currentAnagram.id];
       setSolvedAnagrams(nextSolved);
       setAssembledLetters([]);
-      if (nextSolved.length >= LEVEL_4_ANAGRAMS.length) {
+      if (nextSolved.length >= activeAnagramsL4.length) {
         handleRoundVictory(100);
       } else {
         setCurrentAnagramIdx(prev => prev + 1);
@@ -600,6 +771,7 @@ export default function ProgressiveCognitiveSuitePage() {
     if (isTimedOut || roundCompleted) return;
     setCurrentWheelWord(prev => prev + letter);
   };
+
   const handleWheelSubmit = () => {
     if (isTimedOut || roundCompleted) return;
     const testWord = currentWheelWord.toUpperCase();
@@ -608,17 +780,17 @@ export default function ProgressiveCognitiveSuitePage() {
       setCurrentWheelWord('');
       return;
     }
-    if (LEVEL_5_WORD_WHEEL.validWords.includes(testWord) && testWord.includes(LEVEL_5_WORD_WHEEL.centerLetter)) {
+    if (activeWheelL5.validWords.includes(testWord) && testWord.includes(activeWheelL5.centerLetter)) {
       const next = [...wheelWordsFound, testWord];
       setWheelWordsFound(next);
       speakText(`Valid word: ${testWord}!`);
       showToast(`Found: ${testWord}!`, 'success', 2000);
       setCurrentWheelWord('');
-      if (next.length >= LEVEL_5_WORD_WHEEL.targetCount) {
+      if (next.length >= (activeWheelL5.targetCount || 3)) {
         handleRoundVictory(100);
       }
     } else {
-      showToast(`Must contain '${LEVEL_5_WORD_WHEEL.centerLetter}' and form a valid word.`, 'error', 2500);
+      showToast(`Must contain '${activeWheelL5.centerLetter}' and form a valid word.`, 'error', 2500);
       setCurrentWheelWord('');
     }
   };
@@ -631,7 +803,7 @@ export default function ProgressiveCognitiveSuitePage() {
       showToast(`Correct! ${currentP.explanation}`, 'success', 2500);
       const nextSolved = [...solvedProverbs, currentP.id];
       setSolvedProverbs(nextSolved);
-      if (nextSolved.length >= LEVEL_6_PROVERBS.length) {
+      if (nextSolved.length >= activeProverbsL6.length) {
         handleRoundVictory(100);
       } else {
         setCurrentProverbIdx(prev => prev + 1);
@@ -649,7 +821,7 @@ export default function ProgressiveCognitiveSuitePage() {
       showToast(`Correct! ${option} rhymes with ${currentR.targetWord}`, 'success', 2000);
       const nextSolved = [...solvedRhymes, currentR.id];
       setSolvedRhymes(nextSolved);
-      if (nextSolved.length >= LEVEL_7_RHYMES.length) {
+      if (nextSolved.length >= activeRhymesL7.length) {
         handleRoundVictory(100);
       } else {
         setCurrentRhymeIdx(prev => prev + 1);
@@ -670,7 +842,7 @@ export default function ProgressiveCognitiveSuitePage() {
     setCategorizedItems(next);
     speakText('Sorted correctly!');
     showToast('Sorted correctly!', 'success', 1500);
-    if (Object.keys(next).length >= LEVEL_8_CATEGORIES.items.length) {
+    if (Object.keys(next).length >= activeCategoryL8.items.length) {
       handleRoundVictory(100);
     }
   };
@@ -681,9 +853,9 @@ export default function ProgressiveCognitiveSuitePage() {
     const nextGuessed = [...hangmanGuessed, letter];
     setHangmanGuessed(nextGuessed);
 
-    if (LEVEL_9_HANGMAN.word.includes(letter)) {
+    if (activeHangmanL9.word.includes(letter)) {
       speakText(`Letter ${letter} found!`);
-      const allFound = LEVEL_9_HANGMAN.word.split('').every(l => nextGuessed.includes(l));
+      const allFound = activeHangmanL9.word.split('').every(l => nextGuessed.includes(l));
       if (allFound) {
         handleRoundVictory(100);
       }
@@ -704,7 +876,7 @@ export default function ProgressiveCognitiveSuitePage() {
       showToast('Correct logic deduction!', 'success', 2000);
       const nextStep = challengeStep + 1;
       setChallengeStep(nextStep);
-      if (nextStep >= LEVEL_10_CHALLENGES.length) {
+      if (nextStep >= activeChallengesL10.length) {
         handleRoundVictory(100);
       }
     } else {
@@ -728,12 +900,12 @@ export default function ProgressiveCognitiveSuitePage() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-extrabold uppercase tracking-wider text-[#006e1c] bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
-                    Cognitive Progression Suite · 10 Levels
+                    Cognitive Progression Suite · 10 Levels (50 Variations Each)
                   </span>
                   {aiAnalysis && (
                     <span className="text-xs font-bold text-teal-800 bg-teal-100 px-3 py-1 rounded-full border border-teal-200 flex items-center gap-1">
                       <span className="material-symbols-outlined text-sm">clinical_notes</span>
-                      <span>AI Baseline: Level {startingLevel}</span>
+                      <span>Saha AI Baseline: Level {startingLevel}</span>
                     </span>
                   )}
                 </div>
@@ -742,7 +914,7 @@ export default function ProgressiveCognitiveSuitePage() {
                   Namaste, {elderName.split(' ')[0]} ji 🌿
                 </h1>
                 <p className="text-xs sm:text-sm text-[#40493d] max-w-xl">
-                  Each session is 1 minute (+50 points). Complete your current level to unlock the next challenge in sequence!
+                  Each session is 1 minute (+50 points). Every level features 50 diverse puzzle variations that change every time you play. Complete your current level to unlock the next challenge in sequence!
                 </p>
 
                 {/* Level 1-10 Progress Bar */}
@@ -823,7 +995,7 @@ export default function ProgressiveCognitiveSuitePage() {
                         <div className="flex items-center gap-1.5">
                           {isAiBaseline && (
                             <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
-                              AI Baseline
+                              Saha AI Baseline
                             </span>
                           )}
                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
@@ -919,12 +1091,17 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             </div>
 
-            {/* LEVEL 1: MEMORY MATCH */}
+            {/* LEVEL 1: MEMORY MATCH (50 CARDS POOL) */}
             {activeLevel === 1 && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-extrabold text-[#032109]">Level 1: Memory Match</h2>
-                  <span className="text-xs font-bold text-[#40493d]">Tap cards to uncover matching pairs</span>
+                  <div>
+                    <h2 className="text-lg font-extrabold text-[#032109]">Level 1: Memory Match</h2>
+                    <p className="text-xs text-[#40493d]">Tap cards to uncover matching pairs (50 diverse card themes)</p>
+                  </div>
+                  <span className="text-xs font-bold text-[#006e1c] bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
+                    Moves: {moves}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-w-xl mx-auto">
@@ -935,18 +1112,21 @@ export default function ProgressiveCognitiveSuitePage() {
                         key={card.id}
                         type="button"
                         onClick={() => handleCardClickL1(idx)}
-                        className={`h-28 sm:h-36 rounded-2xl p-2 sm:p-3 flex flex-col items-center justify-center text-center transition-all duration-300 cursor-pointer border-2 ${
+                        className={`h-32 sm:h-36 rounded-2xl p-2 sm:p-3 flex flex-col items-center justify-center text-center transition-all duration-300 cursor-pointer border-2 ${
                           card.matched
                             ? 'bg-emerald-100 border-[#006e1c] scale-95 shadow-xs'
                             : isFlipped
                             ? 'bg-white border-[#006e1c] shadow-md scale-105'
-                            : 'bg-gradient-to-br from-[#d9fdd6] to-[#ebffe7] border-[#cdf2cb] hover:border-[#006e1c] shadow-sm'
+                            : 'bg-gradient-to-br from-[#d9fdd6] to-[#ebffe7] border-[#cdf2cb] hover:border-[#006e1c] shadow-sm hover:scale-102'
                         }`}
                       >
                         {isFlipped ? (
-                          <div className="flex flex-col items-center space-y-1">
-                            <img src={card.img} alt={card.title} className="w-12 h-12 object-contain rounded-lg" />
-                            <span className="text-xs font-bold text-[#032109] line-clamp-1">{card.title}</span>
+                          <div className="flex flex-col items-center justify-center space-y-1">
+                            <span className="material-symbols-outlined text-3xl sm:text-4xl text-[#006e1c]">
+                              {card.icon || 'star'}
+                            </span>
+                            <span className="text-xs font-extrabold text-[#032109] line-clamp-1">{card.title}</span>
+                            <span className="text-[10px] text-[#40493d] line-clamp-1">{card.subtitle}</span>
                           </div>
                         ) : (
                           <div className="flex flex-col items-center text-[#0d631b]">
@@ -961,58 +1141,156 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 2: WORD SEARCH (AUTO-TRACING ASSISTED) */}
-            {activeLevel === 2 && (
+            {/* LEVEL 2: WORD SEARCH (50 THEMED PUZZLES) */}
+            {activeLevel === 2 && activeWordSearchL2 && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
-                    <h2 className="text-lg font-extrabold text-[#032109]">Level 2: Word Search</h2>
-                    <p className="text-xs text-[#40493d]">Tap the target words below or discover them in the assisted 6x6 grid.</p>
+                    <h2 className="text-lg font-extrabold text-[#032109]">
+                      Level 2: Word Search &middot; <span className="text-[#0d631b]">{activeWordSearchL2.theme}</span>
+                    </h2>
+                    <p className="text-xs text-[#40493d]">
+                      Drag your finger or mouse across the letters in the 6×6 grid to find and connect each hidden word.
+                    </p>
                   </div>
-                  <span className="text-xs font-bold text-[#006e1c] bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
-                    Found: {foundWordsL2.length} / {LEVEL_2_WORD_SEARCH.words.length}
+                  <span className="text-xs font-bold text-[#006e1c] bg-[#d9fdd6] px-3.5 py-1.5 rounded-full border border-[#cdf2cb] shadow-xs">
+                    Found: {foundWordsL2.length} / {activeWordSearchL2.words.length}
                   </span>
                 </div>
 
-                {/* Target Word Badges (Clicking triggers auto-trace discovery for limited dexterity) */}
-                <div className="flex flex-wrap gap-2.5 justify-center">
-                  {LEVEL_2_WORD_SEARCH.words.map((w) => {
-                    const isFound = foundWordsL2.includes(w.word);
-                    return (
-                      <button
-                        key={w.word}
-                        type="button"
-                        onClick={() => handleSelectWordL2(w)}
-                        className={`px-4 py-2 rounded-2xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer border-2 ${
-                          isFound
-                            ? 'bg-[#006e1c] text-white border-[#006e1c]'
-                            : 'bg-[#ebffe7] text-[#032109] border-[#cdf2cb] hover:border-[#006e1c]'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-sm">
-                          {isFound ? 'check_circle' : 'search'}
-                        </span>
-                        <span>{w.word}</span>
-                        <span className="text-[10px] opacity-80">({w.hint})</span>
-                      </button>
-                    );
-                  })}
+                {/* Target Words to Find (Clicking plays voice hint, does NOT auto-solve) */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-extrabold text-[#0d631b] uppercase tracking-wider text-center">
+                    Words to Find in Grid (Tap for Voice Hint):
+                  </p>
+                  <div className="flex flex-wrap gap-2.5 justify-center">
+                    {activeWordSearchL2.words.map((w) => {
+                      const isFound = foundWordsL2.includes(w.word);
+                      return (
+                        <button
+                          key={w.word}
+                          type="button"
+                          onClick={() => handleWordHintL2(w)}
+                          className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer border-2 shadow-xs ${
+                            isFound
+                              ? 'bg-[#006e1c] text-white border-[#006e1c] ring-2 ring-emerald-200 scale-102'
+                              : 'bg-[#ebffe7] text-[#032109] border-[#cdf2cb] hover:border-[#006e1c] hover:bg-[#d9fdd6]'
+                          }`}
+                          title={isFound ? `${w.word} is found!` : `Tap to hear hint for ${w.word}`}
+                        >
+                          <span className="material-symbols-outlined text-base">
+                            {isFound ? 'check_circle' : 'lightbulb'}
+                          </span>
+                          <span className="text-sm font-black tracking-wider">{w.word}</span>
+                          <span className={`text-[10px] ${isFound ? 'text-emerald-100' : 'text-[#40493d]'}`}>
+                            ({w.hint})
+                          </span>
+                          {isFound && (
+                            <span className="bg-white/20 text-[9px] font-black uppercase px-1.5 py-0.5 rounded">
+                              Found
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* 6x6 Grid */}
-                <div className="grid grid-cols-6 gap-1.5 sm:gap-2 max-w-sm mx-auto p-3 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb]">
-                  {LEVEL_2_WORD_SEARCH.grid.map((row, rIdx) =>
+                {/* Current Selection Bar */}
+                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-[#d9fdd6] border border-[#cdf2cb] text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="material-symbols-outlined text-base text-[#0d631b] shrink-0">touch_app</span>
+                    <div className="truncate">
+                      {selectedCellsL2.length > 0 ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-bold text-[#032109]">Selected:</span>
+                          <span className="bg-white px-2.5 py-0.5 rounded-lg border border-teal-300 font-black text-teal-900 tracking-widest text-sm shadow-xs">
+                            {selectedCellsL2.map(pt => activeWordSearchL2.grid[pt.r][pt.c]).join('')}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-[#40493d] font-medium">
+                          Drag across letters or tap first & last letter to select a word.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {selectedCellsL2.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCellsL2([]);
+                        setIsDraggingL2(false);
+                        setDragStartCellL2(null);
+                      }}
+                      className="shrink-0 text-[11px] font-bold text-red-600 hover:text-red-800 bg-white px-2.5 py-1 rounded-xl border border-red-200 cursor-pointer shadow-xs"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* 6x6 Interactive Word Search Grid */}
+                <div
+                  className="grid grid-cols-6 gap-1.5 sm:gap-2.5 max-w-sm mx-auto p-3.5 rounded-2xl bg-[#ebffe7] border-2 border-[#cdf2cb] select-none touch-none shadow-inner"
+                  onPointerLeave={() => {
+                    if (isDraggingL2 && selectedCellsL2.length > 1) {
+                      checkSelectedWordL2(selectedCellsL2);
+                    } else {
+                      setIsDraggingL2(false);
+                      setDragStartCellL2(null);
+                    }
+                  }}
+                  onPointerUp={handleCellPointerUpL2}
+                  onTouchMove={(e) => {
+                    if (!isDraggingL2 || !dragStartCellL2) return;
+                    const touch = e.touches[0];
+                    if (!touch) return;
+                    const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const cellElem = elem?.closest('[data-cell-pos]');
+                    if (cellElem) {
+                      const r = parseInt(cellElem.getAttribute('data-row'), 10);
+                      const c = parseInt(cellElem.getAttribute('data-col'), 10);
+                      if (!isNaN(r) && !isNaN(c)) {
+                        const line = getCellsBetweenL2(dragStartCellL2, { r, c });
+                        setSelectedCellsL2(line);
+                      }
+                    }
+                  }}
+                  onTouchEnd={() => {
+                    if (selectedCellsL2.length > 1) {
+                      checkSelectedWordL2(selectedCellsL2);
+                    } else {
+                      setIsDraggingL2(false);
+                      setDragStartCellL2(null);
+                    }
+                  }}
+                >
+                  {activeWordSearchL2.grid.map((row, rIdx) =>
                     row.map((letter, cIdx) => {
-                      const isWordCell = LEVEL_2_WORD_SEARCH.words.some(
+                      const isFound = activeWordSearchL2.words.some(
                         w => foundWordsL2.includes(w.word) && w.row === rIdx && cIdx >= w.col && cIdx < w.col + w.length
                       );
+                      const isSelected = selectedCellsL2.some(pt => pt.r === rIdx && pt.c === cIdx);
+
                       return (
                         <div
                           key={`${rIdx}-${cIdx}`}
-                          className={`h-11 sm:h-12 rounded-xl flex items-center justify-center font-black text-sm sm:text-base border transition-all ${
-                            isWordCell
-                              ? 'bg-[#006e1c] text-white border-[#006e1c] shadow-xs scale-95'
-                              : 'bg-white text-[#032109] border-[#cdf2cb]'
+                          data-cell-pos="true"
+                          data-row={rIdx}
+                          data-col={cIdx}
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            handleCellPointerDownL2(rIdx, cIdx);
+                          }}
+                          onPointerEnter={() => handleCellPointerEnterL2(rIdx, cIdx)}
+                          onClick={() => handleCellTapL2(rIdx, cIdx)}
+                          className={`h-11 sm:h-13 rounded-2xl flex items-center justify-center font-black text-base sm:text-lg border-2 transition-all cursor-pointer user-select-none select-none ${
+                            isFound
+                              ? 'bg-[#006e1c] text-white border-[#004d13] shadow-md ring-2 ring-emerald-300/70 scale-95'
+                              : isSelected
+                              ? 'bg-teal-500 text-white border-teal-700 shadow-md ring-2 ring-teal-200 scale-105 animate-pulse'
+                              : 'bg-white text-[#032109] border-[#cdf2cb] hover:bg-[#d9fdd6] hover:border-[#006e1c] hover:scale-102 shadow-xs active:scale-95'
                           }`}
                         >
                           {letter}
@@ -1024,16 +1302,25 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 3: QUICK DEMENTIA-FRIENDLY CROSSWORD */}
-            {activeLevel === 3 && (
+            {/* LEVEL 3: QUICK DEMENTIA-FRIENDLY CROSSWORD (50 THEMED PUZZLES) */}
+            {activeLevel === 3 && activeCrosswordL3 && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
-                <h2 className="text-lg font-extrabold text-[#032109]">Level 3: Quick Dementia-Friendly Crossword</h2>
-                <p className="text-xs text-[#40493d]">Tap the correct comforting answer for each everyday clue:</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-extrabold text-[#032109]">
+                      Level 3: Quick Crossword &middot; <span className="text-[#0d631b]">{activeCrosswordL3.theme}</span>
+                    </h2>
+                    <p className="text-xs text-[#40493d]">Tap the correct comforting answer for each everyday clue:</p>
+                  </div>
+                  <span className="text-xs font-bold text-[#006e1c] bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
+                    Clues: {Object.values(crosswordAnswers).filter((ans, i) => ans === activeCrosswordL3.words[i]?.answer).length} / {activeCrosswordL3.words.length}
+                  </span>
+                </div>
 
                 <div className="space-y-3 max-w-xl mx-auto">
-                  {LEVEL_3_CROSSWORD.words.map((item) => {
+                  {activeCrosswordL3.words.map((item) => {
                     const isSolved = crosswordAnswers[item.id] === item.answer;
-                    const options = [item.answer, item.id === 1 ? 'COFFEE' : item.id === 2 ? 'MOON' : 'CAT'].sort();
+                    const options = item.options || [item.answer, 'WATER', 'PEACE'];
 
                     return (
                       <div key={item.id} className="p-4 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] space-y-2">
@@ -1073,20 +1360,20 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 4: ANAGRAMS & WORD UNSCRAMBLES */}
-            {activeLevel === 4 && (
+            {/* LEVEL 4: ANAGRAMS & WORD UNSCRAMBLES (50 WORDS POOL) */}
+            {activeLevel === 4 && activeAnagramsL4[currentAnagramIdx] && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-extrabold text-[#032109]">Level 4: Word Unscramble</h2>
                   <span className="text-xs font-bold text-[#006e1c]">
-                    Solved: {solvedAnagrams.length} / {LEVEL_4_ANAGRAMS.length}
+                    Solved: {solvedAnagrams.length} / {activeAnagramsL4.length}
                   </span>
                 </div>
 
-                {currentAnagramIdx < LEVEL_4_ANAGRAMS.length && (
+                {currentAnagramIdx < activeAnagramsL4.length && (
                   <div className="max-w-md mx-auto text-center space-y-4">
                     <p className="text-xs text-[#40493d]">
-                      Hint: {LEVEL_4_ANAGRAMS[currentAnagramIdx].hint}
+                      Hint: {activeAnagramsL4[currentAnagramIdx].hint}
                     </p>
 
                     {/* Assembled Letters Display */}
@@ -1103,11 +1390,11 @@ export default function ProgressiveCognitiveSuitePage() {
 
                     {/* Scrambled Tile Buttons */}
                     <div className="flex justify-center gap-2 flex-wrap">
-                      {LEVEL_4_ANAGRAMS[currentAnagramIdx].scrambled.map((char, i) => (
+                      {activeAnagramsL4[currentAnagramIdx].scrambled.map((char, i) => (
                         <button
                           key={i}
                           type="button"
-                          onClick={() => handleAnagramTileClick(char, LEVEL_4_ANAGRAMS[currentAnagramIdx])}
+                          onClick={() => handleAnagramTileClick(char, activeAnagramsL4[currentAnagramIdx])}
                           className="w-12 h-12 rounded-2xl bg-white border-2 border-[#cdf2cb] hover:border-[#006e1c] font-black text-xl text-[#032109] shadow-xs cursor-pointer active:scale-95"
                         >
                           {char}
@@ -1127,17 +1414,17 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 5: WORD WHEEL & BUILDING */}
-            {activeLevel === 5 && (
+            {/* LEVEL 5: WORD WHEEL & BUILDING (50 WHEEL POOLS) */}
+            {activeLevel === 5 && activeWheelL5 && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-extrabold text-[#032109]">Level 5: Word Wheel</h2>
                   <span className="text-xs font-bold text-[#006e1c]">
-                    Found: {wheelWordsFound.length} / {LEVEL_5_WORD_WHEEL.targetCount}
+                    Found: {wheelWordsFound.length} / {activeWheelL5.targetCount || 3}
                   </span>
                 </div>
                 <p className="text-xs text-[#40493d] text-center">
-                  Form 3 words using the outer letters. Every word must include center letter <strong>&apos;{LEVEL_5_WORD_WHEEL.centerLetter}&apos;</strong>!
+                  Form 3 words using the outer letters. Every word must include center letter <strong>&apos;{activeWheelL5.centerLetter}&apos;</strong>!
                 </p>
 
                 {/* Interactive Word Wheel */}
@@ -1146,15 +1433,15 @@ export default function ProgressiveCognitiveSuitePage() {
                     {/* Center Letter Button */}
                     <button
                       type="button"
-                      onClick={() => handleWheelLetterTap(LEVEL_5_WORD_WHEEL.centerLetter)}
+                      onClick={() => handleWheelLetterTap(activeWheelL5.centerLetter)}
                       className="w-16 h-16 rounded-full bg-[#006e1c] text-white font-black text-2xl shadow-md cursor-pointer hover:scale-105 transition-transform"
                     >
-                      {LEVEL_5_WORD_WHEEL.centerLetter}
+                      {activeWheelL5.centerLetter}
                     </button>
 
                     {/* Outer Letter Buttons */}
-                    {LEVEL_5_WORD_WHEEL.outerLetters.map((letter, idx) => {
-                      const angle = (idx * 360) / LEVEL_5_WORD_WHEEL.outerLetters.length;
+                    {activeWheelL5.outerLetters.map((letter, idx) => {
+                      const angle = (idx * 360) / activeWheelL5.outerLetters.length;
                       const rad = (angle * Math.PI) / 180;
                       const x = Math.round(75 * Math.cos(rad));
                       const y = Math.round(75 * Math.sin(rad));
@@ -1208,28 +1495,28 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 6: FILL-IN-THE-BLANK PROVERBS */}
-            {activeLevel === 6 && (
+            {/* LEVEL 6: FILL-IN-THE-BLANK PROVERBS (50 PROVERBS POOL) */}
+            {activeLevel === 6 && activeProverbsL6[currentProverbIdx] && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-extrabold text-[#032109]">Level 6: Fill-in-the-Blank Proverbs</h2>
                   <span className="text-xs font-bold text-[#006e1c]">
-                    Completed: {solvedProverbs.length} / {LEVEL_6_PROVERBS.length}
+                    Completed: {solvedProverbs.length} / {activeProverbsL6.length}
                   </span>
                 </div>
 
-                {currentProverbIdx < LEVEL_6_PROVERBS.length && (
+                {currentProverbIdx < activeProverbsL6.length && (
                   <div className="max-w-lg mx-auto text-center space-y-5 py-4">
                     <p className="text-base sm:text-lg font-black text-[#032109]">
-                      &ldquo;{LEVEL_6_PROVERBS[currentProverbIdx].phrase}&rdquo;
+                      &ldquo;{activeProverbsL6[currentProverbIdx].phrase}&rdquo;
                     </p>
 
                     <div className="flex justify-center gap-3">
-                      {LEVEL_6_PROVERBS[currentProverbIdx].options.map(opt => (
+                      {activeProverbsL6[currentProverbIdx].options.map(opt => (
                         <button
                           key={opt}
                           type="button"
-                          onClick={() => handleProverbSelect(opt, LEVEL_6_PROVERBS[currentProverbIdx])}
+                          onClick={() => handleProverbSelect(opt, activeProverbsL6[currentProverbIdx])}
                           className="py-3 px-5 rounded-2xl bg-[#ebffe7] hover:bg-[#006e1c] hover:text-white border-2 border-[#cdf2cb] text-sm font-extrabold text-[#032109] transition-all shadow-xs cursor-pointer active:scale-95"
                         >
                           {opt}
@@ -1241,23 +1528,23 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 7: RHYMING PAIRS */}
-            {activeLevel === 7 && (
+            {/* LEVEL 7: RHYMING PAIRS (50 RHYMES POOL) */}
+            {activeLevel === 7 && activeRhymesL7[currentRhymeIdx] && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-extrabold text-[#032109]">Level 7: Rhyming Pairs</h2>
                   <span className="text-xs font-bold text-[#006e1c]">
-                    Pairs Matched: {solvedRhymes.length} / {LEVEL_7_RHYMES.length}
+                    Pairs Matched: {solvedRhymes.length} / {activeRhymesL7.length}
                   </span>
                 </div>
 
-                {currentRhymeIdx < LEVEL_7_RHYMES.length && (
+                {currentRhymeIdx < activeRhymesL7.length && (
                   <div className="max-w-md mx-auto text-center space-y-5 py-4">
                     <div className="flex items-center justify-center gap-2">
                       <span className="text-sm text-[#40493d]">Find the word that rhymes with:</span>
                       <button
                         type="button"
-                        onClick={() => speakText(LEVEL_7_RHYMES[currentRhymeIdx].targetWord)}
+                        onClick={() => speakText(activeRhymesL7[currentRhymeIdx].targetWord)}
                         className="px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] text-xs font-extrabold border border-[#cdf2cb] flex items-center gap-1 cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-sm">volume_up</span>
@@ -1266,15 +1553,15 @@ export default function ProgressiveCognitiveSuitePage() {
                     </div>
 
                     <h3 className="text-3xl font-black text-[#006e1c]">
-                      {LEVEL_7_RHYMES[currentRhymeIdx].targetWord}
+                      {activeRhymesL7[currentRhymeIdx].targetWord}
                     </h3>
 
                     <div className="grid grid-cols-2 gap-3">
-                      {LEVEL_7_RHYMES[currentRhymeIdx].options.map(opt => (
+                      {activeRhymesL7[currentRhymeIdx].options.map(opt => (
                         <button
                           key={opt}
                           type="button"
-                          onClick={() => handleRhymeSelect(opt, LEVEL_7_RHYMES[currentRhymeIdx])}
+                          onClick={() => handleRhymeSelect(opt, activeRhymesL7[currentRhymeIdx])}
                           className="py-3 px-4 rounded-2xl bg-white hover:bg-[#ebffe7] border-2 border-[#cdf2cb] hover:border-[#006e1c] text-base font-extrabold text-[#032109] transition-all shadow-xs cursor-pointer"
                         >
                           {opt}
@@ -1286,19 +1573,23 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 8: CATEGORY ASSOCIATION */}
-            {activeLevel === 8 && (
+            {/* LEVEL 8: CATEGORY ASSOCIATION (50 CATEGORY POOLS) */}
+            {activeLevel === 8 && activeCategoryL8 && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-extrabold text-[#032109]">Level 8: Category Association</h2>
+                  <div>
+                    <h2 className="text-lg font-extrabold text-[#032109]">
+                      Level 8: Category Sorting &middot; <span className="text-[#0d631b]">{activeCategoryL8.theme}</span>
+                    </h2>
+                    <p className="text-xs text-[#40493d]">Classify each item into the correct category:</p>
+                  </div>
                   <span className="text-xs font-bold text-[#006e1c]">
-                    Categorized: {Object.keys(categorizedItems).length} / {LEVEL_8_CATEGORIES.items.length}
+                    Categorized: {Object.keys(categorizedItems).length} / {activeCategoryL8.items.length}
                   </span>
                 </div>
-                <p className="text-xs text-[#40493d]">Classify each item into Fruits or Veggies:</p>
 
                 <div className="space-y-3 max-w-xl mx-auto">
-                  {LEVEL_8_CATEGORIES.items.map(item => {
+                  {activeCategoryL8.items.map(item => {
                     const assigned = categorizedItems[item.id];
                     return (
                       <div key={item.id} className="p-3.5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex items-center justify-between">
@@ -1307,25 +1598,25 @@ export default function ProgressiveCognitiveSuitePage() {
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => handleCategoryAssign(item.id, 'fruits', item.category)}
+                            onClick={() => handleCategoryAssign(item.id, activeCategoryL8.categoryA.key, item.category)}
                             className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
-                              assigned === 'fruits'
+                              assigned === activeCategoryL8.categoryA.key
                                 ? 'bg-[#006e1c] text-white border-[#006e1c]'
                                 : 'bg-white text-[#032109] border-[#cdf2cb] hover:border-[#006e1c]'
                             }`}
                           >
-                            🍎 Fruit
+                            {activeCategoryL8.categoryA.name}
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleCategoryAssign(item.id, 'veggies', item.category)}
+                            onClick={() => handleCategoryAssign(item.id, activeCategoryL8.categoryB.key, item.category)}
                             className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
-                              assigned === 'veggies'
+                              assigned === activeCategoryL8.categoryB.key
                                 ? 'bg-[#006e1c] text-white border-[#006e1c]'
                                 : 'bg-white text-[#032109] border-[#cdf2cb] hover:border-[#006e1c]'
                             }`}
                           >
-                            🥕 Veggie
+                            {activeCategoryL8.categoryB.name}
                           </button>
                         </div>
                       </div>
@@ -1335,11 +1626,13 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 9: HANGMAN-STYLE VOCABULARY */}
-            {activeLevel === 9 && (
+            {/* LEVEL 9: HANGMAN-STYLE VOCABULARY (50 MYSTERY WORDS POOL) */}
+            {activeLevel === 9 && activeHangmanL9 && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-extrabold text-[#032109]">Level 9: Vocabulary Discovery</h2>
+                  <h2 className="text-lg font-extrabold text-[#032109]">
+                    Level 9: Vocabulary Discovery &middot; <span className="text-[#0d631b]">{activeHangmanL9.category}</span>
+                  </h2>
                   <div className="flex items-center gap-1 text-xs font-extrabold text-red-600">
                     {Array.from({ length: hangmanAttemptsLeft }).map((_, i) => (
                       <span key={i}>❤️</span>
@@ -1348,11 +1641,11 @@ export default function ProgressiveCognitiveSuitePage() {
                   </div>
                 </div>
 
-                <p className="text-xs text-[#40493d] text-center">Clue: {LEVEL_9_HANGMAN.clue}</p>
+                <p className="text-xs text-[#40493d] text-center">Clue: {activeHangmanL9.clue}</p>
 
                 {/* Mystery Word Slots */}
                 <div className="flex justify-center gap-2 py-4">
-                  {LEVEL_9_HANGMAN.word.split('').map((char, idx) => {
+                  {activeHangmanL9.word.split('').map((char, idx) => {
                     const isGuessed = hangmanGuessed.includes(char);
                     return (
                       <span
@@ -1391,31 +1684,31 @@ export default function ProgressiveCognitiveSuitePage() {
               </div>
             )}
 
-            {/* LEVEL 10: MIXED COGNITIVE MASTER */}
-            {activeLevel === 10 && (
+            {/* LEVEL 10: MIXED COGNITIVE MASTER (50 CHALLENGES POOL) */}
+            {activeLevel === 10 && activeChallengesL10[challengeStep] && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-8 shadow-md border border-[#cdf2cb] space-y-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-extrabold text-[#032109]">Level 10: Mixed Cognitive Master</h2>
                   <span className="text-xs font-bold text-[#006e1c]">
-                    Step {challengeStep + 1} of {LEVEL_10_CHALLENGES.length}
+                    Step {challengeStep + 1} of {activeChallengesL10.length}
                   </span>
                 </div>
 
-                {challengeStep < LEVEL_10_CHALLENGES.length && (
+                {challengeStep < activeChallengesL10.length && (
                   <div className="max-w-md mx-auto text-center space-y-5 py-4">
                     <span className="text-[11px] font-extrabold uppercase text-[#006e1c] bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
-                      {LEVEL_10_CHALLENGES[challengeStep].type} challenge
+                      {activeChallengesL10[challengeStep].type} challenge
                     </span>
                     <h3 className="text-lg font-extrabold text-[#032109]">
-                      {LEVEL_10_CHALLENGES[challengeStep].question}
+                      {activeChallengesL10[challengeStep].question}
                     </h3>
 
                     <div className="flex flex-col gap-2.5">
-                      {LEVEL_10_CHALLENGES[challengeStep].options.map(opt => (
+                      {activeChallengesL10[challengeStep].options.map(opt => (
                         <button
                           key={opt}
                           type="button"
-                          onClick={() => handleChallengeAnswer(opt, LEVEL_10_CHALLENGES[challengeStep].answer)}
+                          onClick={() => handleChallengeAnswer(opt, activeChallengesL10[challengeStep].answer)}
                           className="py-3 px-4 rounded-2xl bg-[#ebffe7] hover:bg-[#006e1c] hover:text-white border-2 border-[#cdf2cb] text-sm font-extrabold text-[#032109] transition-all shadow-xs cursor-pointer"
                         >
                           {opt}
