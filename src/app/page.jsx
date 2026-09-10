@@ -1051,8 +1051,94 @@ export default function HomePage() {
                         onChange={handleReportFileUpload}
                         className="hidden"
                       />
-                      <div className="w-12 h-12 rounded-2xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-xs">
-                        <span className="material-symbols-outlined text-2xl">upload_file</span>
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+                          <defs>
+                            <style>{`
+                              .cloud-bg {
+                                fill: none;
+                                stroke: #1B1834;
+                                stroke-width: 16;
+                                stroke-linecap: round;
+                                stroke-linejoin: round;
+                              }
+                              
+                              .cloud-layer {
+                                transform-origin: 250px 260px;
+                                animation: cloudFloat 3s ease-in-out infinite;
+                              }
+                              
+                              .arrow-group {
+                                animation: uploadBounce 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+                                transform-origin: 275px 330px;
+                              }
+
+                              .arrow-stem {
+                                stroke: #10A37F;
+                                stroke-width: 16;
+                                stroke-linecap: round;
+                              }
+
+                              .arrow-head {
+                                fill: none;
+                                stroke: #10A37F;
+                                stroke-width: 16;
+                                stroke-linecap: round;
+                                stroke-linejoin: round;
+                              }
+
+                              @keyframes cloudFloat {
+                                0%, 100% {
+                                  transform: translateY(0) scale(1);
+                                }
+                                50% {
+                                  transform: translateY(-4px) scale(1.01);
+                                }
+                              }
+
+                              @keyframes uploadBounce {
+                                0% {
+                                  transform: translateY(0);
+                                  opacity: 1;
+                                }
+                                40% {
+                                  transform: translateY(-24px);
+                                }
+                                70% {
+                                  transform: translateY(4px);
+                                }
+                                100% {
+                                  transform: translateY(0);
+                                  opacity: 1;
+                                }
+                              }
+                            `}</style>
+                          </defs>
+
+                          {/* Cloud Body */}
+                          <g className="cloud-layer">
+                            {/* Right outer accent ridge */}
+                            <path className="cloud-bg" d="M 405 205 C 455 240 455 315 410 350" />
+
+                            {/* Main cloud contour */}
+                            <path className="cloud-bg" d="
+                              M 250 375 
+                              H 135 
+                              A 65 65 0 0 1 80 320 
+                              A 75 75 0 0 1 125 210 
+                              A 35 35 0 0 1 195 185 
+                              C 200 110 300 70 380 135 
+                              C 435 180 430 270 395 315 
+                              C 375 345 355 375 305 375
+                            " />
+                          </g>
+
+                          {/* Animated Upload Arrow */}
+                          <g className="arrow-group">
+                            <line className="arrow-stem" x1="278" y1="240" x2="278" y2="400" />
+                            <path className="arrow-head" d="M 225 292 L 278 238 L 331 292" />
+                          </g>
+                        </svg>
                       </div>
                       <p className="text-xs sm:text-sm font-bold text-[#032109]">
                         Click or drag clinical report here
