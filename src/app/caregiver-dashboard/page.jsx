@@ -387,8 +387,8 @@ export default function CaregiverDashboardPage() {
               const tSessions = Number(sData.analytics.todaySessions) || 0;
               const tScore = Number(sData.analytics.todayScore) || 0;
               if (tSessions > 0 || tScore > 0) {
-                setTodayGameSessions(tSessions);
-                setTodayGameScore(tScore);
+                setTodayGameSessions(prev => Math.max(prev, tSessions));
+                setTodayGameScore(prev => Math.max(prev, tScore));
               } else if (sData.scores.length > 0) {
                 const totalScore = sData.scores.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
                 setTodayGameSessions(prev => Math.max(prev, sData.scores.length));
@@ -664,8 +664,8 @@ export default function CaregiverDashboardPage() {
   const takenCount = medicines.filter((m) => m.taken).length;
   const totalMeds = medicines.length;
   const medPercent = totalMeds > 0 ? Math.round((takenCount / totalMeds) * 100) : 0;
-  const displayTodaySessions = Number(todayGameSessions) || 0;
-  const displayTodayScore = Number(todayGameScore) || 0;
+  const displayTodaySessions = Math.max(Number(todayGameSessions) || 0, Number(gameAnalytics?.todaySessions) || 0);
+  const displayTodayScore = Math.max(Number(todayGameScore) || 0, Number(gameAnalytics?.todayScore) || 0);
   const displayWeeklyScore = Math.max(Number(gameAnalytics?.weeklyScore) || 0, displayTodayScore);
 
   const handleResetScores = async () => {

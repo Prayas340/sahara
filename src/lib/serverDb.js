@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { adminDb, firebaseLookupUser, firebaseSaveElder, firebaseSaveCaregiver, syncCaregiverToFirebaseAuth, syncElderToFirebaseAuth } from './firebaseAdmin.js';
+import { adminDb, firebaseLookupUser, firebaseSaveElder, firebaseSaveCaregiver, syncCaregiverToFirebaseAuth, syncElderToFirebaseAuth, firestoreSaveGameDailyLog, firestoreGetGameDailyLog } from './firebaseAdmin.js';
 import seedData from '../data/seedDatabase.js';
 
 // Fallback database file path (supports Vercel Serverless /tmp and local)
@@ -590,50 +590,57 @@ export async function saveGameScoreToDb(scoreData) {
   const dateStr = scoreData.date || getLocalDateString();
   const timestamp = scoreData.timestamp || new Date().toISOString();
 
-  const scoreVal = typeof scoreData.score === 'number' ? scoreData.score : (Number(scoreData.score) || 0);
+  const isTimedOut = scoreData.status === 'timed_out' || Number(scoreData.pointsEarned) === 0 || scoreData.status === 'Timed Out';
+  const ptsToAdd = isTimedOut ? 0 : 50;
 
   const record = {
     id,
     elderId,
     caregiverEmail: caregiverEmail || '',
-    score: scoreVal,
+    score: ptsToAdd,
+    pointsEarned: ptsToAdd,
     moves: Number(scoreData.moves) || 3,
     matchedPairs: Number(scoreData.matchedPairs) || 3,
-    accuracy: Number(scoreData.accuracy) || 100,
+    accuracy: scoreData.accuracy !== undefined ? Number(scoreData.accuracy) : 100,
     durationSeconds: Number(scoreData.durationSeconds) || 30,
+    remainingTimeSeconds: Number(scoreData.remainingTimeSeconds) || 0,
     date: dateStr,
     timestamp,
-    status: scoreData.status || (Number(scoreData.accuracy) >= 90 ? 'High Focus' : 'Steady Recall'),
+    status: isTimedOut ? 'Timed Out' : 'Completed (+50 pts)',
   };
 
-  const addUnique = (list, item) => {
-    // Avoid duplicate records within 3 seconds for same elder
-    const isDuplicate = list.some(existing => 
-      existing.id === item.id || 
-      (existing.timestamp && item.timestamp && Math.abs(new Date(existing.timestamp).getTime() - new Date(item.timestamp).getTime()) < 3000 && existing.score === item.score)
-    );
-    if (!isDuplicate) {
-      list.unshift(item);
-    }
+  const addRecord = (list) => {
+    list.unshift(record);
   };
 
   // Index by elderId (normalized)
   if (!store.gameScores[elderId]) store.gameScores[elderId] = [];
-  addUnique(store.gameScores[elderId], record);
+  addRecord(store.gameScores[elderId]);
 
   // Also index by raw elderId if different
   if (scoreData.elderId && scoreData.elderId !== elderId) {
     if (!store.gameScores[scoreData.elderId]) store.gameScores[scoreData.elderId] = [];
-    addUnique(store.gameScores[scoreData.elderId], record);
+    addRecord(store.gameScores[scoreData.elderId]);
   }
 
   // Also index by caregiverEmail if available
   if (caregiverEmail) {
     if (!store.gameScores[caregiverEmail]) store.gameScores[caregiverEmail] = [];
-    addUnique(store.gameScores[caregiverEmail], record);
+    addRecord(store.gameScores[caregiverEmail]);
   }
 
   writeLocalStore(store);
+
+  // Cloud Firestore Persistence via Firebase Admin
+  try {
+    const cloudRes = await firestoreSaveGameDailyLog(elderId, dateStr, scoreData);
+    if (cloudRes) {
+      return { success: true, record, cloudAnalytics: cloudRes };
+    }
+  } catch (cloudErr) {
+    console.warn('[serverDb] firestoreSaveGameDailyLog notice:', cloudErr.message);
+  }
+
   return { success: true, record };
 }
 
@@ -655,10 +662,28 @@ export async function getGameScoresFromDb(args) {
   }
 
   const store = readLocalStore();
-  const candidateLists = [];
+  const now = new Date();
+  const todayStr = clientDate || getLocalDateString(now);
 
-  if (elderId) {
-    const cleanId = normalizeIdentifier(elderId);
+  // Try reading real-time DailyLog from Cloud Firestore first
+  let cloudDaily = null;
+  const cleanId = elderId ? normalizeIdentifier(elderId) : null;
+  if (cleanId) {
+    try {
+      cloudDaily = await firestoreGetGameDailyLog(cleanId, todayStr);
+    } catch (e) {}
+  }
+  if (!cloudDaily && caregiverEmail) {
+    const cg = store.caregivers?.[caregiverEmail.trim().toLowerCase()];
+    if (cg?.elderId) {
+      try {
+        cloudDaily = await firestoreGetGameDailyLog(normalizeIdentifier(cg.elderId), todayStr);
+      } catch (e) {}
+    }
+  }
+
+  const candidateLists = [];
+  if (cleanId) {
     if (Array.isArray(store.gameScores?.[cleanId])) candidateLists.push(store.gameScores[cleanId]);
     if (Array.isArray(store.gameScores?.[elderId])) candidateLists.push(store.gameScores[elderId]);
   }
@@ -674,7 +699,7 @@ export async function getGameScoresFromDb(args) {
   }
 
   // Cross-reference linked profile
-  const resolvedElder = (elderId ? (store.elders?.[elderId] || store.elders?.[normalizeIdentifier(elderId)] || findElderInDb(elderId)) : null) ||
+  const resolvedElder = (elderId ? (store.elders?.[elderId] || store.elders?.[cleanId] || findElderInDb(elderId)) : null) ||
                         (caregiverEmail ? findElderInDb(caregiverEmail) : null);
 
   if (resolvedElder) {
@@ -688,7 +713,7 @@ export async function getGameScoresFromDb(args) {
     if (eCgEmail && Array.isArray(store.gameScores?.[eCgEmail.toLowerCase()])) candidateLists.push(store.gameScores[eCgEmail.toLowerCase()]);
   }
 
-  // Deduplicate raw scores by id / unique fingerprint
+  // Deduplicate raw scores by id
   const seenScoreIds = new Set();
   const scores = [];
   for (const list of candidateLists) {
@@ -701,16 +726,34 @@ export async function getGameScoresFromDb(args) {
     }
   }
 
-  // Sort descending by timestamp / date
+  // If cloud DailyLog has sessionsHistory, add them
+  if (cloudDaily && Array.isArray(cloudDaily.sessionsHistory)) {
+    for (const ch of cloudDaily.sessionsHistory) {
+      const chKey = `cloud_${ch.sessionNumber}_${ch.completedAt}`;
+      if (!seenScoreIds.has(chKey)) {
+        seenScoreIds.add(chKey);
+        scores.push({
+          id: chKey,
+          score: ch.pointsEarned !== undefined ? Number(ch.pointsEarned) : 50,
+          pointsEarned: ch.pointsEarned !== undefined ? Number(ch.pointsEarned) : 50,
+          durationSeconds: 60 - (Number(ch.remainingTimeSeconds) || 0),
+          remainingTimeSeconds: Number(ch.remainingTimeSeconds) || 0,
+          accuracy: ch.accuracy !== undefined ? Number(ch.accuracy) : 100,
+          status: ch.status === 'timed_out' ? 'Timed Out' : 'Completed (+50 pts)',
+          date: todayStr,
+          timestamp: ch.completedAt || new Date().toISOString(),
+          sessionNumber: ch.sessionNumber,
+        });
+      }
+    }
+  }
+
+  // Sort descending
   scores.sort((a, b) => {
     const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
     const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
     return timeB - timeA;
   });
-
-  // Calculate daily & weekly analytics using local calendar date
-  const now = new Date();
-  const todayStr = clientDate || getLocalDateString(now);
 
   const isTodayMatch = (s) => {
     if (s.date === todayStr) return true;
@@ -720,7 +763,6 @@ export async function getGameScoresFromDb(args) {
         const local = getLocalDateString(tsD);
         const utc = tsD.toISOString().split('T')[0];
         if (local === todayStr || utc === todayStr) return true;
-        // Also match if within last 18 hours
         if (Math.abs(now.getTime() - tsD.getTime()) < 18 * 3600 * 1000) return true;
       }
     }
@@ -728,8 +770,24 @@ export async function getGameScoresFromDb(args) {
   };
 
   const todayScores = scores.filter(isTodayMatch);
-  const todayTotalScore = todayScores.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
-  const todayAvgScore = todayScores.length > 0 ? Math.round(todayTotalScore / todayScores.length) : 0;
+
+  // Calculate todayTotalScore from completed sessions: each completed session is 50 pts, max 250
+  const completedTodayScores = todayScores.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out' && Number(s.score) > 0);
+  const rawTodayScore = completedTodayScores.reduce((sum, s) => sum + (Number(s.score) || Number(s.pointsEarned) || 50), 0);
+
+  let todayTotalScore = rawTodayScore;
+  let todaySessionsCount = completedTodayScores.length;
+
+  if (cloudDaily) {
+    const cScore = typeof cloudDaily.todayScore === 'number' ? cloudDaily.todayScore : (typeof cloudDaily.totalScore === 'number' ? cloudDaily.totalScore : 0);
+    const cSess = typeof cloudDaily.todaySessions === 'number' ? cloudDaily.todaySessions : (typeof cloudDaily.completedSessions === 'number' ? cloudDaily.completedSessions : 0);
+    todayTotalScore = Math.max(todayTotalScore, cScore);
+    todaySessionsCount = Math.max(todaySessionsCount, cSess);
+  }
+
+  // Cap at 250
+  todayTotalScore = Math.min(250, todayTotalScore);
+  todaySessionsCount = Math.min(5, todaySessionsCount);
 
   // Last 7 days breakdown in local timezone
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -743,43 +801,52 @@ export async function getGameScoresFromDb(args) {
     const dStr = getLocalDateString(d);
     const dayLabel = dayNames[d.getDay()];
 
-    const dayRecords = scores.filter(s => {
-      if (i === 0) return isTodayMatch(s);
-      if (s.date === dStr) return true;
-      if (s.timestamp) {
-        const tsD = new Date(s.timestamp);
-        if (!isNaN(tsD.getTime())) {
-          return getLocalDateString(tsD) === dStr;
+    if (i === 0) {
+      const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+      weeklyTotalScore += todayTotalScore;
+      weeklySessionsCount += todaySessionsCount;
+      last7Days.push({
+        date: dStr,
+        dateStr,
+        day: 'Today',
+        score: todayTotalScore,
+        sessions: todaySessionsCount,
+        isToday: true,
+      });
+    } else {
+      const dayRecords = scores.filter(s => {
+        if (s.date === dStr) return true;
+        if (s.timestamp) {
+          const tsD = new Date(s.timestamp);
+          if (!isNaN(tsD.getTime())) {
+            return getLocalDateString(tsD) === dStr;
+          }
         }
-      }
-      return false;
-    });
+        return false;
+      });
 
-    const dayScore = dayRecords.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
-    const sessions = dayRecords.length;
-    weeklyTotalScore += dayScore;
-    weeklySessionsCount += sessions;
+      const dayScore = Math.min(250, dayRecords.reduce((sum, s) => sum + (Number(s.score) || 0), 0));
+      const sessions = Math.min(5, dayRecords.length);
+      weeklyTotalScore += dayScore;
+      weeklySessionsCount += sessions;
 
-    const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+      const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 
-    last7Days.push({
-      date: dStr,
-      dateStr,
-      day: i === 0 ? 'Today' : dayLabel,
-      score: dayScore,
-      sessions,
-      isToday: i === 0,
-    });
+      last7Days.push({
+        date: dStr,
+        dateStr,
+        day: dayLabel,
+        score: dayScore,
+        sessions,
+        isToday: false,
+      });
+    }
   }
 
-  // Ensure weekly total is never lower than today's total
-  weeklyTotalScore = Math.max(weeklyTotalScore, todayTotalScore);
-  weeklySessionsCount = Math.max(weeklySessionsCount, todayScores.length);
-
-  const hasScores = scores.length > 0;
+  const hasScores = scores.length > 0 || todaySessionsCount > 0;
   const avgAccuracy = hasScores
-    ? Math.round(scores.reduce((sum, s) => sum + (Number(s.accuracy) || 100), 0) / scores.length)
-    : 0;
+    ? Math.round(scores.reduce((sum, s) => sum + (Number(s.accuracy) || 100), 0) / (scores.length || 1))
+    : (todaySessionsCount > 0 ? 100 : 0);
 
   const stabilityRating = hasScores
     ? (avgAccuracy >= 90 ? `High Recall (${avgAccuracy}%)` : avgAccuracy >= 75 ? `Steady Recall (${avgAccuracy}%)` : `Moderate (${avgAccuracy}%)`)
@@ -790,8 +857,8 @@ export async function getGameScoresFromDb(args) {
     scores,
     analytics: {
       todayScore: todayTotalScore,
-      todaySessions: todayScores.length,
-      todayAvgScore,
+      todaySessions: todaySessionsCount,
+      todayAvgScore: todaySessionsCount > 0 ? Math.round(todayTotalScore / todaySessionsCount) : 0,
       weeklyScore: weeklyTotalScore,
       weeklySessions: weeklySessionsCount,
       weeklyAvgDailyScore: Math.round(weeklyTotalScore / 7),
@@ -801,7 +868,9 @@ export async function getGameScoresFromDb(args) {
       stabilityRating,
       last7Days,
       weeklyTrend: last7Days,
-    }
+      recentScores: scores.slice(0, 10),
+      sessions: scores,
+    },
   };
 }
 

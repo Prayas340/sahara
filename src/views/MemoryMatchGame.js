@@ -594,16 +594,39 @@ export function renderMemoryMatchGame(onNavigate) {
                 dataStore.incrementGamesCount?.();
                 dataStore.recordGameScore?.({
                   score: 50,
+                  pointsEarned: 50,
+                  sessionNumber: nextSessionNum,
                   moves,
                   matchedPairs: 3,
                   accuracy: 100,
                   durationSeconds: 60 - remainingSec,
+                  remainingTimeSeconds: remainingSec,
                   date: todayDate,
                   elderId,
                   caregiverEmail,
                   status: 'Completed (+50 pts)',
                   skipServerPersist: true,
                 });
+
+                // 3. Persist to server API
+                fetch('/api/game-scores', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    elderId,
+                    caregiverEmail,
+                    score: 50,
+                    pointsEarned: 50,
+                    sessionNumber: nextSessionNum,
+                    moves,
+                    matchedPairs: 3,
+                    accuracy: 100,
+                    durationSeconds: 60 - remainingSec,
+                    remainingTimeSeconds: remainingSec,
+                    status: 'Completed (+50 pts)',
+                    date: todayDate,
+                  }),
+                }).catch(() => {});
 
                 showToast(`🌟 Round Complete! +50 Points Earned! (Session ${nextSessionNum}/5)`, 'success', 5000);
                 speakText('Round Complete! You earned 50 points!');

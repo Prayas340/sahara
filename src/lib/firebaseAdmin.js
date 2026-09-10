@@ -367,7 +367,192 @@ export async function syncElderToFirebaseAuth(elder, caregiver) {
   return firebaseSaveElder(elder, caregiver);
 }
 
+export function firestoreEncodeValue(v) {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') {
+    if (Number.isInteger(v)) return { integerValue: String(v) };
+    return { doubleValue: v };
+  }
+  if (typeof v === 'string') return { stringValue: v };
+  if (v instanceof Date) return { timestampValue: v.toISOString() };
+  if (Array.isArray(v)) {
+    return { arrayValue: { values: v.map(firestoreEncodeValue) } };
+  }
+  if (typeof v === 'object') {
+    const fields = {};
+    for (const [k, val] of Object.entries(v)) {
+      if (val !== undefined) {
+        fields[k] = firestoreEncodeValue(val);
+      }
+    }
+    return { mapValue: { fields } };
+  }
+  return { stringValue: String(v) };
+}
+
+export function firestoreDecodeValue(v) {
+  if (!v || typeof v !== 'object') return null;
+  if ('nullValue' in v) return null;
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('integerValue' in v) return parseInt(v.integerValue, 10);
+  if ('doubleValue' in v) return parseFloat(v.doubleValue);
+  if ('stringValue' in v) return v.stringValue;
+  if ('timestampValue' in v) return v.timestampValue;
+  if ('arrayValue' in v) {
+    return (v.arrayValue.values || []).map(firestoreDecodeValue);
+  }
+  if ('mapValue' in v) {
+    const out = {};
+    for (const [k, val] of Object.entries(v.mapValue.fields || {})) {
+      out[k] = firestoreDecodeValue(val);
+    }
+    return out;
+  }
+  return null;
+}
+
+export async function firestoreGetDocument(docPath) {
+  try {
+    const token = await getGoogleAccessToken();
+    const cleanPath = docPath.startsWith('/') ? docPath.slice(1) : docPath;
+    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${cleanPath}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json.fields) return {};
+    const out = {};
+    for (const [k, val] of Object.entries(json.fields)) {
+      out[k] = firestoreDecodeValue(val);
+    }
+    return out;
+  } catch (err) {
+    console.warn('[firebaseAdmin] firestoreGetDocument error:', err.message);
+    return null;
+  }
+}
+
+export async function firestorePatchDocument(docPath, data, maskKeys = null) {
+  try {
+    const token = await getGoogleAccessToken();
+    const cleanPath = docPath.startsWith('/') ? docPath.slice(1) : docPath;
+    const fields = {};
+    const mask = maskKeys || Object.keys(data);
+    for (const k of Object.keys(data)) {
+      if (data[k] !== undefined) {
+        fields[k] = firestoreEncodeValue(data[k]);
+      }
+    }
+    const queryParams = new URLSearchParams();
+    for (const m of mask) {
+      queryParams.append('updateMask.fieldPaths', m);
+    }
+    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${cleanPath}?${queryParams.toString()}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn('[firebaseAdmin] firestorePatchDocument notice:', res.status, errText);
+      return null;
+    }
+    const json = await res.json();
+    return json;
+  } catch (err) {
+    console.warn('[firebaseAdmin] firestorePatchDocument error:', err.message);
+    return null;
+  }
+}
+
+export async function firestoreSaveGameDailyLog(elderId, dateStr, scoreData) {
+  if (!elderId) return null;
+  const cleanElderId = String(elderId).trim();
+  const path = `elders/${cleanElderId}/dailyLogs/${dateStr}`;
+
+  // 1. Fetch existing daily log from Firestore
+  const existing = (await firestoreGetDocument(path)) || {};
+  const currentSessions = typeof existing.todaySessions === 'number'
+    ? existing.todaySessions
+    : (typeof existing.completedSessions === 'number' ? existing.completedSessions : 0);
+  const currentScore = typeof existing.todayScore === 'number'
+    ? existing.todayScore
+    : (typeof existing.totalScore === 'number' ? existing.totalScore : currentSessions * 50);
+
+  const isTimedOut = scoreData.status === 'timed_out' || Number(scoreData.pointsEarned) === 0 || scoreData.status === 'Timed Out';
+  const ptsToAdd = isTimedOut ? 0 : 50;
+
+  const nextSessions = isTimedOut ? currentSessions : Math.min(5, currentSessions + 1);
+  const nextScore = Math.min(250, currentScore + ptsToAdd);
+
+  const existingHistory = Array.isArray(existing.sessionsHistory) ? existing.sessionsHistory : [];
+  const sessionEntry = {
+    sessionNumber: nextSessions,
+    pointsEarned: ptsToAdd,
+    completedAt: scoreData.completedAt || new Date().toISOString(),
+    remainingTimeSeconds: Number(scoreData.remainingTimeSeconds) || Number(scoreData.durationSeconds) || 0,
+    status: isTimedOut ? 'timed_out' : 'completed',
+    accuracy: scoreData.accuracy !== undefined ? Number(scoreData.accuracy) : 100,
+  };
+
+  const updatedHistory = [...existingHistory, sessionEntry];
+
+  const payload = {
+    date: dateStr,
+    todaySessions: nextSessions,
+    todayScore: nextScore,
+    completedSessions: nextSessions,
+    totalScore: nextScore,
+    lastGameScore: ptsToAdd,
+    lastPlayedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sessionsHistory: updatedHistory,
+    gamesHistory: updatedHistory,
+  };
+
+  await firestorePatchDocument(path, payload);
+
+  // Also update elder root document
+  const elderPath = `elders/${cleanElderId}`;
+  await firestorePatchDocument(elderPath, {
+    id: cleanElderId,
+    todayGameScore: nextScore,
+    todayGameSessions: nextSessions,
+    lastGameScore: ptsToAdd,
+    lastActive: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  return {
+    todaySessions: nextSessions,
+    todayScore: nextScore,
+    sessionsHistory: updatedHistory,
+  };
+}
+
+export async function firestoreGetGameDailyLog(elderId, dateStr) {
+  if (!elderId) return null;
+  const cleanElderId = String(elderId).trim();
+  const path = `elders/${cleanElderId}/dailyLogs/${dateStr}`;
+  return firestoreGetDocument(path);
+}
+
 export const adminDb = null;
 export const adminAuth = null;
 export const adminApp = null;
-export default { firebaseLookupUser, firebaseSaveElder, firebaseSaveCaregiver };
+export default {
+  firebaseLookupUser,
+  firebaseSaveElder,
+  firebaseSaveCaregiver,
+  firestoreGetDocument,
+  firestorePatchDocument,
+  firestoreSaveGameDailyLog,
+  firestoreGetGameDailyLog,
+};
