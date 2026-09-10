@@ -608,7 +608,7 @@ class DataStore {
     const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const accuracy = Number(scoreData.accuracy) || 0;
-    const scoreVal = Number(scoreData.score) || 275;
+    const scoreVal = scoreData.score !== undefined ? Number(scoreData.score) : 50;
     const newScore = {
       id: `score_${Date.now()}`,
       score: scoreVal,

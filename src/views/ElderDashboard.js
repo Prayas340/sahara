@@ -20,6 +20,9 @@ export function renderElderDashboard(onNavigate) {
     month: 'long',
   }).format(new Date());
 
+  const ga = dataStore.getGameAnalytics ? dataStore.getGameAnalytics() : { todaySessions: 0 };
+  const todaySessions = Number(ga.todaySessions) || 0;
+
   const html = `
     <div class="min-h-screen bg-[#ebffe7] text-[#032109]">
       ${renderNavbar('elder-dashboard', onNavigate)}
@@ -242,15 +245,22 @@ export function renderElderDashboard(onNavigate) {
 
               <!-- Start Memory Game Button -->
               <div class="pt-2">
-                <button 
-                  class="btn-tactile btn-primary w-full h-14 rounded-2xl text-base sm:text-lg font-extrabold flex items-center justify-center gap-3 shadow-md" 
-                  id="elder-start-game-btn" 
-                  type="button"
-                >
-                  <span class="material-symbols-outlined text-2xl">extension</span>
-                  <span>Play Memory Match</span>
-                  <span class="material-symbols-outlined text-xl">arrow_forward</span>
-                </button>
+                ${todaySessions >= 5 ? `
+                  <div class="w-full p-4 rounded-2xl bg-[#cdf2cb] text-[#006e1c] font-black text-sm sm:text-base text-center border border-[#a3f69c] shadow-xs flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-xl">check_circle</span>
+                    <span>Daily limit reached (5/5 sessions completed today). Rest well!</span>
+                  </div>
+                ` : `
+                  <button 
+                    class="btn-tactile btn-primary w-full h-14 rounded-2xl text-base sm:text-lg font-extrabold flex items-center justify-center gap-3 shadow-md cursor-pointer" 
+                    id="elder-start-game-btn" 
+                    type="button"
+                  >
+                    <span class="material-symbols-outlined text-2xl">extension</span>
+                    <span>Play Memory Match (Session ${todaySessions + 1} of 5)</span>
+                    <span class="material-symbols-outlined text-xl">arrow_forward</span>
+                  </button>
+                `}
               </div>
             </div>
           </section>
@@ -374,14 +384,19 @@ export function renderElderDashboard(onNavigate) {
     });
 
     // Launch game
-    document.getElementById('elder-start-game-btn')?.addEventListener('click', () => {
+    const handleGameClick = () => {
+      if (todaySessions >= 5) {
+        showToast('Daily limit reached (5/5 sessions completed today). Rest well!', 'info', 4000);
+        speakText('Daily limit reached. 5 of 5 sessions completed today. Rest well!');
+        return;
+      }
       onNavigate('memory-game');
-    });
+    };
 
-    // Preview cues click
-    document.getElementById('cue-chai')?.addEventListener('click', () => onNavigate('memory-game'));
-    document.getElementById('cue-jaapi')?.addEventListener('click', () => onNavigate('memory-game'));
-    document.getElementById('cue-cat')?.addEventListener('click', () => onNavigate('memory-game'));
+    document.getElementById('elder-start-game-btn')?.addEventListener('click', handleGameClick);
+    document.getElementById('cue-apple')?.addEventListener('click', handleGameClick);
+    document.getElementById('cue-balloon')?.addEventListener('click', handleGameClick);
+    document.getElementById('cue-cat')?.addEventListener('click', handleGameClick);
 
     // Send "I am Well"
     document.getElementById('elder-broadcast-btn')?.addEventListener('click', () => {

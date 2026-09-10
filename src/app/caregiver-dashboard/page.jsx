@@ -13,7 +13,7 @@ import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
 import { db, normalizeElderId } from '../../lib/firebaseClient.js';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 
 function getTodayDateString() {
   const now = new Date();
@@ -142,51 +142,126 @@ export default function CaregiverDashboardPage() {
 
         // 1. Subscribe to today's daily log: elders/{elderId}/dailyLogs/{todayDate}
         const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
-        unsubDailyLog = onSnapshot(dailyLogRef, (docSnap) => {
+        unsubDailyLog = onSnapshot(dailyLogRef, async (docSnap) => {
           try {
             if (docSnap.exists()) {
               const data = docSnap.data() || {};
-              const history = Array.isArray(data.gamesHistory) ? data.gamesHistory : [];
+              const history = Array.isArray(data.sessionsHistory) && data.sessionsHistory.length > 0
+                ? data.sessionsHistory
+                : (Array.isArray(data.gamesHistory) ? data.gamesHistory : []);
               
-              // Support all aligned field keys: games.completedSessions, completedSessions, gameSessions, or gamesHistory.length
-              const sessions = typeof data.games?.completedSessions === 'number'
-                ? data.games.completedSessions
+              const sessions = typeof data.todaySessions === 'number'
+                ? data.todaySessions
                 : (typeof data.completedSessions === 'number'
                     ? data.completedSessions
-                    : (typeof data.gameSessions === 'number' ? data.gameSessions : history.length));
+                    : (typeof data.gameSessions === 'number'
+                        ? data.gameSessions
+                        : history.filter(s => (s.pointsEarned !== undefined ? Number(s.pointsEarned) > 0 : Number(s.score) > 0)).length));
 
-              // Support all aligned field keys: games.totalScore, totalScore, gameScore, or sum of gamesHistory
-              const score = typeof data.games?.totalScore === 'number'
-                ? data.games.totalScore
+              const score = typeof data.todayScore === 'number'
+                ? data.todayScore
                 : (typeof data.totalScore === 'number'
                     ? data.totalScore
                     : (typeof data.gameScore === 'number'
                         ? data.gameScore
-                        : history.reduce((sum, g) => sum + (Number(g.score) || 0), 0)));
+                        : sessions * 50));
               
-              if (sessions > 0 || score > 0) {
-                setTodayGameSessions(prev => Math.max(prev, sessions));
-                setTodayGameScore(prev => Math.max(prev, score));
-              }
+              setTodayGameSessions(sessions);
+              setTodayGameScore(score);
 
-              const historyAcc = history.length > 0 
-                ? Math.round(history.reduce((sum, g) => sum + (Number(g.accuracy) || 100), 0) / history.length)
-                : 0;
-              const stability = history.length > 0 
-                ? (historyAcc >= 90 ? `High Recall (${historyAcc}%)` : historyAcc >= 75 ? `Steady Recall (${historyAcc}%)` : `Moderate (${historyAcc}%)`)
+              // Calculate cognitive score percentage (sticks to 50 pts for completion, timeout reduces percentage)
+              const totalAttempts = history.length;
+              const historyAcc = totalAttempts > 0
+                ? Math.round(history.reduce((sum, g) => {
+                    if (g.accuracy !== undefined && typeof g.accuracy === 'number') {
+                      return sum + g.accuracy;
+                    }
+                    if (g.pointsEarned !== undefined) {
+                      return sum + (Number(g.pointsEarned) > 0 ? 100 : 0);
+                    }
+                    return sum + (Number(g.score) > 0 ? 100 : 0);
+                  }, 0) / totalAttempts)
+                : (sessions > 0 ? 100 : 0);
+
+              const stability = totalAttempts > 0
+                ? (historyAcc >= 90
+                    ? `High Recall (${historyAcc}%)`
+                    : (historyAcc >= 70
+                        ? `Steady Recall (${historyAcc}%)`
+                        : `Needs Support (${historyAcc}%)`))
                 : (sessions > 0 ? 'Steady Recall' : 'Awaiting Game Today');
 
-              setGameAnalytics(prev => ({
-                ...prev,
-                todaySessions: Math.max(prev?.todaySessions || 0, sessions),
-                todayScore: Math.max(prev?.todayScore || 0, score),
-                averageAccuracy: historyAcc || prev?.averageAccuracy || 0,
-                avgAccuracy: historyAcc || prev?.avgAccuracy || 0,
-                stabilityRating: stability !== 'Awaiting Game Today' ? stability : (prev?.stabilityRating || stability),
-                cognitiveStability: stability !== 'Awaiting Game Today' ? stability : (prev?.cognitiveStability || stability),
-                sessions: history.length > 0 ? history : (prev?.sessions || []),
-                recentScores: history.length > 0 ? history : (prev?.recentScores || []),
-              }));
+              // Fetch and sum past 7 days of daily log records from Firestore
+              const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+              const daysPromises = [];
+
+              for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                const dayLabel = i === 0 ? 'Today' : dayNames[d.getDay()];
+                const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+
+                if (i === 0) {
+                  daysPromises.push(Promise.resolve({
+                    day: 'Today',
+                    dateStr,
+                    date: dStr,
+                    score,
+                    sessions,
+                    isToday: true,
+                  }));
+                } else {
+                  const pastRef = doc(db, 'elders', cleanElderId, 'dailyLogs', dStr);
+                  daysPromises.push(
+                    getDoc(pastRef).then(pSnap => {
+                      if (pSnap.exists()) {
+                        const pData = pSnap.data() || {};
+                        const pSess = typeof pData.todaySessions === 'number'
+                          ? pData.todaySessions
+                          : (typeof pData.completedSessions === 'number' ? pData.completedSessions : 0);
+                        const pScore = typeof pData.todayScore === 'number'
+                          ? pData.todayScore
+                          : (typeof pData.totalScore === 'number' ? pData.totalScore : pSess * 50);
+                        return { day: dayLabel, dateStr, date: dStr, score: pScore, sessions: pSess, isToday: false };
+                      }
+                      return { day: dayLabel, dateStr, date: dStr, score: 0, sessions: 0, isToday: false };
+                    }).catch(() => ({ day: dayLabel, dateStr, date: dStr, score: 0, sessions: 0, isToday: false }))
+                  );
+                }
+              }
+
+              try {
+                const sevenDays = await Promise.all(daysPromises);
+                const weeklySum = sevenDays.reduce((sum, day) => sum + (Number(day.score) || 0), 0);
+                const weeklySessSum = sevenDays.reduce((sum, day) => sum + (Number(day.sessions) || 0), 0);
+
+                setGameAnalytics({
+                  todaySessions: sessions,
+                  todayScore: score,
+                  weeklyScore: weeklySum,
+                  weeklySessions: weeklySessSum,
+                  weeklyTrend: sevenDays,
+                  averageAccuracy: historyAcc,
+                  avgAccuracy: historyAcc,
+                  stabilityRating: stability,
+                  cognitiveStability: stability,
+                  sessions: history,
+                  recentScores: history,
+                });
+              } catch (e) {
+                setGameAnalytics(prev => ({
+                  ...prev,
+                  todaySessions: sessions,
+                  todayScore: score,
+                  averageAccuracy: historyAcc,
+                  avgAccuracy: historyAcc,
+                  stabilityRating: stability,
+                  cognitiveStability: stability,
+                  sessions: history,
+                  recentScores: history,
+                }));
+              }
 
               const list = data.medications || data.routines;
               if (Array.isArray(list)) {
@@ -1253,16 +1328,16 @@ export default function CaregiverDashboardPage() {
                       </span>
                       <span className="text-xs font-bold text-[#40493d]">{t.dailyScore || "Today's Game Score"}</span>
                     </div>
-                    <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-[#cdf2cb] text-[#006e1c]">
-                      {displayTodaySessions} {t.metricSessions || 'Sessions'}
+                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-[#cdf2cb] text-[#006e1c]">
+                      {displayTodaySessions} Sessions
                     </span>
                   </div>
                   <div>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-3xl font-extrabold text-[#032109]">{displayTodayScore}</span>
-                      <span className="text-sm font-bold text-[#0d631b]">{t.pointsLabel || 'pts'}</span>
+                      <span className="text-sm font-bold text-[#0d631b]">Points</span>
                     </div>
-                    <p className="text-xs text-[#40493d] mt-1">Earned in today&apos;s memory matches</p>
+                    <p className="text-xs text-[#40493d] mt-1">Earned in today&apos;s 1-minute memory sessions</p>
                   </div>
                 </div>
 
@@ -1275,16 +1350,16 @@ export default function CaregiverDashboardPage() {
                       </span>
                       <span className="text-xs font-bold text-[#40493d]">{t.weeklyScore || 'Weekly Score'}</span>
                     </div>
-                    <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                       7-Day Total
                     </span>
                   </div>
                   <div>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-3xl font-extrabold text-[#032109]">{displayWeeklyScore}</span>
-                      <span className="text-sm font-bold text-[#0d631b]">{t.pointsLabel || 'pts'}</span>
+                      <span className="text-sm font-bold text-[#0d631b]">Points</span>
                     </div>
-                    <p className="text-xs text-[#40493d] mt-1">Rolling 7-day cumulative points</p>
+                    <p className="text-xs text-[#40493d] mt-1">Rolling 7-day cumulative points from Firestore</p>
                   </div>
                 </div>
 
@@ -1309,17 +1384,17 @@ export default function CaregiverDashboardPage() {
                   </div>
                 </div>
 
-                {/* 4. Average Accuracy */}
+                {/* 4. Average Accuracy / Cognitive Score % */}
                 <div className="card-tactile bg-white p-5 rounded-2xl border border-[#cdf2cb] shadow-sm flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
                         <span className="material-symbols-outlined text-2xl">query_stats</span>
                       </span>
-                      <span className="text-xs font-bold text-[#40493d]">{t.averageAccuracy || 'Average Accuracy'}</span>
+                      <span className="text-xs font-bold text-[#40493d]">Cognitive Score %</span>
                     </div>
                     <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">
-                      Steady
+                      Live Sync
                     </span>
                   </div>
                   <div>
@@ -1330,7 +1405,7 @@ export default function CaregiverDashboardPage() {
                           : 0}%
                       </span>
                     </div>
-                    <p className="text-xs text-[#40493d] mt-1">Average familiar cards accuracy</p>
+                    <p className="text-xs text-[#40493d] mt-1">Completion precision (reduced on timeout)</p>
                   </div>
                 </div>
               </div>
@@ -1351,10 +1426,10 @@ export default function CaregiverDashboardPage() {
                   </div>
                   <div className="flex items-center gap-3 text-xs font-bold text-[#40493d]">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-3 rounded-md bg-[#006e1c]"></span> High Score (250+ pts)
+                      <span className="w-3 h-3 rounded-md bg-[#006e1c]"></span> High Score (200-250 pts)
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-3 rounded-md bg-[#a3f69c]"></span> Moderate
+                      <span className="w-3 h-3 rounded-md bg-[#a3f69c]"></span> Moderate (50-150 pts)
                     </span>
                   </div>
                 </div>
@@ -1376,8 +1451,8 @@ export default function CaregiverDashboardPage() {
                       return days;
                     })()).map((dayData, idx) => {
                       const isToday = idx === 6 || dayData.day === 'Today' || dayData.isToday;
-                      const score = isToday ? Math.max(dayData.score || 0, displayTodayScore) : (dayData.score || 0);
-                      const heightPercent = score > 0 ? Math.max(16, Math.min(100, Math.round((score / 350) * 100))) : 8;
+                      const score = isToday ? displayTodayScore : (dayData.score || 0);
+                      const heightPercent = score > 0 ? Math.max(16, Math.min(100, Math.round((score / 250) * 100))) : 8;
                       const displayDayLabel = isToday ? 'Today' : dayData.day;
                       const displayDateLabel = isToday
                         ? `${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getDate()).padStart(2, '0')}`
@@ -1396,7 +1471,7 @@ export default function CaregiverDashboardPage() {
                             <div
                               style={{ height: `${heightPercent}%` }}
                               className={`w-full rounded-t-lg transition-all duration-500 ${
-                                score >= 260
+                                score >= 200
                                   ? 'bg-gradient-to-t from-[#0d631b] to-[#43a047]'
                                   : score > 0
                                   ? 'bg-gradient-to-t from-[#81c784] to-[#a3f69c]'
@@ -1429,12 +1504,12 @@ export default function CaregiverDashboardPage() {
                         {t.sessionHistory || 'Recent Game Sessions & Score Logs'}
                       </h3>
                       <p className="text-xs sm:text-sm text-[#40493d]">
-                        Detailed audit trail of each game played by {(patient?.name ? patient.name.split(' ')[0] : 'Patient')}.
+                        Detailed audit trail of each 1-minute session completed by {(patient?.name ? patient.name.split(' ')[0] : 'Patient')}.
                       </p>
                     </div>
                   </div>
                   <span className="text-xs font-bold text-[#0d631b] bg-[#d9fdd6] px-3 py-1 rounded-full border border-[#cdf2cb]">
-                    {(gameAnalytics.sessions && Array.isArray(gameAnalytics.sessions) ? gameAnalytics.sessions.length : (gameAnalytics.recentScores ? gameAnalytics.recentScores.length : 0))} Total Records
+                    {(gameAnalytics.sessions && Array.isArray(gameAnalytics.sessions) ? gameAnalytics.sessions.length : (gameAnalytics.recentScores ? gameAnalytics.recentScores.length : 0))} Total Sessions Logged
                   </span>
                 </div>
 
@@ -1444,7 +1519,7 @@ export default function CaregiverDashboardPage() {
                       <span className="material-symbols-outlined text-4xl text-[#0d631b] mb-2">sports_esports</span>
                       <h4 className="text-base font-bold text-[#032109]">No Game Sessions Recorded Yet</h4>
                       <p className="text-xs text-[#40493d] mt-1 max-w-sm mx-auto">
-                        Scores and memory recall accuracy will appear here in real-time as {patient?.name ? patient.name.split(' ')[0] : 'the elder'} plays memory games in their portal.
+                        Scores and memory recall accuracy will appear here in real-time as {patient?.name ? patient.name.split(' ')[0] : 'the elder'} plays 1-minute memory games in their portal.
                       </p>
                     </div>
                   ) : (
@@ -1452,52 +1527,67 @@ export default function CaregiverDashboardPage() {
                       <thead>
                         <tr className="border-b border-[#cdf2cb] text-xs font-bold text-[#40493d]">
                           <th className="pb-3 px-3">Date & Time</th>
-                          <th className="pb-3 px-3">Game Mode</th>
-                          <th className="pb-3 px-3 text-center">{t.movesLabel || 'Moves'}</th>
-                          <th className="pb-3 px-3 text-center">{t.averageAccuracy || 'Accuracy'}</th>
-                          <th className="pb-3 px-3 text-right">{t.scoreEarned || 'Score Earned'}</th>
-                          <th className="pb-3 px-3 text-right">{t.recallStatus || 'Recall Status'}</th>
+                          <th className="pb-3 px-3">Session</th>
+                          <th className="pb-3 px-3 text-center">Timer Remaining</th>
+                          <th className="pb-3 px-3 text-center">Recall %</th>
+                          <th className="pb-3 px-3 text-right">Points Earned</th>
+                          <th className="pb-3 px-3 text-right">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#ebffe7] text-sm font-medium text-[#032109]">
                         {(gameAnalytics.sessions && gameAnalytics.sessions.length > 0 ? gameAnalytics.sessions : (gameAnalytics.recentScores || [])).map((sess, sIdx) => {
-                        const dateFormatted = sess.timestamp
-                          ? new Date(sess.timestamp).toLocaleDateString('en-IN', {
+                        const dateFormatted = sess.completedAt || sess.timestamp
+                          ? new Date(sess.completedAt || sess.timestamp).toLocaleDateString('en-IN', {
                               month: 'short',
                               day: 'numeric',
                               hour: '2-digit',
                               minute: '2-digit',
                             })
                           : 'Today';
+                        const isTimedOutSess = sess.status === 'timed_out' || Number(sess.pointsEarned) === 0 || sess.status === 'Timed Out';
+                        const ptsEarned = sess.pointsEarned !== undefined ? Number(sess.pointsEarned) : (sess.score !== undefined ? Number(sess.score) : (isTimedOutSess ? 0 : 50));
+
                         return (
                           <tr key={sess.id || sIdx} className="hover:bg-[#ebffe7]/50 transition-colors">
                             <td className="py-3.5 px-3">
                               <span className="font-bold block text-[#032109]">{dateFormatted}</span>
-                              <span className="text-[11px] text-[#40493d]">{sess.durationSeconds || 30}s session</span>
+                              <span className="text-[11px] text-[#40493d]">
+                                {sess.remainingTimeSeconds !== undefined && sess.remainingTimeSeconds > 0
+                                  ? `${sess.remainingTimeSeconds}s left on 60s clock`
+                                  : (isTimedOutSess ? '60s time expired' : `${sess.durationSeconds || 30}s duration`)}
+                              </span>
                             </td>
                             <td className="py-3.5 px-3">
-                              <span className="font-bold text-[#0d631b] flex items-center gap-1">
+                              <span className="font-bold text-[#0d631b] flex items-center gap-1.5">
                                 <span className="material-symbols-outlined text-base">extension</span>
-                                {sess.gameName || 'Familiar Treasures'}
+                                <span>{`Session ${sess.sessionNumber || (sIdx + 1)}`}</span>
                               </span>
                             </td>
-                            <td className="py-3.5 px-3 text-center font-bold">
-                              {sess.moves || 4} {t.movesLabel || 'moves'}
+                            <td className="py-3.5 px-3 text-center font-bold text-xs">
+                              {sess.remainingTimeSeconds !== undefined && sess.remainingTimeSeconds > 0
+                                ? <span className="text-emerald-700 font-extrabold">{sess.remainingTimeSeconds}s</span>
+                                : <span className="text-amber-700">0s (expired)</span>}
                             </td>
                             <td className="py-3.5 px-3 text-center">
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-[#cdf2cb] text-[#006e1c]">
-                                {sess.accuracy || 94}%
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
+                                isTimedOutSess ? 'bg-amber-100 text-amber-900' : 'bg-[#cdf2cb] text-[#006e1c]'
+                              }`}>
+                                {sess.accuracy !== undefined ? sess.accuracy : (isTimedOutSess ? 0 : 100)}%
                               </span>
                             </td>
                             <td className="py-3.5 px-3 text-right">
-                              <span className="text-base font-extrabold text-[#0d631b]">
-                                +{sess.score || 280} pts
+                              <span className={`text-base font-extrabold ${ptsEarned > 0 ? 'text-[#0d631b]' : 'text-gray-400'}`}>
+                                {ptsEarned > 0 ? `+${ptsEarned} Points` : '0 Points'}
                               </span>
                             </td>
                             <td className="py-3.5 px-3 text-right">
-                              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-                                <span className="material-symbols-outlined text-sm">check_circle</span>
-                                {sess.status || 'Active Recall ✓'}
+                              <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${
+                                isTimedOutSess
+                                  ? 'text-amber-800 bg-amber-50 border border-amber-200'
+                                  : 'text-emerald-800 bg-emerald-50 border border-emerald-200'
+                              }`}>
+                                <span className="material-symbols-outlined text-sm">{isTimedOutSess ? 'schedule' : 'check_circle'}</span>
+                                {isTimedOutSess ? 'Timed Out' : 'Completed (+50 pts)'}
                               </span>
                             </td>
                           </tr>
