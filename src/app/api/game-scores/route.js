@@ -19,18 +19,38 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { elderId, caregiverEmail, score, moves, matchedPairs, accuracy, durationSeconds, status, date } = body;
-
-    const result = await saveGameScoreToDb({
+    const {
       elderId,
       caregiverEmail,
       score,
+      pointsEarned,
+      level,
+      unlockedLevel,
       moves,
       matchedPairs,
       accuracy,
       durationSeconds,
+      remainingTimeSeconds,
       status,
       date,
+      timestamp,
+    } = body;
+
+    const result = await saveGameScoreToDb({
+      elderId,
+      caregiverEmail,
+      score: score !== undefined ? score : pointsEarned,
+      pointsEarned,
+      level: Number(level) || 1,
+      unlockedLevel: unlockedLevel ? Number(unlockedLevel) : undefined,
+      moves,
+      matchedPairs,
+      accuracy,
+      durationSeconds,
+      remainingTimeSeconds,
+      status,
+      date,
+      timestamp,
     });
 
     return NextResponse.json(result);

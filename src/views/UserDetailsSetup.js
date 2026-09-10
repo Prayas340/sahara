@@ -283,6 +283,54 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
                 </p>
               </div>
 
+              <!-- Clinical Medical Report & Gemini AI Assessment (Optional) -->
+              <div class="mt-4 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white border-2 border-[#cdf2cb] space-y-3 shadow-xs">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-[#0d631b] text-white flex items-center justify-center shadow-xs">
+                      <span class="material-symbols-outlined text-lg">clinical_notes</span>
+                    </span>
+                    <div>
+                      <h3 class="text-xs sm:text-sm font-extrabold text-[#032109]">Clinical Report & Gemini AI Assessment</h3>
+                      <p class="text-[11px] text-[#40493d]">Optional: Attach MMSE, MoCA, or clinical notes (PDF/Image)</p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-[#006e1c] border border-emerald-300">Gemini 2.5 Flash</span>
+                </div>
+
+                <div id="report-dropzone-container">
+                  <label for="profile-medical-report-input" class="group flex flex-col items-center justify-center p-4 border-2 border-dashed border-[#cdf2cb] hover:border-[#006e1c] hover:bg-[#ebffe7]/40 rounded-2xl cursor-pointer transition-all text-center bg-white/80">
+                    <input id="profile-medical-report-input" type="file" accept=".pdf,image/png,image/jpeg,image/webp,image/jpg" class="hidden" />
+                    <span class="material-symbols-outlined text-2xl text-[#0d631b] mb-1 group-hover:scale-110 transition-transform">upload_file</span>
+                    <p class="text-xs font-bold text-[#032109]">Tap to attach medical report</p>
+                    <p class="text-[10px] text-[#40493d]">PDF or images (MMSE, MoCA, doctor notes)</p>
+                  </label>
+                  <p class="text-[10px] text-[#40493d] mt-1">If not uploaded, mind game suite defaults to starting Level 1 unlocked.</p>
+                </div>
+
+                <!-- Analysis Spinner -->
+                <div id="report-analyzing-spinner" class="hidden p-4 rounded-xl bg-[#ebffe7] border border-[#cdf2cb] text-center space-y-2">
+                  <span class="material-symbols-outlined text-2xl text-[#0d631b] animate-spin inline-block">progress_activity</span>
+                  <p class="text-xs font-bold text-[#032109]">Gemini AI is assessing clinical indicators...</p>
+                </div>
+
+                <!-- AI Assessment Result Card -->
+                <div id="report-result-card" class="hidden p-3.5 rounded-xl bg-white border-2 border-[#006e1c] space-y-2">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <span id="ai-level-badge" class="w-8 h-8 rounded-lg bg-[#006e1c] text-white flex items-center justify-center font-black text-sm">L1</span>
+                      <div>
+                        <span class="text-[10px] font-extrabold text-[#006e1c] bg-[#d9fdd6] px-1.5 py-0.5 rounded">AI Recommended Baseline</span>
+                        <h4 id="ai-level-title" class="text-xs font-extrabold text-[#032109]">Level 1 of 10 Unlocked</h4>
+                      </div>
+                    </div>
+                    <button id="report-remove-btn" type="button" class="text-[11px] font-bold text-red-600 hover:underline">Remove</button>
+                  </div>
+                  <p id="ai-condition-text" class="text-xs font-bold text-[#0d631b]"></p>
+                  <p id="ai-summary-text" class="text-[11px] text-[#40493d] bg-[#ebffe7] p-2 rounded-lg border border-[#cdf2cb]"></p>
+                </div>
+              </div>
+
               <!-- Family Caregiver Portal Login Setup Section -->
               <div class="mt-4 pt-4 border-t-2 border-[#cdf2cb] space-y-3">
                 <div class="flex items-center justify-between">
@@ -793,6 +841,66 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
       }
     });
 
+    // Medical Report Gemini AI Assessment
+    let currentAiAnalysis = null;
+    const reportInput = document.getElementById('profile-medical-report-input');
+    const reportDropzone = document.getElementById('report-dropzone-container');
+    const reportSpinner = document.getElementById('report-analyzing-spinner');
+    const reportResultCard = document.getElementById('report-result-card');
+    const aiLevelBadge = document.getElementById('ai-level-badge');
+    const aiLevelTitle = document.getElementById('ai-level-title');
+    const aiConditionText = document.getElementById('ai-condition-text');
+    const aiSummaryText = document.getElementById('ai-summary-text');
+    const reportRemoveBtn = document.getElementById('report-remove-btn');
+
+    reportInput?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      reportDropzone?.classList.add('hidden');
+      reportSpinner?.classList.remove('hidden');
+      reportResultCard?.classList.add('hidden');
+
+      try {
+        const formData = new FormData();
+        formData.append('report', file);
+        formData.append('elderName', nameInput?.value.trim() || 'Elder');
+        formData.append('elderAge', ageInput?.value.trim() || '72');
+        formData.append('problemStatement', problemSelect?.value || 'Mild Cognitive Support Mode');
+
+        const res = await fetch('/api/analyze-report', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          currentAiAnalysis = data;
+          if (aiLevelBadge) aiLevelBadge.innerText = `L${data.recommendedStartingLevel}`;
+          if (aiLevelTitle) aiLevelTitle.innerText = `Level ${data.recommendedStartingLevel} of 10 Unlocked`;
+          if (aiConditionText) aiConditionText.innerText = `Identified: ${data.identifiedCondition}`;
+          if (aiSummaryText) aiSummaryText.innerText = data.cognitiveSummary;
+
+          reportSpinner?.classList.add('hidden');
+          reportResultCard?.classList.remove('hidden');
+          showToast(`✨ Gemini AI recommended starting at Level ${data.recommendedStartingLevel}/10`, 'success', 5000);
+        } else {
+          throw new Error(data.error || 'Failed to analyze document');
+        }
+      } catch (err) {
+        console.warn('[AI Report Error]:', err);
+        reportSpinner?.classList.add('hidden');
+        reportDropzone?.classList.remove('hidden');
+        showToast('Could not evaluate document with Gemini. Defaulting to Level 1.', 'info', 5000);
+      }
+    });
+
+    reportRemoveBtn?.addEventListener('click', () => {
+      currentAiAnalysis = null;
+      if (reportInput) reportInput.value = '';
+      reportResultCard?.classList.add('hidden');
+      reportDropzone?.classList.remove('hidden');
+    });
+
     // Submit button
     submitBtn?.addEventListener('click', async () => {
       const name = nameInput?.value.trim();
@@ -858,6 +966,9 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
         const elderEmail = params?.email || currentUser?.email || '';
         const elderIdentifier = elderEmail || elderPhone || currentUser?.id || `elder_${Date.now().toString(36)}`;
 
+        const startingLevel = currentAiAnalysis?.recommendedStartingLevel ? Number(currentAiAnalysis.recommendedStartingLevel) : 1;
+        const unlockedLevel = startingLevel;
+
         await authService.saveElderProfile(
           {
             name,
@@ -869,6 +980,14 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
             problemStatement: problemStatement,
             phone: elderPhone,
             email: elderEmail,
+            startingLevel,
+            unlockedLevel,
+            aiAnalysis: currentAiAnalysis ? {
+              recommendedLevel: startingLevel,
+              cognitiveSummary: currentAiAnalysis.cognitiveSummary || '',
+              identifiedCondition: currentAiAnalysis.identifiedCondition || '',
+              uploadedAt: new Date().toISOString(),
+            } : null,
           },
           {
             name: caregiverName,
@@ -888,6 +1007,8 @@ export function renderUserDetailsSetup(onNavigate, params = {}) {
           status: problemStatement,
           problemStatement: problemStatement,
           role: 'elder',
+          startingLevel,
+          unlockedLevel,
         });
 
         const honorific = name.split(' ')[0] ? `${name.split(' ')[0]} ji` : name;

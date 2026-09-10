@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { adminDb, firebaseLookupUser, firebaseSaveElder, firebaseSaveCaregiver, syncCaregiverToFirebaseAuth, syncElderToFirebaseAuth, firestoreSaveGameDailyLog, firestoreGetGameDailyLog } from './firebaseAdmin.js';
+import { adminDb, firebaseLookupUser, firebaseSaveElder, firebaseSaveCaregiver, syncCaregiverToFirebaseAuth, syncElderToFirebaseAuth, firestoreSaveGameDailyLog, firestoreGetGameDailyLog, firestorePatchDocument } from './firebaseAdmin.js';
 import seedData from '../data/seedDatabase.js';
 
 // Fallback database file path (supports Vercel Serverless /tmp and local)
@@ -229,6 +229,15 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
   const elderId = isEmail ? elderEmail : (elderPhone || normalizedInput || `elder_${Date.now().toString(36)}`);
   const cleanCgEmail = caregiverData?.email ? caregiverData.email.trim().toLowerCase() : 'riya@sahara.care';
 
+  const startingLevel = Math.max(1, Math.min(10, parseInt(patientData?.startingLevel, 10) || 1));
+  const unlockedLevel = Math.max(startingLevel, Math.min(10, parseInt(patientData?.unlockedLevel, 10) || startingLevel));
+  const aiAnalysis = patientData?.aiAnalysis ? {
+    recommendedLevel: Number(patientData.aiAnalysis.recommendedLevel || patientData.aiAnalysis.recommendedStartingLevel || startingLevel),
+    cognitiveSummary: String(patientData.aiAnalysis.cognitiveSummary || ''),
+    identifiedCondition: String(patientData.aiAnalysis.identifiedCondition || ''),
+    uploadedAt: patientData.aiAnalysis.uploadedAt || new Date().toISOString(),
+  } : null;
+
   const elderRecord = {
     id: elderId,
     identifier: elderId,
@@ -244,6 +253,9 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
     status: patientData?.status || patientData?.problemStatement || 'Mild Cognitive Support Mode',
     problemStatement: patientData?.problemStatement || patientData?.status || 'Mild Cognitive Support Mode',
     tabletBattery: patientData?.tabletBattery || 94,
+    startingLevel,
+    unlockedLevel,
+    aiAnalysis,
     lastActive: 'Just now',
     avatar: patientData?.avatar || '/avatar.png',
     caregiverEmail: cleanCgEmail,
@@ -262,6 +274,19 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
     avatar: caregiverData?.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3C9pKlylR36n8hHQndvUKkTljs_tOg3Gdg5-srU8WvV-YTOGYJeIOBOvqYISbX2RJdQgvmyliRh8-jt8-UlqHi4x_L4FNBDvdeUaqZfr7Vp9FMtzRQH-g0ov39z8XoigzQ2-C1QPqxbbL8QBjqY-WQ5c8XYX4jMP5ji1MumxGOHHdxB90LidJtUJl3RhpDWlM7FZ76v8qtgurN4tWzXc_4Hfwe_mzuvAQ5TyGqbEvHwY70aZyKa_ROg',
     updatedAt: new Date().toISOString(),
   };
+
+  // Sync to Firestore root document directly
+  try {
+    firestorePatchDocument(`elders/${elderId}`, {
+      id: elderId,
+      name: elderRecord.name,
+      startingLevel,
+      unlockedLevel,
+      aiAnalysis: aiAnalysis || null,
+      caregiverEmail: cleanCgEmail,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+  } catch (err) {}
 
   // 1. Direct authoritative save to Firebase Cloud Auth (sahara-63072)
   let cloudCgSaved = false;
@@ -599,6 +624,7 @@ export async function saveGameScoreToDb(scoreData) {
     caregiverEmail: caregiverEmail || '',
     score: ptsToAdd,
     pointsEarned: ptsToAdd,
+    level: Number(scoreData.level) || 1,
     moves: Number(scoreData.moves) || 3,
     matchedPairs: Number(scoreData.matchedPairs) || 3,
     accuracy: scoreData.accuracy !== undefined ? Number(scoreData.accuracy) : 100,

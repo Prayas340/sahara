@@ -14,6 +14,7 @@ import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
 import { db, normalizeElderId } from '../../lib/firebaseClient.js';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { COGNITIVE_LEVELS } from '../../data/gamesData.js';
 
 function getTodayDateString() {
   const now = new Date();
@@ -1317,6 +1318,116 @@ export default function CaregiverDashboardPage() {
                 </div>
               </div>
 
+              {/* 10-Level Cognitive Progression Track & AI Baseline Overview */}
+              <div className="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-[#cdf2cb] space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-2xl text-[#0d631b]">psychology</span>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-extrabold text-[#032109]">
+                        10-Level Cognitive Progression Track
+                      </h2>
+                      <p className="text-xs text-[#40493d]">
+                        Strict 1-minute sessions (+50 pts). Levels unlock sequentially as {(patient?.name ? patient.name.split(' ')[0] : 'the elder')} completes cognitive challenges.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]">
+                      Level {patient?.unlockedLevel || 1} of 10 Unlocked
+                    </span>
+                    {patient?.aiAnalysis && (
+                      <span className="text-xs font-bold px-3 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-200 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">clinical_notes</span>
+                        <span>AI Baseline: L{patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 10-Level Stepped Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 pt-2">
+                  {COGNITIVE_LEVELS.map((lvl) => {
+                    const isUnlocked = lvl.level <= (patient?.unlockedLevel || 1);
+                    const isAiStarting = patient?.aiAnalysis && lvl.level === (patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1);
+
+                    return (
+                      <div
+                        key={lvl.level}
+                        className={`p-2.5 rounded-2xl border text-center transition-all flex flex-col justify-between min-h-[95px] ${
+                          isUnlocked
+                            ? 'bg-[#ebffe7] border-[#006e1c] text-[#032109] shadow-xs'
+                            : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${
+                            isUnlocked ? 'bg-[#006e1c] text-white' : 'bg-gray-200 text-gray-500'
+                          }`}>
+                            L{lvl.level}
+                          </span>
+                          <span className="material-symbols-outlined text-sm">
+                            {isUnlocked ? 'check_circle' : 'lock'}
+                          </span>
+                        </div>
+
+                        <div className="my-1">
+                          <p className="text-[11px] font-bold leading-tight line-clamp-1">
+                            {lvl.title}
+                          </p>
+                          <p className="text-[9px] opacity-75 line-clamp-1">
+                            {lvl.category}
+                          </p>
+                        </div>
+
+                        {isAiStarting ? (
+                          <span className="text-[8px] font-extrabold uppercase bg-teal-600 text-white rounded py-0.5">
+                            AI Start
+                          </span>
+                        ) : (
+                          <span className={`text-[9px] font-semibold ${isUnlocked ? 'text-[#006e1c]' : 'text-gray-400'}`}>
+                            {isUnlocked ? 'Available' : 'Locked'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* AI Assessment Report Summary Card */}
+                {patient?.aiAnalysis && (
+                  <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white border-2 border-teal-300 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-lg text-teal-800">clinical_notes</span>
+                        <h4 className="text-xs sm:text-sm font-extrabold text-teal-950">
+                          Gemini AI Clinical Baseline Assessment
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300">
+                        Mapped to Starting Level {patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                      <div className="bg-white/80 p-2 rounded-xl border border-teal-200">
+                        <span className="text-[10px] text-gray-500 font-bold block">Identified Condition:</span>
+                        <span className="font-extrabold text-[#032109]">
+                          {patient.aiAnalysis.identifiedCondition || 'Cognitive Evaluation Complete'}
+                        </span>
+                      </div>
+                      <div className="sm:col-span-2 bg-white/80 p-2 rounded-xl border border-teal-200">
+                        <span className="text-[10px] text-gray-500 font-bold block">Clinical Cognitive Summary:</span>
+                        <span className="text-[#40493d] font-medium leading-relaxed">
+                          {patient.aiAnalysis.cognitiveSummary || 'Patient cognitive baseline evaluated and synchronized.'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* 4 Analytics Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* 1. Daily Score */}
@@ -1528,6 +1639,7 @@ export default function CaregiverDashboardPage() {
                         <tr className="border-b border-[#cdf2cb] text-xs font-bold text-[#40493d]">
                           <th className="pb-3 px-3">Date & Time</th>
                           <th className="pb-3 px-3">Session</th>
+                          <th className="pb-3 px-3 text-center">Level Played</th>
                           <th className="pb-3 px-3 text-center">Timer Remaining</th>
                           <th className="pb-3 px-3 text-center">Recall %</th>
                           <th className="pb-3 px-3 text-right">Points Earned</th>
@@ -1546,6 +1658,8 @@ export default function CaregiverDashboardPage() {
                           : 'Today';
                         const isTimedOutSess = sess.status === 'timed_out' || Number(sess.pointsEarned) === 0 || sess.status === 'Timed Out';
                         const ptsEarned = sess.pointsEarned !== undefined ? Number(sess.pointsEarned) : (sess.score !== undefined ? Number(sess.score) : (isTimedOutSess ? 0 : 50));
+                        const playedLevelNum = sess.level || 1;
+                        const levelTitle = COGNITIVE_LEVELS.find(l => l.level === playedLevelNum)?.title || 'Memory Match';
 
                         return (
                           <tr key={sess.id || sIdx} className="hover:bg-[#ebffe7]/50 transition-colors">
@@ -1561,6 +1675,12 @@ export default function CaregiverDashboardPage() {
                               <span className="font-bold text-[#0d631b] flex items-center gap-1.5">
                                 <span className="material-symbols-outlined text-base">extension</span>
                                 <span>{`Session ${sess.sessionNumber || (sIdx + 1)}`}</span>
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3 text-center">
+                              <span className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]" title={levelTitle}>
+                                <span className="material-symbols-outlined text-xs">psychology</span>
+                                <span>L{playedLevelNum}: {levelTitle}</span>
                               </span>
                             </td>
                             <td className="py-3.5 px-3 text-center font-bold text-xs">

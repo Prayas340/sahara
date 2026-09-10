@@ -256,8 +256,8 @@ export function renderElderDashboard(onNavigate) {
                     id="elder-start-game-btn" 
                     type="button"
                   >
-                    <span class="material-symbols-outlined text-2xl">extension</span>
-                    <span>Play Memory Match (Session ${todaySessions + 1} of 5)</span>
+                    <span class="material-symbols-outlined text-2xl">psychology</span>
+                    <span>Play 10-Level Mind Games (Session ${todaySessions + 1} of 5)</span>
                     <span class="material-symbols-outlined text-xl">arrow_forward</span>
                   </button>
                 `}

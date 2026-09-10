@@ -378,6 +378,92 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                 </div>
               </div>
 
+              <!-- 10-Level Cognitive Progression Track & AI Baseline Overview -->
+              ${(() => {
+                const curPatient = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {});
+                const unLevel = Number(curPatient.unlockedLevel) || 1;
+                const startLevel = Number(curPatient.startingLevel) || 1;
+                const ai = curPatient.aiAnalysis;
+
+                const levels = [
+                  { level: 1, title: 'Memory Match', category: 'Visual Recall' },
+                  { level: 2, title: 'Word Search', category: 'Scanning' },
+                  { level: 3, title: 'Quick Crossword', category: 'Semantic' },
+                  { level: 4, title: 'Word Unscramble', category: 'Executive' },
+                  { level: 5, title: 'Word Wheel', category: 'Fluency' },
+                  { level: 6, title: 'Fill-in-Blank', category: 'Recall' },
+                  { level: 7, title: 'Rhyming Pairs', category: 'Auditory' },
+                  { level: 8, title: 'Category Sort', category: 'Abstract' },
+                  { level: 9, title: 'Vocabulary', category: 'Deductive' },
+                  { level: 10, title: 'Cognitive Master', category: 'Comprehensive' },
+                ];
+
+                return `
+                  <div class="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-[#cdf2cb] space-y-4 mb-6">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                      <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-2xl text-[#0d631b]">psychology</span>
+                        <div>
+                          <h2 class="text-lg sm:text-xl font-extrabold text-[#032109]">10-Level Cognitive Progression Track</h2>
+                          <p class="text-xs text-[#40493d]">Strict 1-minute sessions (+50 pts). Levels unlock sequentially as challenges are completed.</p>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-black px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]">
+                          Level ${unLevel} of 10 Unlocked
+                        </span>
+                        ${ai ? `
+                          <span class="text-xs font-bold px-3 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-200 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">clinical_notes</span>
+                            <span>AI Baseline: L${ai.recommendedLevel || startLevel}</span>
+                          </span>
+                        ` : ''}
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 pt-2">
+                      ${levels.map(lvl => {
+                        const isUnlocked = lvl.level <= unLevel;
+                        const isAiStart = ai && lvl.level === (ai.recommendedLevel || startLevel);
+                        return `
+                          <div class="p-2 rounded-xl border text-center transition-all flex flex-col justify-between min-h-[90px] ${
+                            isUnlocked
+                              ? 'bg-[#ebffe7] border-[#006e1c] text-[#032109]'
+                              : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'
+                          }">
+                            <div class="flex items-center justify-between">
+                              <span class="text-[10px] font-black px-1.5 py-0.5 rounded ${isUnlocked ? 'bg-[#006e1c] text-white' : 'bg-gray-200 text-gray-500'}">L${lvl.level}</span>
+                              <span class="material-symbols-outlined text-sm">${isUnlocked ? 'check_circle' : 'lock'}</span>
+                            </div>
+                            <p class="text-[10px] font-bold leading-tight my-1 truncate">${lvl.title}</p>
+                            ${isAiStart
+                              ? `<span class="text-[8px] font-extrabold uppercase bg-teal-600 text-white rounded py-0.5">AI Start</span>`
+                              : `<span class="text-[9px] ${isUnlocked ? 'text-[#006e1c] font-semibold' : 'text-gray-400'}">${isUnlocked ? 'Unlocked' : 'Locked'}</span>`
+                            }
+                          </div>
+                        `;
+                      }).join('')}
+                    </div>
+
+                    ${ai ? `
+                      <div class="mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white border-2 border-teal-300 space-y-1.5 text-xs">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                          <span class="font-extrabold text-teal-900 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">clinical_notes</span>
+                            Gemini AI Clinical Assessment Baseline
+                          </span>
+                          <span class="font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full border border-teal-200">
+                            Recommended Starting Level ${ai.recommendedLevel || startLevel}
+                          </span>
+                        </div>
+                        <p class="font-bold text-[#032109]">Identified: ${ai.identifiedCondition || 'Cognitive Evaluation Complete'}</p>
+                        <p class="text-[#40493d] leading-relaxed">${ai.cognitiveSummary || ''}</p>
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              })()}
+
               <!-- 4 KPI Stat Cards -->
               ${(() => {
                 const ga = dataStore.getGameAnalytics ? dataStore.getGameAnalytics() : { todayScore: 0, weeklyScore: 0, todaySessions: 0, avgAccuracy: 0, cognitiveStability: 'Awaiting First Game', last7Days: [] };
@@ -538,6 +624,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                           <tr class="border-b border-[#cdf2cb] text-xs font-bold text-[#40493d]">
                             <th class="pb-3 px-3">Date & Time</th>
                             <th class="pb-3 px-3">Session</th>
+                            <th class="pb-3 px-3 text-center">Level Played</th>
                             <th class="pb-3 px-3 text-center">Timer Remaining</th>
                             <th class="pb-3 px-3 text-center">Recall %</th>
                             <th class="pb-3 px-3 text-right">Points Earned</th>
@@ -556,6 +643,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                               : 'Today';
                             const isTimedOutSess = sess.status === 'timed_out' || Number(sess.pointsEarned) === 0 || sess.status === 'Timed Out';
                             const ptsEarned = sess.pointsEarned !== undefined ? Number(sess.pointsEarned) : (sess.score !== undefined ? Number(sess.score) : (isTimedOutSess ? 0 : 50));
+                            const playedLvl = sess.level || 1;
 
                             return `
                               <tr class="hover:bg-[#ebffe7]/50 transition-colors">
@@ -571,6 +659,12 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                                   <span class="font-bold text-[#0d631b] flex items-center gap-1.5">
                                     <span class="material-symbols-outlined text-base">extension</span>
                                     <span>Session ${sess.sessionNumber || (sIdx + 1)}</span>
+                                  </span>
+                                </td>
+                                <td class="py-3.5 px-3 text-center">
+                                  <span class="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]">
+                                    <span class="material-symbols-outlined text-xs">psychology</span>
+                                    <span>Level ${playedLvl}</span>
                                   </span>
                                 </td>
                                 <td class="py-3.5 px-3 text-center font-bold text-xs">

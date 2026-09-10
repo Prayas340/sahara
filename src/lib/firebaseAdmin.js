@@ -491,12 +491,15 @@ export async function firestoreSaveGameDailyLog(elderId, dateStr, scoreData) {
 
   const nextSessions = isTimedOut ? currentSessions : Math.min(5, currentSessions + 1);
   const nextScore = Math.min(250, currentScore + ptsToAdd);
+  const playedLevel = Number(scoreData.level) || 1;
 
   const existingHistory = Array.isArray(existing.sessionsHistory) ? existing.sessionsHistory : [];
   const sessionEntry = {
     sessionNumber: nextSessions,
+    level: playedLevel,
     pointsEarned: ptsToAdd,
     completedAt: scoreData.completedAt || new Date().toISOString(),
+    timestamp: scoreData.timestamp || scoreData.completedAt || new Date().toISOString(),
     remainingTimeSeconds: Number(scoreData.remainingTimeSeconds) || Number(scoreData.durationSeconds) || 0,
     status: isTimedOut ? 'timed_out' : 'completed',
     accuracy: scoreData.accuracy !== undefined ? Number(scoreData.accuracy) : 100,
@@ -511,6 +514,7 @@ export async function firestoreSaveGameDailyLog(elderId, dateStr, scoreData) {
     completedSessions: nextSessions,
     totalScore: nextScore,
     lastGameScore: ptsToAdd,
+    lastPlayedLevel: playedLevel,
     lastPlayedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     sessionsHistory: updatedHistory,
@@ -521,18 +525,34 @@ export async function firestoreSaveGameDailyLog(elderId, dateStr, scoreData) {
 
   // Also update elder root document
   const elderPath = `elders/${cleanElderId}`;
-  await firestorePatchDocument(elderPath, {
+  const existingElder = (await firestoreGetDocument(elderPath)) || {};
+  const currentUnlocked = Number(existingElder.unlockedLevel) || 1;
+  let nextUnlocked = currentUnlocked;
+  if (!isTimedOut && playedLevel >= currentUnlocked && currentUnlocked < 10) {
+    nextUnlocked = Math.min(10, currentUnlocked + 1);
+  }
+  if (scoreData.unlockedLevel && Number(scoreData.unlockedLevel) > nextUnlocked) {
+    nextUnlocked = Math.min(10, Number(scoreData.unlockedLevel));
+  }
+
+  const elderPatch = {
     id: cleanElderId,
     todayGameScore: nextScore,
     todayGameSessions: nextSessions,
     lastGameScore: ptsToAdd,
+    lastPlayedLevel: playedLevel,
+    unlockedLevel: nextUnlocked,
     lastActive: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  });
+  };
+
+  await firestorePatchDocument(elderPath, elderPatch);
 
   return {
     todaySessions: nextSessions,
     todayScore: nextScore,
+    unlockedLevel: nextUnlocked,
+    lastPlayedLevel: playedLevel,
     sessionsHistory: updatedHistory,
   };
 }

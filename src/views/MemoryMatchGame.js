@@ -556,8 +556,10 @@ export function renderMemoryMatchGame(onNavigate) {
 
                       const sessionEntry = {
                         sessionNumber: nextSessionNum,
+                        level: 1,
                         pointsEarned: 50,
                         completedAt: new Date().toISOString(),
+                        timestamp: new Date().toISOString(),
                         remainingTimeSeconds: remainingSec,
                         status: 'completed',
                         accuracy: 100,

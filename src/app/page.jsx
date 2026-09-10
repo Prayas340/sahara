@@ -79,6 +79,58 @@ export default function HomePage() {
   const [problemStatement, setProblemStatement] = useState('Mild Cognitive Support Mode');
   const [customProblem, setCustomProblem] = useState('');
 
+  // Step 3 Clinical Medical Report & Gemini AI Assessment State
+  const [reportFile, setReportFile] = useState(null);
+  const [reportFileName, setReportFileName] = useState('');
+  const [isAnalyzingReport, setIsAnalyzingReport] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [reportUploadError, setReportUploadError] = useState('');
+
+  const handleReportFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setReportFile(file);
+    setReportFileName(file.name);
+    setIsAnalyzingReport(true);
+    setReportUploadError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('report', file);
+      formData.append('elderName', fullName || 'Elder');
+      formData.append('elderAge', age || '72');
+      formData.append('problemStatement', problemStatement || 'Mild Cognitive Support Mode');
+
+      const res = await fetch('/api/analyze-report', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAiAnalysis(data);
+        showToast(`✨ AI Clinical Assessment Complete: Recommended Starting Level ${data.recommendedStartingLevel}/10`, 'success', 6000);
+        speakText(`Medical report analyzed. AI recommended starting at Level ${data.recommendedStartingLevel}.`);
+      } else {
+        throw new Error(data.error || 'Failed to analyze report.');
+      }
+    } catch (err) {
+      console.warn('[AI Report Analysis Error]:', err);
+      setReportUploadError(err.message || 'Error processing document. Defaulting to Level 1.');
+      showToast('Notice: Could not parse report with Gemini. Defaulting to Level 1.', 'info', 5000);
+    } finally {
+      setIsAnalyzingReport(false);
+    }
+  };
+
+  const handleClearReport = () => {
+    setReportFile(null);
+    setReportFileName('');
+    setAiAnalysis(null);
+    setReportUploadError('');
+  };
+
   useEffect(() => {
     const lang = dataStore.getLanguage ? dataStore.getLanguage() : 'English';
     setActiveLanguage(lang);
@@ -425,6 +477,9 @@ export default function HomePage() {
       ? (customProblem.trim() || 'Mild Cognitive Support Mode')
       : (problemStatement || 'Mild Cognitive Support Mode');
 
+    const startingLevel = aiAnalysis?.recommendedStartingLevel ? Number(aiAnalysis.recommendedStartingLevel) : 1;
+    const unlockedLevel = startingLevel;
+
     const patientData = {
       name: cleanElderName,
       honorific: elderHonorific,
@@ -440,6 +495,14 @@ export default function HomePage() {
       lastActive: 'Just now',
       phone: authMethod === 'phone' ? formattedPhone : '',
       email: authMethod === 'google' && googleEmail ? googleEmail : '',
+      startingLevel,
+      unlockedLevel,
+      aiAnalysis: aiAnalysis ? {
+        recommendedLevel: startingLevel,
+        cognitiveSummary: aiAnalysis.cognitiveSummary || '',
+        identifiedCondition: aiAnalysis.identifiedCondition || '',
+        uploadedAt: new Date().toISOString(),
+      } : null,
     };
 
     const cleanCgName = cgName.trim();
@@ -933,6 +996,136 @@ export default function HomePage() {
                     This condition mode synchronizes directly with your caregiver portal overview.
                   </p>
                 </div>
+              </div>
+
+              {/* Clinical Medical Report & Gemini AI Cognitive Assessment (Optional) */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-50/90 via-teal-50/40 to-white border-2 border-[#cdf2cb] shadow-sm space-y-4">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#0d631b]">
+                    <span className="material-symbols-outlined text-xl text-[#0d631b]">clinical_notes</span>
+                    <span>Clinical Report & Gemini AI Assessment (Optional)</span>
+                  </div>
+                  <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#006e1c] border border-emerald-300 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                    <span>Gemini 2.5 Flash</span>
+                  </span>
+                </div>
+
+                <p className="text-xs text-[#40493d] leading-relaxed">
+                  Upload patient medical reports (PDF or images: MMSE, MoCA, physician notes). The Gemini API will evaluate the cognitive baseline and automatically map and unlock progressive starting levels (1–10).
+                </p>
+
+                {/* Upload Box / Dropzone */}
+                {!aiAnalysis && !isAnalyzingReport && (
+                  <div>
+                    <label
+                      htmlFor="medical-report-input"
+                      className="group flex flex-col items-center justify-center p-5 sm:p-6 border-2 border-dashed border-[#cdf2cb] hover:border-[#006e1c] hover:bg-[#ebffe7]/40 rounded-2xl cursor-pointer transition-all text-center bg-white/70"
+                    >
+                      <input
+                        id="medical-report-input"
+                        type="file"
+                        accept=".pdf,image/png,image/jpeg,image/webp,image/jpg"
+                        onChange={handleReportFileUpload}
+                        className="hidden"
+                      />
+                      <div className="w-12 h-12 rounded-2xl bg-[#d9fdd6] text-[#0d631b] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-xs">
+                        <span className="material-symbols-outlined text-2xl">upload_file</span>
+                      </div>
+                      <p className="text-xs sm:text-sm font-bold text-[#032109]">
+                        Click or drag clinical report here
+                      </p>
+                      <p className="text-[11px] text-[#40493d] mt-0.5">
+                        Supports PDF, PNG, JPG (MMSE, MoCA, clinical notes, prescriptions)
+                      </p>
+                    </label>
+
+                    {reportUploadError && (
+                      <p className="text-xs text-red-600 mt-2 font-medium flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">warning</span>
+                        <span>{reportUploadError}</span>
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 mt-2 px-1 text-[11px] text-[#40493d]">
+                      <span className="material-symbols-outlined text-sm text-[#0d631b]">info</span>
+                      <span>No report? Mind Games will default to starting Level 1 unlocked.</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading / Analyzing State */}
+                {isAnalyzingReport && (
+                  <div className="p-6 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] text-center space-y-3">
+                    <div className="inline-flex p-3 rounded-full bg-white shadow-sm border border-[#cdf2cb] animate-bounce">
+                      <span className="material-symbols-outlined text-2xl text-[#0d631b]">neurology</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-[#032109]">
+                        Analyzing {reportFileName}...
+                      </h4>
+                      <p className="text-xs text-[#40493d] mt-0.5">
+                        Gemini AI is assessing clinical indicators, MMSE/MoCA scores, and calculating optimal baseline level.
+                      </p>
+                    </div>
+                    <div className="w-full max-w-xs mx-auto bg-white rounded-full h-2 overflow-hidden border border-[#cdf2cb]">
+                      <div className="h-full bg-[#006e1c] animate-pulse w-3/4 rounded-full"></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Assessment Results Card */}
+                {aiAnalysis && !isAnalyzingReport && (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white border-2 border-[#006e1c] shadow-md space-y-3 transition-all">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-[#006e1c] text-white flex items-center justify-center font-black text-base shadow-sm">
+                          L{aiAnalysis.recommendedStartingLevel}
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#006e1c] bg-[#d9fdd6] px-2 py-0.5 rounded-md border border-[#cdf2cb]">
+                            AI Recommended Baseline
+                          </span>
+                          <h4 className="text-sm sm:text-base font-extrabold text-[#032109] mt-0.5">
+                            Level {aiAnalysis.recommendedStartingLevel} of 10 Unlocked
+                          </h4>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleClearReport}
+                        className="text-xs font-bold text-red-600 hover:text-red-800 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                        <span>Remove</span>
+                      </button>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-[#ebffe7] border border-[#cdf2cb] space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#0d631b]">
+                        <span className="material-symbols-outlined text-base">psychology</span>
+                        <span>Identified Condition: {aiAnalysis.identifiedCondition}</span>
+                      </div>
+                      <p className="text-xs text-[#40493d] leading-relaxed">
+                        {aiAnalysis.cognitiveSummary}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs font-bold text-[#006e1c] bg-[#d9fdd6] p-2.5 rounded-xl border border-[#cdf2cb]">
+                      <span className="material-symbols-outlined text-base">lock_open</span>
+                      <span>
+                        Rule applied: Levels 1 through {aiAnalysis.recommendedStartingLevel} will be unlocked immediately upon account creation!
+                      </span>
+                    </div>
+
+                    {reportFileName && (
+                      <p className="text-[10px] text-gray-500">
+                        Evaluated from attached document: <strong>{reportFileName}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Caregiver Section */}
