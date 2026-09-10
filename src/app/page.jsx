@@ -1301,12 +1301,18 @@ export default function HomePage() {
                     )}
                     <span>Min 6 characters</span>
                   </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1.5 ${
                     EMAIL_REGEX.test((cgEmail || '').trim()) ? 'bg-emerald-100 text-emerald-800' : 'bg-white/80 text-[#40493d] border border-[#cdf2cb]'
                   }`}>
-                    <span className="material-symbols-outlined text-xs">
-                      {EMAIL_REGEX.test((cgEmail || '').trim()) ? 'check' : 'alternate_email'}
-                    </span>
+                    {EMAIL_REGEX.test((cgEmail || '').trim()) ? (
+                      <span className="material-symbols-outlined text-xs">check</span>
+                    ) : (
+                      <img
+                        src="/user.gif"
+                        alt="User verification"
+                        className="w-3.5 h-3.5 object-contain inline-block"
+                      />
+                    )}
                     <span>Valid email format</span>
                   </span>
                   <span className="text-[10px] text-[#40493d] italic ml-auto">
