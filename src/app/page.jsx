@@ -938,32 +938,52 @@ export default function HomePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-[#032109] mb-1">State / Union Territory</label>
-                    <select
-                      value={selectedState}
-                      onChange={(e) => handleStateChange(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c] cursor-pointer"
-                    >
-                      {INDIAN_STATES.map((st) => (
-                        <option key={st.name} value={st.name}>
-                          {st.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative flex items-center">
+                      <select
+                        value={selectedState}
+                        onChange={(e) => handleStateChange(e.target.value)}
+                        className="w-full pl-3.5 pr-14 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c] cursor-pointer appearance-none shadow-xs"
+                      >
+                        {INDIAN_STATES.map((st) => (
+                          <option key={st.name} value={st.name}>
+                            {st.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-1">
+                        <img
+                          src="/location.gif"
+                          alt="State Location"
+                          className="w-7 h-7 sm:w-8 sm:h-8 object-contain inline-block shrink-0"
+                        />
+                        <span className="material-symbols-outlined text-gray-500 text-lg">expand_more</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-[#032109] mb-1">City / District</label>
-                    <select
-                      value={selectedCity}
-                      onChange={(e) => setSelectedCity(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c] cursor-pointer"
-                    >
-                      {availableCities.map((ct) => (
-                        <option key={ct} value={ct}>
-                          {ct}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative flex items-center">
+                      <select
+                        value={selectedCity}
+                        onChange={(e) => setSelectedCity(e.target.value)}
+                        className="w-full pl-3.5 pr-14 py-2.5 rounded-xl border border-[#cdf2cb] bg-white text-sm font-bold text-[#032109] focus:outline-none focus:ring-2 focus:ring-[#006e1c] cursor-pointer appearance-none shadow-xs"
+                      >
+                        {availableCities.map((ct) => (
+                          <option key={ct} value={ct}>
+                            {ct}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-1">
+                        <img
+                          src="/location.gif"
+                          alt="City Location"
+                          className="w-7 h-7 sm:w-8 sm:h-8 object-contain inline-block shrink-0"
+                        />
+                        <span className="material-symbols-outlined text-gray-500 text-lg">expand_more</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
