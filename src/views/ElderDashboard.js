@@ -368,12 +368,18 @@ Sent via Sahara Cognitive & Caregiver Companion
           body: JSON.stringify(payload)
         });
 
-        const result = await response.json();
-        if (result.success) {
+        let result = null;
+        try {
+          result = await response.json();
+        } catch (jsonErr) {
+          result = { success: response.ok };
+        }
+
+        if (result && (result.success || response.ok)) {
           showToast(`✅ Emergency Alert Sent to Caregiver (${caregiverEmail})!`, 'success', 8000);
           speakText('Emergency alert sent to caregiver. Help is on the way.');
         } else {
-          throw new Error(result.message || 'Failed to dispatch SOS alert');
+          throw new Error(result?.message || 'Failed to dispatch SOS alert');
         }
       } catch (err) {
         console.error('SOS Web3Forms error:', err);

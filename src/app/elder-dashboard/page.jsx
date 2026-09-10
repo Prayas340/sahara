@@ -521,9 +521,14 @@ Sent via Sahara Cognitive & Caregiver Companion
         body: JSON.stringify(payload)
       });
 
-      const result = await response.json();
+      let result = null;
+      try {
+        result = await response.json();
+      } catch (jsonErr) {
+        result = { success: response.ok };
+      }
 
-      if (result.success) {
+      if (result && (result.success || response.ok)) {
         setSosStatus('sent');
         setLastSosTime(currentTimeStr);
         speakText(`Emergency alert sent to ${effectiveCgEmail}. Help is on the way.`);
