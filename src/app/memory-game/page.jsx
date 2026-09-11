@@ -895,7 +895,7 @@ export default function ProgressiveCognitiveSuitePage() {
     <div className="min-h-screen min-h-[100dvh] bg-[#ebffe7] text-[#032109] flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto p-3.5 sm:p-6 lg:p-8 space-y-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-20 sm:pt-24 lg:pt-28 pb-28 space-y-6">
 
         {/* ------------------------------------------------------------- */}
         {/* HUB VIEW: 10-LEVEL PROGRESSIVE COGNITIVE SUITE */}
