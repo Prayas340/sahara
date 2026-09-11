@@ -244,8 +244,8 @@ export default function ProgressiveCognitiveSuitePage() {
     const unsubElder = onSnapshot(elderDocRef, (snap) => {
       if (snap.exists()) {
         const d = snap.data() || {};
-        if (typeof d.unlockedLevel === 'number') {
-          setUnlockedLevel(prev => Math.max(prev, d.unlockedLevel));
+        if (typeof d.unlockedLevel === 'number' && d.unlockedLevel >= 1) {
+          setUnlockedLevel(d.unlockedLevel);
         }
         if (typeof d.currentSublevel === 'number') {
           setCurrentSublevel(d.currentSublevel);
@@ -825,7 +825,7 @@ export default function ProgressiveCognitiveSuitePage() {
                 <div>
                   <span className="text-[11px] font-bold text-[#40493d] block">Today&apos;s Score</span>
                   <span className="text-3xl font-black text-[#006e1c]">{todayScore} <span className="text-xs font-bold text-[#40493d]">pts</span></span>
-                  <span className="text-[10px] text-[#0d631b] font-semibold block">+10 pts per Sublevel</span>
+                  <span className="text-[10px] text-[#0d631b] font-semibold block">+20 pts per Sublevel</span>
                 </div>
                 <div className="border-t border-[#cdf2cb] sm:pt-2">
                   <span className="text-[11px] font-bold text-[#40493d] block">Completed Stages</span>
@@ -1461,7 +1461,7 @@ export default function ProgressiveCognitiveSuitePage() {
                   </span>
                   <div className="text-left">
                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#006e1c] bg-[#d9fdd6] px-2 py-0.5 rounded-full">
-                      +10 Points Awarded & Synced
+                      +20 Points Awarded & Synced
                     </span>
                     <h3 className="text-lg sm:text-xl font-black text-[#032109]">
                       {victoryDetails.isMastered
@@ -1527,7 +1527,7 @@ export default function ProgressiveCognitiveSuitePage() {
 
               <div>
                 <span className="text-xs font-extrabold uppercase tracking-wider text-[#006e1c] bg-[#d9fdd6] px-3 py-1 rounded-full">
-                  +10 Points Awarded & Synced
+                  +20 Points Awarded & Synced
                 </span>
                 <h2 className="text-2xl font-black text-[#032109] mt-2">
                   {victoryDetails.isMastered

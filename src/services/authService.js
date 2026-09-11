@@ -33,8 +33,36 @@ export const authService = {
   setCurrentUser(user) {
     if (typeof window !== 'undefined' && window.localStorage) {
       if (user) {
+        // Check if a DIFFERENT user is signing in — if so, clear the previous user's medicine/routine cache
+        try {
+          const prevUser = JSON.parse(localStorage.getItem(SESSION_STORAGE_USER) || 'null');
+          const prevId = prevUser?.id || prevUser?.email || prevUser?.phone;
+          const newId = user?.id || user?.email || user?.phone;
+          if (prevId && newId && prevId !== newId) {
+            // Different user — purge all medicine/routine localStorage to prevent cross-account leaks
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && (k.startsWith('sahara_medicines') || k.startsWith('sahara_app_state') || k.startsWith('sahara_game_scores'))) {
+                keysToRemove.push(k);
+              }
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+          }
+        } catch (e) {}
         localStorage.setItem(SESSION_STORAGE_USER, JSON.stringify(user));
       } else {
+        // Sign out — clear medicine/routine cache entirely so next user starts clean
+        try {
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith('sahara_medicines') || k.startsWith('sahara_app_state') || k.startsWith('sahara_game_scores'))) {
+              keysToRemove.push(k);
+            }
+          }
+          keysToRemove.forEach(k => localStorage.removeItem(k));
+        } catch (e) {}
         localStorage.removeItem(SESSION_STORAGE_USER);
       }
       window.dispatchEvent(new CustomEvent('sahara:auth-change', { detail: { user } }));
@@ -580,7 +608,8 @@ export const authService = {
         const cleanElderId = normalizeElderId(savedElder.id || elderIdentifier);
         const cleanCgEmail = (savedCaregiver?.email || caregiverData?.email || '').trim().toLowerCase();
 
-        // Save elder under elders/{elderUid}
+        // Save elder under elders/{elderUid} with explicit empty medications and routines for new signups
+        const todayStr = new Date().toISOString().split('T')[0];
         setDoc(doc(db, 'elders', cleanElderId), {
           uid: cleanElderId,
           elderName: cleanElderName,
@@ -596,7 +625,25 @@ export const authService = {
           problemStatement: savedElder.problemStatement || 'Mild Cognitive Support Mode',
           startingLevel: savedElder.startingLevel || 1,
           unlockedLevel: savedElder.unlockedLevel || 1,
+          currentSublevel: 1,
+          todayGameScore: 0,
+          todayGameSessions: 0,
+          medications: [],
+          routines: [],
           aiAnalysis: savedElder.aiAnalysis || null,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+
+        // Explicitly create an empty dailyLog for today
+        setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr), {
+          date: todayStr,
+          todayScore: 0,
+          todaySessions: 0,
+          lastPlayedLevel: 1,
+          lastPlayedSublevel: 1,
+          medications: [],
+          routines: [],
+          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }, { merge: true }).catch(() => {});
 
@@ -614,7 +661,22 @@ export const authService = {
       } catch (e) {}
     }
 
-    // 3. Update client store & active session
+    // 3. Clear existing local cache and update client store & active session
+    if (dataStore) {
+      dataStore.state.medicines = [];
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('sahara_medicines') || k.startsWith('sahara_app_state') || k.startsWith('sahara_game_scores'))) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (e) {}
+    }
     dataStore.updatePatientProfile(savedElder);
     if (savedCaregiver) {
       dataStore.updateCaregiverProfile(savedCaregiver);

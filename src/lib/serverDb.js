@@ -833,16 +833,6 @@ export async function getGameScoresFromDb(args) {
     if (eCgEmail && Array.isArray(store.gameScores?.[eCgEmail.toLowerCase()])) candidateLists.push(store.gameScores[eCgEmail.toLowerCase()]);
   }
 
-  // Also include default_elder or all scores if list is empty
-  if (Array.isArray(store.gameScores?.['default_elder'])) {
-    candidateLists.push(store.gameScores['default_elder']);
-  }
-  if (candidateLists.length === 0 && store.gameScores) {
-    for (const list of Object.values(store.gameScores)) {
-      if (Array.isArray(list)) candidateLists.push(list);
-    }
-  }
-
   // Deduplicate raw scores by id
   const seenScoreIds = new Set();
   const scores = [];
@@ -864,13 +854,15 @@ export async function getGameScoresFromDb(args) {
         seenScoreIds.add(chKey);
         scores.push({
           id: chKey,
-          score: ch.pointsEarned !== undefined ? Number(ch.pointsEarned) : 50,
-          pointsEarned: ch.pointsEarned !== undefined ? Number(ch.pointsEarned) : 50,
-          level: Number(ch.level) || 1,
+          score: ch.pointsEarned !== undefined ? Number(ch.pointsEarned) : 10,
+          pointsEarned: ch.pointsEarned !== undefined ? Number(ch.pointsEarned) : 10,
+          level: Number(ch.level || ch.mainLevel) || 1,
+          mainLevel: Number(ch.mainLevel || ch.level) || 1,
+          subLevel: Number(ch.subLevel) || 1,
           durationSeconds: 60 - (Number(ch.remainingTimeSeconds) || 0),
           remainingTimeSeconds: Number(ch.remainingTimeSeconds) || 0,
           accuracy: ch.accuracy !== undefined ? Number(ch.accuracy) : 100,
-          status: ch.status === 'timed_out' ? 'Timed Out' : 'Completed (+50 pts)',
+          status: ch.status === 'timed_out' ? 'Timed Out' : `Sublevel ${ch.subLevel || 1}/5 Completed (+10 pts)`,
           date: todayStr,
           timestamp: ch.completedAt || new Date().toISOString(),
           sessionNumber: ch.sessionNumber,
@@ -891,10 +883,7 @@ export async function getGameScoresFromDb(args) {
     if (s.timestamp) {
       const tsD = new Date(s.timestamp);
       if (!isNaN(tsD.getTime())) {
-        const local = getLocalDateString(tsD);
-        const utc = tsD.toISOString().split('T')[0];
-        if (local === todayStr || utc === todayStr) return true;
-        if (Math.abs(now.getTime() - tsD.getTime()) < 18 * 3600 * 1000) return true;
+        return getLocalDateString(tsD) === todayStr;
       }
     }
     return false;
@@ -902,9 +891,9 @@ export async function getGameScoresFromDb(args) {
 
   const todayScores = scores.filter(isTodayMatch);
 
-  // Calculate todayTotalScore from completed sessions: each completed session is 50 pts, max 250
+  // Calculate todayTotalScore from completed sessions
   const completedTodayScores = todayScores.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out' && Number(s.score) > 0);
-  const rawTodayScore = completedTodayScores.reduce((sum, s) => sum + (Number(s.score) || Number(s.pointsEarned) || 50), 0);
+  const rawTodayScore = completedTodayScores.reduce((sum, s) => sum + (Number(s.score) || Number(s.pointsEarned) || 10), 0);
 
   let todayTotalScore = rawTodayScore;
   let todaySessionsCount = completedTodayScores.length;
@@ -920,24 +909,21 @@ export async function getGameScoresFromDb(args) {
   todayTotalScore = Math.min(250, todayTotalScore);
   todaySessionsCount = Math.min(5, todaySessionsCount);
 
-  // Calculate unlocked levels across all played scores
-  const maxCompletedLevel = Math.max(
-    0,
-    ...scores.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out' && Number(s.score) > 0).map(s => Number(s.level) || 0)
-  );
+  // Unlocked level calculation: Only advance level when a main level is truly mastered (all 5 sublevels)
+  const masteredLevels = scores
+    .filter(s => (s.isMastered || s.isLevelMastered || Number(s.subLevel) >= 5) && Number(s.score) > 0)
+    .map(s => Number(s.mainLevel || s.level) || 1);
 
-  const maxUnlockedFromScores = Math.max(
-    1,
-    maxCompletedLevel + 1,
-    ...scores.map(s => Number(s.unlockedLevel) || 1)
-  );
+  const maxUnlockedFromScores = masteredLevels.length > 0
+    ? Math.max(1, ...masteredLevels.map(lvl => Math.min(10, lvl + 1)))
+    : 1;
 
   const finalUnlockedLevel = Math.min(
     10,
     Math.max(
-      maxUnlockedFromScores,
       Number(resolvedElder?.unlockedLevel) || 1,
-      cloudDaily?.unlockedLevel ? Number(cloudDaily.unlockedLevel) : 1
+      cloudDaily?.unlockedLevel ? Number(cloudDaily.unlockedLevel) : 1,
+      maxUnlockedFromScores
     )
   );
 

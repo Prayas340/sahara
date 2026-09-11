@@ -322,6 +322,11 @@ export default function CaregiverDashboardPage() {
                 } else {
                   setActiveSosAlert(null);
                 }
+              } else {
+                setMedicines([]);
+                setTodayGameSessions(0);
+                setTodayGameScore(0);
+                setActiveSosAlert(null);
               }
             } catch (snapErr) {
               console.error('[CaregiverPortal] dailyLog snapshot parsing error on path:', dailyLogRef.path, snapErr);
@@ -830,23 +835,47 @@ export default function CaregiverDashboardPage() {
       const elderRef = doc(db, 'elders', cleanElderId);
       logFirestoreOperation('CaregiverPortal', 'WRITE_REMINDER_DELETE', dailyLogRef.path);
 
+      const formattedMeds = updated.map(m => ({
+        id: m.id,
+        name: m.title || m.name,
+        title: m.title || m.name,
+        detail: m.detail || '',
+        scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+        taken: Boolean(m.taken),
+        completedAt: m.taken ? (m.takenAt || null) : null,
+        takenAt: m.taken ? (m.takenAt || null) : null,
+        takenDate: m.taken ? (m.takenDate || todayDate) : null,
+      }));
       const formattedRoutines = updated.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null }));
 
       setDoc(dailyLogRef, {
-        medications: updated,
+        medications: formattedMeds,
         routines: formattedRoutines,
+        updatedAt: serverTimestamp(),
       }, { merge: true }).catch(err => {
         console.error('[CaregiverPortal] Firestore dailyLogs delete error on path:', dailyLogRef.path, err);
       });
 
       setDoc(elderRef, {
-        medications: updated,
+        medications: formattedMeds,
         routines: formattedRoutines,
+        updatedAt: serverTimestamp(),
       }, { merge: true }).catch(() => {});
     }
 
     // Broadcast mutation to Real-Time Bridge for sub-second cross-window reflection
     if (cleanElderId) {
+      const formattedForSSE = updated.map(m => ({
+        id: m.id,
+        name: m.title || m.name,
+        title: m.title || m.name,
+        detail: m.detail || '',
+        scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+        taken: Boolean(m.taken),
+        completedAt: m.taken ? (m.takenAt || null) : null,
+        takenAt: m.taken ? (m.takenAt || null) : null,
+        takenDate: m.takenDate || null,
+      }));
       try {
         fetch('/api/sync-stream', {
           method: 'POST',
@@ -855,7 +884,7 @@ export default function CaregiverDashboardPage() {
             elderId: cleanElderId,
             action: 'routine_deleted',
             data: {
-              medications: updated,
+              medications: formattedForSSE,
               routines: updated.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
             },
           }),

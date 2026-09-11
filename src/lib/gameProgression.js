@@ -20,38 +20,66 @@ export const initializeDailyLog = async (elderId) => {
   if (!db || !cleanElderId) return;
 
   try {
+    const elderRef = doc(db, 'elders', cleanElderId);
     const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', today);
     logFirestoreOperation('ElderPortal', 'INIT_CHECK', dailyLogRef.path);
-    const snap = await getDoc(dailyLogRef);
 
-    // If today's log already exists, preserve it completely - never overwrite!
-    if (snap.exists()) return;
+    // Check both elder doc and daily log in parallel
+    const [elderSnap, dailySnap] = await Promise.all([
+      getDoc(elderRef),
+      getDoc(dailyLogRef),
+    ]);
 
-    // For a brand new day, check if master elder profile already has established medications/routines
     let existingMeds = [];
     let existingRoutines = [];
-    try {
-      const elderSnap = await getDoc(doc(db, 'elders', cleanElderId));
-      if (elderSnap.exists()) {
-        const elderData = elderSnap.data() || {};
-        if (Array.isArray(elderData.medications) && elderData.medications.length > 0) {
-          existingMeds = elderData.medications.map(m => ({
-            ...m,
-            taken: false,
-            takenAt: null,
-            completedAt: null,
-            takenDate: null,
-          }));
-        }
-        if (Array.isArray(elderData.routines) && elderData.routines.length > 0) {
-          existingRoutines = elderData.routines.map(r => ({
-            ...r,
-            completed: false,
-            completedAt: null,
-          }));
-        }
+
+    if (elderSnap.exists()) {
+      const elderData = elderSnap.data() || {};
+      if (Array.isArray(elderData.medications) && elderData.medications.length > 0) {
+        existingMeds = elderData.medications.map(m => ({
+          ...m,
+          taken: false,
+          takenAt: null,
+          completedAt: null,
+          takenDate: null,
+        }));
       }
-    } catch (e) {}
+      if (Array.isArray(elderData.routines) && elderData.routines.length > 0) {
+        existingRoutines = elderData.routines.map(r => ({
+          ...r,
+          completed: false,
+          completedAt: null,
+        }));
+      }
+
+      // Ensure the elder master doc always has unlockedLevel and currentSublevel
+      // Only set defaults if the fields are missing (never overwrite real progress)
+      if (elderData.unlockedLevel === undefined || elderData.unlockedLevel === null) {
+        setDoc(elderRef, {
+          unlockedLevel: 1,
+          currentSublevel: 1,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+      }
+    } else {
+      // Brand-new elder doc: initialize with Level 1 defaults
+      setDoc(elderRef, {
+        id: cleanElderId,
+        unlockedLevel: 1,
+        currentSublevel: 1,
+        lastPlayedLevel: 1,
+        lastPlayedSublevel: 1,
+        todayGameScore: 0,
+        todayGameSessions: 0,
+        medications: [],
+        routines: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true }).catch(() => {});
+    }
+
+    // If today's log already exists, preserve it completely - never overwrite!
+    if (dailySnap.exists()) return;
 
     // Create fresh document ONLY if today's log does not already exist
     logFirestoreOperation('ElderPortal', 'WRITE_INIT', dailyLogRef.path);
@@ -70,6 +98,7 @@ export const initializeDailyLog = async (elderId) => {
     console.warn('[gameProgression] initializeDailyLog notice:', err?.message);
   }
 };
+
 
 /**
  * Universal scoring mutation for all 10 Levels & Sublevels.
@@ -139,7 +168,20 @@ export const recordSublevelScore = async (elderId, mainLevel, subLevel, scoreDat
         gamesHistory: arrayUnion(sessionEntry),
       }, { merge: true });
 
-      // 2. Unlock progress
+      // 2. Unlock progress — read existing Firestore state first to prevent clobbering
+      let existingUnlocked = 1;
+      let existingCurrentSub = 1;
+      let existingCurrentLevel = 1;
+      try {
+        const snap = await getDoc(elderRef);
+        if (snap.exists()) {
+          const d = snap.data() || {};
+          existingUnlocked = Number(d.unlockedLevel) || 1;
+          existingCurrentSub = Number(d.currentSublevel) || 1;
+          existingCurrentLevel = Number(d.lastPlayedLevel) || 1;
+        }
+      } catch (e) {}
+
       if (isLastSublevel) {
         // When completing Sublevel 5, increment total sessions and unlock next level
         await setDoc(dailyLogRef, {
@@ -147,18 +189,14 @@ export const recordSublevelScore = async (elderId, mainLevel, subLevel, scoreDat
           completedSessions: increment(1),
         }, { merge: true });
 
-        let targetUnlocked = Math.min(10, lvl + 1);
-        try {
-          const snap = await getDoc(elderRef);
-          if (snap.exists()) {
-            const existingUnlocked = snap.data()?.unlockedLevel || 1;
-            targetUnlocked = Math.max(existingUnlocked, Math.min(10, lvl + 1));
-          }
-        } catch (e) {}
+        // Only unlock next level if this level is >= existing unlocked level (prevents replay from resetting)
+        const targetUnlocked = Math.max(existingUnlocked, Math.min(10, lvl + 1));
+        // Only reset currentSublevel to 1 for the new unlocked level if we actually advanced
+        const newCurrentSub = lvl >= existingCurrentLevel ? 1 : existingCurrentSub;
 
         await setDoc(elderRef, {
           unlockedLevel: targetUnlocked,
-          currentSublevel: 1,
+          currentSublevel: newCurrentSub,
           lastPlayedLevel: lvl,
           lastPlayedSublevel: sub,
           todayGameScore: increment(10),
@@ -167,9 +205,16 @@ export const recordSublevelScore = async (elderId, mainLevel, subLevel, scoreDat
           updatedAt: serverTimestamp(),
         }, { merge: true });
       } else {
-        // Progress to next sublevel
+        // Progress to next sublevel ONLY if this is the current active sublevel
+        // (prevents replaying old sublevels from overwriting progress)
+        const isOnCurrentLevel = lvl === existingCurrentLevel || lvl >= existingCurrentLevel;
+        const isCurrentOrAheadSub = sub >= existingCurrentSub;
+        const advanceSub = isOnCurrentLevel && isCurrentOrAheadSub
+          ? Math.max(existingCurrentSub, sub + 1)
+          : existingCurrentSub;
+
         await setDoc(elderRef, {
-          currentSublevel: sub + 1,
+          currentSublevel: advanceSub,
           lastPlayedLevel: lvl,
           lastPlayedSublevel: sub,
           todayGameScore: increment(10),

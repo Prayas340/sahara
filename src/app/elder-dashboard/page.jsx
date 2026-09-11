@@ -72,6 +72,7 @@ export default function ElderDashboardPage() {
   const [patient, setPatient] = useState({});
   const [activeUser, setActiveUser] = useState(null);
   const [medicines, setMedicines] = useState([]);
+  const [firestoreLoaded, setFirestoreLoaded] = useState(false); // true once Firestore confirms data (even empty)
   const [todayGameSessions, setTodayGameSessions] = useState(0);
   const [todayGameScore, setTodayGameScore] = useState(0);
   const [unlockedLevel, setUnlockedLevel] = useState(1);
@@ -109,8 +110,6 @@ export default function ElderDashboardPage() {
         setActiveUser(u);
         const p = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {});
         setPatient(p || {});
-        const storeMeds = dataStore.getMedicines ? dataStore.getMedicines() : (dataStore.state?.medicines || []);
-        setMedicines(prev => mergeWithTakenPreserved(storeMeds, prev));
       } catch (err) {
         console.warn('Error reading local user state:', err);
       }
@@ -119,8 +118,6 @@ export default function ElderDashboardPage() {
     const onMedicinesChange = (e) => {
       if (e?.detail?.medicines && Array.isArray(e.detail.medicines)) {
         setMedicines(prev => mergeWithTakenPreserved(e.detail.medicines, prev));
-      } else {
-        syncData();
       }
     };
 
@@ -166,6 +163,7 @@ export default function ElderDashboardPage() {
         logFirestoreOperation('ElderPortal', 'LISTENER_ACTIVE', dailyLogRef.path);
 
         unsubFirestore = onSnapshot(dailyLogRef, (docSnap) => {
+          setFirestoreLoaded(true); // Mark as loaded regardless of data
           if (docSnap.exists()) {
             const data = docSnap.data() || {};
             const sess = typeof data.todaySessions === 'number'
@@ -200,10 +198,16 @@ export default function ElderDashboardPage() {
                   return merged;
                 });
               } else {
+                // Firestore explicitly says list is empty — respect it!
                 setMedicines([]);
                 if (dataStore?.state) dataStore.state.medicines = [];
               }
             }
+          } else {
+            // Document doesn't exist yet — treat as empty
+            setFirestoreLoaded(true);
+            setMedicines([]);
+            if (dataStore?.state) dataStore.state.medicines = [];
           }
         }, (err) => {
           console.error('[ElderDashboard] Firestore onSnapshot error on path:', dailyLogRef.path, err.message);
@@ -250,14 +254,20 @@ export default function ElderDashboardPage() {
           }).catch(() => {});
         }
 
-        // Fetch authoritative server reminders/medicines on load
+        // Fetch authoritative server reminders/medicines ONLY as a last-resort fallback
+        // (skipped if Firestore has already confirmed the real list, even if empty)
         fetch(`/api/reminders?elderId=${encodeURIComponent(elderId)}`)
           .then(r => r.json())
           .then(rData => {
-            if (rData?.success && Array.isArray(rData?.medicines)) {
-              const resolvedMeds = resetIfNewDay(rData.medicines);
-              setMedicines(prev => mergeWithTakenPreserved(resolvedMeds, prev));
-            }
+            // Only apply if Firestore snapshot hasn't loaded yet — prevents stale server data
+            // from overriding an empty Firestore list for new accounts
+            setFirestoreLoaded(alreadyLoaded => {
+              if (!alreadyLoaded && rData?.success && Array.isArray(rData?.medicines) && rData.medicines.length > 0) {
+                const resolvedMeds = resetIfNewDay(rData.medicines);
+                setMedicines(prev => mergeWithTakenPreserved(resolvedMeds, prev));
+              }
+              return alreadyLoaded; // Don't change the flag
+            });
           })
           .catch(() => {});
       }
@@ -280,9 +290,10 @@ export default function ElderDashboardPage() {
   const displayHonorific = (activeUser?.role === 'elder' ? activeUser.honorific : null) || patient?.honorific || (displayName ? `${displayName.split(' ')[0]} ji` : 'Elder');
   const caregiverObj = dataStore.getCaregiver ? dataStore.getCaregiver() : null;
   const caregiverName = caregiverObj?.name || patient?.caregiverName || 'Your caregiver';
-  const caregiverEmail = activeUser?.caregiverEmail || patient?.caregiverEmail || caregiverObj?.email || 'prayasdey10@gmail.com';
+  const caregiverEmail = activeUser?.caregiverEmail || patient?.caregiverEmail || caregiverObj?.email || '';
 
-  const allMeds = medicines && medicines.length > 0 ? medicines : (dataStore.getMedicines ? dataStore.getMedicines() : []);
+  // All routines/medicines are authoritatively driven by Firestore & local state
+  const allMeds = Array.isArray(medicines) ? medicines : [];
   const pendingMeds = allMeds.filter(m => !m.taken);
   const completedMeds = allMeds.filter(m => m.taken);
   const isAllDone = allMeds.length > 0 && pendingMeds.length === 0;

@@ -37,11 +37,38 @@ export default function AddReminderModal({ isOpen, onClose }) {
     // Sync directly to Firestore dailyLogs
     const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
     const patient = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
-    const elderId = activeUser?.linkedElder?.phone || activeUser?.linkedElder?.id || activeUser?.linkedElder?.email || activeUser?.phone || activeUser?.id || patient?.phone || patient?.id || patient?.email;
+    const elderId = activeUser?.linkedElder?.email
+      || activeUser?.linkedElder?.id
+      || activeUser?.linkedElder?.phone
+      || patient?.email
+      || patient?.id
+      || patient?.phone;
     const cleanElderId = normalizeElderId(elderId);
     const todayDate = new Date().toISOString().split('T')[0];
     const updatedList = dataStore.getMedicines ? dataStore.getMedicines() : [];
-    const formattedRoutines = updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null }));
+
+    // Formatted list for Firestore (standardized schema)
+    const formattedMeds = updatedList.map(m => ({
+      id: m.id,
+      name: m.title || m.name,
+      title: m.title || m.name,
+      detail: m.detail || '',
+      scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+      category: m.category || 'medication',
+      taken: Boolean(m.taken),
+      completedAt: m.taken ? (m.takenAt || null) : null,
+      takenAt: m.taken ? (m.takenAt || null) : null,
+      takenDate: m.taken ? (m.takenDate || todayDate) : null,
+    }));
+    const formattedRoutines = updatedList.map(m => ({
+      id: m.id,
+      title: m.title || m.name,
+      detail: m.detail || '',
+      scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+      category: m.category || 'medication',
+      completed: Boolean(m.taken),
+      completedAt: m.taken ? (m.takenAt || null) : null,
+    }));
 
     if (db && cleanElderId) {
       try {
@@ -50,16 +77,18 @@ export default function AddReminderModal({ isOpen, onClose }) {
 
         console.log(`[CAREGIVER FIRESTORE WRITE_REMINDER_ADD] Path: ${dailyLogRef.path}`, newMed);
 
+        // Write to today's daily log
         setDoc(dailyLogRef, {
-          medications: updatedList,
+          medications: formattedMeds,
           routines: formattedRoutines,
           updatedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString(),
         }, { merge: true }).catch(err => {
           console.error('[AddReminderModal] Firestore dailyLogs write error:', dailyLogRef.path, err);
         });
 
+        // Write to elder master doc (ensures persistence across new days)
         setDoc(elderDocRef, {
-          medications: updatedList,
+          medications: formattedMeds,
           routines: formattedRoutines,
           updatedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString(),
         }, { merge: true }).catch(err => {
@@ -86,7 +115,7 @@ export default function AddReminderModal({ isOpen, onClose }) {
             elderId: cleanElderId,
             action: 'routine_added',
             data: {
-              medications: updatedList,
+              medications: formattedMeds,
               routines: formattedRoutines,
             },
           }),

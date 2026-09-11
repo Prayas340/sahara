@@ -233,19 +233,19 @@ class DataStore {
   }
 
   resetStore() {
-    this.state = {
-      language: this.state.language || 'English',
-      patient: null,
-      caregiver: null,
-      contacts: [...(defaultState.contacts || [])],
-      medicines: [...(defaultState.medicines || [])],
-      reminders: [...(defaultState.reminders || [])],
-      gamesPlayedCount: 0,
-      moodRating: 'Peaceful & Alert',
-      wellnessBroadcasts: [],
-    };
+    this.state = JSON.parse(JSON.stringify(defaultState));
     if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.removeItem(STORAGE_KEY_DATA);
+      try {
+        localStorage.removeItem(STORAGE_KEY_DATA);
+        const toRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('sahara_medicines') || k.startsWith('sahara_app_state') || k.startsWith('sahara_game_scores') || k.startsWith('sahara_contacts'))) {
+            toRemove.push(k);
+          }
+        }
+        toRemove.forEach(k => localStorage.removeItem(k));
+      } catch (e) {}
     }
     this.notifyChange();
   }
@@ -367,9 +367,11 @@ class DataStore {
         this.state.contacts = customContacts;
       }
 
-      // Load actual medicines for this elder if present, otherwise preserve existing state
-      if (Array.isArray(patientData?.medicines)) {
+      // Load actual medicines for this elder if present, otherwise start clean with empty list
+      if (Array.isArray(patientData?.medicines) && patientData.medicines.length > 0) {
         this.state.medicines = patientData.medicines;
+      } else {
+        this.state.medicines = [];
       }
 
       this.saveState();
@@ -388,16 +390,13 @@ class DataStore {
   loadCustomContacts(elderId = null) {
     if (typeof window === 'undefined' || !window.localStorage) return null;
     try {
-      const targetId = elderId || this.state.patient?.id || this.state.patient?.phone || 'global';
-      const raw = localStorage.getItem(`sahara_contacts_${targetId}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      const general = localStorage.getItem('sahara_contacts');
-      if (general) {
-        const parsedGen = JSON.parse(general);
-        if (Array.isArray(parsedGen) && parsedGen.length > 0) return parsedGen;
+      const targetId = elderId || this.state.patient?.id || this.state.patient?.phone || null;
+      if (targetId) {
+        const raw = localStorage.getItem(`sahara_contacts_${targetId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
       }
     } catch (e) {}
     return null;
@@ -411,7 +410,6 @@ class DataStore {
       try {
         const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
         localStorage.setItem(`sahara_contacts_${targetId}`, JSON.stringify(contacts));
-        localStorage.setItem('sahara_contacts', JSON.stringify(contacts));
       } catch (e) {}
     }
     // Async persist to server database
@@ -462,25 +460,18 @@ class DataStore {
   getMedicines() {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
-        const stored = localStorage.getItem(`sahara_medicines_${targetId}`);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            this.state.medicines = parsed;
-            return parsed;
-          }
-        }
-        // Only inspect general key if no specific elder target is active
-        if (targetId === 'global') {
-          const general = localStorage.getItem('sahara_medicines');
-          if (general) {
-            const parsed = JSON.parse(general);
+        const targetId = this.state.patient?.id || this.state.patient?.phone || null;
+        if (targetId) {
+          const stored = localStorage.getItem(`sahara_medicines_${targetId}`);
+          if (stored) {
+            const parsed = JSON.parse(stored);
             if (Array.isArray(parsed)) {
               this.state.medicines = parsed;
               return parsed;
             }
           }
+          // Explicit elder with no stored medicines returns empty
+          return [];
         }
       } catch (e) {}
     }
