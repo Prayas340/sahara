@@ -4,7 +4,7 @@
 // -------------------------------------------------------------
 
 import { doc, getDoc, setDoc, increment, serverTimestamp, arrayUnion } from 'firebase/firestore';
-import { db, normalizeElderId, getTodayDateString } from './firebaseClient.js';
+import { db, normalizeElderId, getTodayDateString, logFirestoreOperation } from './firebaseClient.js';
 import { dataStore } from '../services/dataStore.js';
 
 /**
@@ -21,6 +21,7 @@ export const initializeDailyLog = async (elderId) => {
 
   try {
     const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', today);
+    logFirestoreOperation('ElderPortal', 'INIT_CHECK', dailyLogRef.path);
     const snap = await getDoc(dailyLogRef);
 
     // If today's log already exists, preserve it completely - never overwrite!
@@ -53,6 +54,7 @@ export const initializeDailyLog = async (elderId) => {
     } catch (e) {}
 
     // Create fresh document ONLY if today's log does not already exist
+    logFirestoreOperation('ElderPortal', 'WRITE_INIT', dailyLogRef.path);
     await setDoc(dailyLogRef, {
       date: today,
       todayScore: 0,
@@ -76,11 +78,16 @@ export const initializeDailyLog = async (elderId) => {
  */
 export const recordSublevelScore = async (elderId, mainLevel, subLevel, scoreData = {}, caregiverEmail = null) => {
   if (!elderId) {
-    console.error('Missing elderId in recordSublevelScore!');
+    console.error('[gameProgression] CRITICAL: Missing elderId in recordSublevelScore!');
     return null;
   }
 
   const cleanElderId = normalizeElderId(elderId);
+  if (!cleanElderId) {
+    console.error('[gameProgression] CRITICAL: Could not normalize elderId:', elderId);
+    return null;
+  }
+
   const lvl = Math.max(1, Math.min(10, Number(mainLevel) || 1));
   const sub = Math.max(1, Math.min(5, Number(subLevel) || 1));
   const today = getTodayDateString();
@@ -111,6 +118,14 @@ export const recordSublevelScore = async (elderId, mainLevel, subLevel, scoreDat
     try {
       const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', today);
       const elderRef = doc(db, 'elders', cleanElderId);
+
+      // Log exact Firestore write path
+      logFirestoreOperation('ElderPortal', 'WRITE_SUBLEVEL_SCORE', dailyLogRef.path, {
+        points: 10,
+        mainLevel: lvl,
+        subLevel: sub,
+        isMastered: isLastSublevel,
+      });
 
       // 1. Atomically increment score (+10) in today's log
       await setDoc(dailyLogRef, {
@@ -166,6 +181,27 @@ export const recordSublevelScore = async (elderId, mainLevel, subLevel, scoreDat
       console.warn('[gameProgression] Firestore atomic write notice:', err?.message);
     }
   }
+
+  // Broadcast to Real-Time Bridge for sub-second cross-window update
+  try {
+    fetch('/api/sync-stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        elderId: cleanElderId,
+        action: 'sublevel_score',
+        data: {
+          scoreAdded: 10,
+          todaySessionsIncrement: isLastSublevel ? 1 : 0,
+          mainLevel: lvl,
+          subLevel: sub,
+          unlockedLevel: nextUnlockedLevel,
+          currentSublevel: nextSublevel,
+          session: sessionEntry,
+        },
+      }),
+    }).catch(() => {});
+  } catch (e) {}
 
   // 2. Server API fallback persistence (/api/game-scores)
   try {

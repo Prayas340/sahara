@@ -1,8 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Caregivers collection - read and write permitted for caregiver accounts
+    match /caregivers/{caregiverId} {
+      allow read, write: if true;
+    }
+
+    // Elders collection - read and write permitted for elders and linked caregivers
+    match /elders/{elderId} {
+      allow read, write: if true;
+
+      // Real-time dailyLogs subcollection: elders/{elderId}/dailyLogs/{date}
+      match /dailyLogs/{date} {
+        allow read, write: if true;
+      }
+
+      // Any deeper nested subcollections (sessions, memoryCards, routines)
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Default catch-all rule
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }

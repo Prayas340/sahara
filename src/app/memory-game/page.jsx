@@ -9,7 +9,7 @@ import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { getVoiceGuidance } from '../../utils/voiceGuidance.js';
 import { showToast } from '../../components/Toast.jsx';
-import { db, normalizeElderId, getTodayDateString } from '../../lib/firebaseClient.js';
+import { db, normalizeElderId, getTodayDateString, logFirestoreOperation } from '../../lib/firebaseClient.js';
 import { doc, onSnapshot } from 'firebase/firestore';
 import {
   COGNITIVE_LEVELS,
@@ -90,11 +90,13 @@ function resolveElderAndCaregiver() {
     startingLevel = 1;
   }
 
+  const cleanElderId = normalizeElderId(elderId);
+
   return {
-    elderId: elderId || '+919854012345',
-    caregiverEmail: caregiverEmail || 'riya@sahara.care',
+    elderId: elderId || null,
+    caregiverEmail: caregiverEmail || null,
     caregiverName: caregiverName || 'Primary Caregiver',
-    cleanElderId: normalizeElderId(elderId || '+919854012345'),
+    cleanElderId,
     elderName,
     startingLevel: Math.max(1, Math.min(10, startingLevel)),
     unlockedLevel: Math.max(1, Math.min(10, unlockedLevel)),
@@ -238,6 +240,7 @@ export default function ProgressiveCognitiveSuitePage() {
 
     // 2. Real-time Firestore Elder Doc Listener
     const elderDocRef = doc(db, 'elders', cleanElderId);
+    logFirestoreOperation('ElderPortal', 'LISTENER_ACTIVE', elderDocRef.path);
     const unsubElder = onSnapshot(elderDocRef, (snap) => {
       if (snap.exists()) {
         const d = snap.data() || {};
@@ -253,10 +256,11 @@ export default function ProgressiveCognitiveSuitePage() {
         if (d.aiAnalysis) setAiAnalysis(d.aiAnalysis);
         if (d.name) setElderName(d.name);
       }
-    }, (err) => console.warn('[GameHub] Elder snapshot notice:', err));
+    }, (err) => console.error('[MemoryGame] Firestore elderDoc onSnapshot error on path:', elderDocRef.path, err.message));
 
     // 3. Real-time Firestore DailyLog Listener
     const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
+    logFirestoreOperation('ElderPortal', 'LISTENER_ACTIVE', dailyLogRef.path);
     const unsubDaily = onSnapshot(dailyLogRef, (snap) => {
       setIsLoadingSession(false);
       if (snap.exists()) {
@@ -266,7 +270,10 @@ export default function ProgressiveCognitiveSuitePage() {
         setTodayScore(score);
         setTodaySessions(sess);
       }
-    }, () => setIsLoadingSession(false));
+    }, (err) => {
+      setIsLoadingSession(false);
+      console.error('[MemoryGame] Firestore dailyLog onSnapshot error on path:', dailyLogRef.path, err.message);
+    });
 
     return () => {
       unsubElder();

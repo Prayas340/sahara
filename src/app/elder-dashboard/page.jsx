@@ -6,7 +6,7 @@ import Navbar from '../../components/Navbar.jsx';
 import { dataStore } from '../../services/dataStore.js';
 import { authService } from '../../services/authService.js';
 import { useTranslation } from '../../utils/i18n.js';
-import { db, normalizeElderId, getTodayDateString } from '../../lib/firebaseClient.js';
+import { db, normalizeElderId, getTodayDateString, logFirestoreOperation } from '../../lib/firebaseClient.js';
 import { initializeDailyLog } from '../../lib/gameProgression.js';
 import { doc, setDoc, onSnapshot, serverTimestamp, arrayUnion } from 'firebase/firestore';
 
@@ -18,11 +18,11 @@ function resolveElderAndCaregiver() {
   try {
     const stored = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
     if (stored?.role === 'elder') {
-      elderId = stored.phone || stored.email || stored.id;
+      elderId = stored.id || stored.phone || stored.email;
       caregiverEmail = stored.caregiverEmail || null;
       caregiverName = stored.caregiverName || null;
     } else if (stored?.role === 'caregiver') {
-      elderId = stored.linkedElder?.phone || stored.linkedElder?.id || stored.linkedElder?.email;
+      elderId = stored.linkedElder?.id || stored.linkedElder?.phone || stored.linkedElder?.email;
       caregiverEmail = stored.email || null;
       caregiverName = stored.name || null;
     }
@@ -31,11 +31,11 @@ function resolveElderAndCaregiver() {
   if (!elderId) {
     const u = authService.getCurrentUser ? authService.getCurrentUser() : null;
     if (u?.role === 'elder') {
-      elderId = u.phone || u.email || u.id;
+      elderId = u.id || u.phone || u.email;
       caregiverEmail = u.caregiverEmail || caregiverEmail;
       caregiverName = u.caregiverName || caregiverName;
     } else if (u?.role === 'caregiver') {
-      elderId = u.linkedElder?.phone || u.linkedElder?.id || u.linkedElder?.email;
+      elderId = u.linkedElder?.id || u.linkedElder?.phone || u.linkedElder?.email;
       caregiverEmail = u.email || caregiverEmail;
       caregiverName = u.name || caregiverName;
     }
@@ -43,7 +43,7 @@ function resolveElderAndCaregiver() {
 
   if (!elderId) {
     const p = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
-    elderId = p?.phone || p?.id || p?.email;
+    elderId = p?.id || p?.phone || p?.email;
     caregiverEmail = caregiverEmail || p?.caregiverEmail;
     caregiverName = caregiverName || p?.caregiverName;
   }
@@ -53,11 +53,16 @@ function resolveElderAndCaregiver() {
     caregiverName = caregiverName || cg?.name || null;
   }
 
+  const clean = elderId ? normalizeElderId(elderId) : null;
+  if (!clean) {
+    console.error('[ElderDashboard] CRITICAL: Unable to resolve active elder ID! Real-time syncing will be disabled until signed in.');
+  }
+
   return {
-    elderId: elderId || '+919854012345',
-    caregiverEmail: caregiverEmail || 'prayasdey10@gmail.com',
-    caregiverName: caregiverName || 'Primary Caregiver',
-    cleanElderId: normalizeElderId(elderId || '+919854012345'),
+    elderId: clean,
+    caregiverEmail: caregiverEmail || null,
+    caregiverName: caregiverName || null,
+    cleanElderId: clean,
   };
 }
 
@@ -148,6 +153,9 @@ export default function ElderDashboardPage() {
 
     // Multi-Device Cloud Sync for Elder
     let unsubFirestore = null;
+    let unsubElderDoc = null;
+    let liveEventSource = null;
+
     try {
       const { elderId, cleanElderId } = resolveElderAndCaregiver();
 
@@ -155,6 +163,8 @@ export default function ElderDashboardPage() {
       if (db && cleanElderId) {
         initializeDailyLog(cleanElderId).catch(() => {});
         const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
+        logFirestoreOperation('ElderPortal', 'LISTENER_ACTIVE', dailyLogRef.path);
+
         unsubFirestore = onSnapshot(dailyLogRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() || {};
@@ -195,17 +205,41 @@ export default function ElderDashboardPage() {
               }
             }
           }
-        }, (err) => console.warn('[ElderDashboard] onSnapshot notice:', err.message));
+        }, (err) => {
+          console.error('[ElderDashboard] Firestore onSnapshot error on path:', dailyLogRef.path, err.message);
+        });
 
         const elderDocRef = doc(db, 'elders', cleanElderId);
-        onSnapshot(elderDocRef, (snap) => {
+        unsubElderDoc = onSnapshot(elderDocRef, (snap) => {
           if (snap.exists()) {
             const d = snap.data() || {};
             if (typeof d.unlockedLevel === 'number') {
               setUnlockedLevel(d.unlockedLevel);
             }
           }
-        }, () => {});
+        }, (err) => {
+          console.warn('[ElderDashboard] Firestore elderDoc onSnapshot notice:', err.message);
+        });
+      }
+
+      // Connect to Real-Time Sync Stream for instant sub-second reflection across windows/devices
+      if (cleanElderId && typeof window !== 'undefined' && window.EventSource) {
+        try {
+          liveEventSource = new EventSource(`/api/sync-stream?elderId=${encodeURIComponent(cleanElderId)}`);
+          liveEventSource.addEventListener('update', (event) => {
+            try {
+              const parsed = JSON.parse(event.data);
+              if (parsed?.data?.medications && Array.isArray(parsed.data.medications)) {
+                setMedicines(prev => mergeWithTakenPreserved(parsed.data.medications, prev));
+              }
+              if (typeof parsed?.data?.todayScore === 'number') {
+                setTodayGameScore(parsed.data.todayScore);
+              }
+            } catch (e) {}
+          });
+        } catch (esErr) {
+          console.warn('[ElderDashboard] Live event source notice:', esErr);
+        }
       }
 
       if (elderId) {
@@ -213,15 +247,15 @@ export default function ElderDashboardPage() {
         if (authService.syncElderData) {
           authService.syncElderData(elderId).then((res) => {
             if (res?.elder) syncData();
-          }).catch((err) => console.warn('Elder sync error:', err));
+          }).catch(() => {});
         }
-        // Sync reminders from server database
+
+        // Fetch authoritative server reminders/medicines on load
         fetch(`/api/reminders?elderId=${encodeURIComponent(elderId)}`)
           .then(r => r.json())
           .then(rData => {
-            if (rData?.success && rData?.medicines) {
-              const meds = rData.medicines;
-              const resolvedMeds = resetIfNewDay(meds);
+            if (rData?.success && Array.isArray(rData?.medicines)) {
+              const resolvedMeds = resetIfNewDay(rData.medicines);
               setMedicines(prev => mergeWithTakenPreserved(resolvedMeds, prev));
             }
           })
@@ -237,6 +271,8 @@ export default function ElderDashboardPage() {
       window.removeEventListener('sahara:auth-change', syncData);
       window.removeEventListener('sahara:medicines-change', onMedicinesChange);
       if (unsubFirestore) unsubFirestore();
+      if (unsubElderDoc) unsubElderDoc();
+      if (liveEventSource) liveEventSource.close();
     };
   }, []);
 
@@ -339,7 +375,14 @@ export default function ElderDashboardPage() {
         updatedAt: serverTimestamp(),
       };
 
-      setDoc(dailyLogRef, routinePayload, { merge: true }).catch(err => console.warn('[ElderDashboard] Firestore routine write error:', err));
+      logFirestoreOperation('ElderPortal', 'WRITE_ROUTINE_TAKEN', dailyLogRef.path, {
+        item: currentMed.title || currentMed.name,
+        completedAt: takenAtTime,
+      });
+
+      setDoc(dailyLogRef, routinePayload, { merge: true }).catch(err => {
+        console.error('[ElderDashboard] Firestore routine write error on path:', dailyLogRef.path, err);
+      });
 
       if (isoDate !== todayStr) {
         const isoDailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', isoDate);
@@ -351,6 +394,29 @@ export default function ElderDashboardPage() {
         lastActive: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }, { merge: true }).catch(() => {});
+    }
+
+    // Broadcast mutation to Real-Time Sync Stream for instant sub-second reflection
+    if (cleanElderId) {
+      try {
+        fetch('/api/sync-stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            elderId: cleanElderId,
+            action: 'routine_taken',
+            data: {
+              medications: formattedMeds,
+              routines: formattedRoutines,
+              lastCompletedItem: {
+                id: medId || 'routine_item',
+                name: currentMed.title || currentMed.name || 'Daily Routine',
+                completedAt: takenAtTime,
+              },
+            },
+          }),
+        }).catch(() => {});
+      } catch (e) {}
     }
 
     // Persist directly to server DB with action: 'save'

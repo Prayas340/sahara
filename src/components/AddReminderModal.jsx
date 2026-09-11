@@ -35,34 +35,63 @@ export default function AddReminderModal({ isOpen, onClose }) {
     dataStore.addReminder(newMed);
 
     // Sync directly to Firestore dailyLogs
-    if (db) {
+    const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
+    const patient = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
+    const elderId = activeUser?.linkedElder?.phone || activeUser?.linkedElder?.id || activeUser?.linkedElder?.email || activeUser?.phone || activeUser?.id || patient?.phone || patient?.id || patient?.email;
+    const cleanElderId = normalizeElderId(elderId);
+    const todayDate = new Date().toISOString().split('T')[0];
+    const updatedList = dataStore.getMedicines ? dataStore.getMedicines() : [];
+    const formattedRoutines = updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null }));
+
+    if (db && cleanElderId) {
       try {
-        const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
-        const patient = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
-        const elderId = activeUser?.linkedElder?.phone || activeUser?.linkedElder?.id || activeUser?.linkedElder?.email || activeUser?.phone || activeUser?.id || patient?.phone || patient?.id || patient?.email || '+919854012345';
-        const cleanElderId = normalizeElderId(elderId);
-        const todayDate = new Date().toISOString().split('T')[0];
-        const updatedList = dataStore.getMedicines ? dataStore.getMedicines() : [];
-        const formattedRoutines = updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null }));
+        const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
+        const elderDocRef = doc(db, 'elders', cleanElderId);
 
-        setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate), {
+        console.log(`[CAREGIVER FIRESTORE WRITE_REMINDER_ADD] Path: ${dailyLogRef.path}`, newMed);
+
+        setDoc(dailyLogRef, {
           medications: updatedList,
           routines: formattedRoutines,
           updatedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString(),
-        }, { merge: true }).catch(() => {});
+        }, { merge: true }).catch(err => {
+          console.error('[AddReminderModal] Firestore dailyLogs write error:', dailyLogRef.path, err);
+        });
 
-        setDoc(doc(db, 'elders', cleanElderId), {
+        setDoc(elderDocRef, {
           medications: updatedList,
           routines: formattedRoutines,
           updatedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString(),
-        }, { merge: true }).catch(() => {});
+        }, { merge: true }).catch(err => {
+          console.error('[AddReminderModal] Firestore elderDoc write error:', elderDocRef.path, err);
+        });
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: updatedList } }));
         }
       } catch (err) {
-        console.warn('Firestore reminder sync warning:', err);
+        console.warn('[AddReminderModal] Firestore reminder sync warning:', err);
       }
+    } else if (!cleanElderId) {
+      console.error('[AddReminderModal] CRITICAL: Cannot persist reminder to Firestore because cleanElderId is null or undefined!');
+    }
+
+    // Broadcast mutation to Real-Time Bridge for instant sub-second cross-window reflection
+    if (cleanElderId) {
+      try {
+        fetch('/api/sync-stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            elderId: cleanElderId,
+            action: 'routine_added',
+            data: {
+              medications: updatedList,
+              routines: formattedRoutines,
+            },
+          }),
+        }).catch(() => {});
+      } catch (e) {}
     }
 
     // Explicitly persist to server DB endpoint

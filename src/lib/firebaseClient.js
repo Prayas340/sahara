@@ -30,19 +30,36 @@ try {
 }
 
 export function normalizeElderId(userOrId) {
-  if (!userOrId) return '+919854012345';
+  if (!userOrId) {
+    console.warn('[normalizeElderId] Warning: received null or undefined userOrId.');
+    return null;
+  }
   let raw = userOrId;
   if (typeof userOrId === 'object') {
-    raw = userOrId.phone || userOrId.id || userOrId.email;
+    raw = userOrId.id || userOrId.phone || userOrId.email || userOrId.identifier;
   }
-  if (!raw) return '+919854012345';
+  if (!raw) {
+    console.warn('[normalizeElderId] Warning: could not extract valid identifier from object:', userOrId);
+    return null;
+  }
   const str = String(raw).trim();
+  if (!str) return null;
   const digits = str.replace(/\D/g, '');
   if (digits.length === 10) return '+91' + digits;
   if (digits.length === 12 && digits.startsWith('91')) return '+' + digits;
   if (str.startsWith('+')) return str;
   if (str.includes('@')) return str.toLowerCase();
   return str;
+}
+
+export function logFirestoreOperation(portal, action, path, payload = null) {
+  const time = new Date().toLocaleTimeString();
+  const prefix = `[${portal.toUpperCase()} FIRESTORE ${action.toUpperCase()}] [${time}]`;
+  if (payload) {
+    console.log(`${prefix} Path: %c${path}`, 'color: #0d631b; font-weight: bold;', payload);
+  } else {
+    console.log(`${prefix} Path: %c${path}`, 'color: #0d631b; font-weight: bold;');
+  }
 }
 
 export function getTodayDateString(date = new Date()) {
