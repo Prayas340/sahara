@@ -463,12 +463,23 @@ class DataStore {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const targetId = this.state.patient?.id || this.state.patient?.phone || 'global';
-        const stored = localStorage.getItem(`sahara_medicines_${targetId}`) || localStorage.getItem('sahara_medicines');
+        const stored = localStorage.getItem(`sahara_medicines_${targetId}`);
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             this.state.medicines = parsed;
             return parsed;
+          }
+        }
+        // Only inspect general key if no specific elder target is active
+        if (targetId === 'global') {
+          const general = localStorage.getItem('sahara_medicines');
+          if (general) {
+            const parsed = JSON.parse(general);
+            if (Array.isArray(parsed)) {
+              this.state.medicines = parsed;
+              return parsed;
+            }
           }
         }
       } catch (e) {}

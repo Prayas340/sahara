@@ -80,6 +80,16 @@ function resolveElderAndCaregiver() {
     if (p?.aiAnalysis) aiAnalysis = p.aiAnalysis;
   }
 
+  // If clinical AI analysis recommended a starting level, apply it and unlock all preceding levels
+  const recLvl = Number(aiAnalysis?.recommendedLevel || aiAnalysis?.recommendedStartingLevel);
+  if (recLvl && recLvl >= 1) {
+    startingLevel = Math.max(1, Math.min(10, recLvl));
+    unlockedLevel = Math.max(unlockedLevel, startingLevel);
+  } else if (!aiAnalysis) {
+    // Strictly default to Level 1, Sublevel 1 if no medical report was uploaded
+    startingLevel = 1;
+  }
+
   return {
     elderId: elderId || '+919854012345',
     caregiverEmail: caregiverEmail || 'riya@sahara.care',
@@ -318,7 +328,9 @@ export default function ProgressiveCognitiveSuitePage() {
     }
 
     setTodayScore(prev => prev + 10);
-    setTodaySessions(prev => prev + 1);
+    if (isMastered) {
+      setTodaySessions(prev => prev + 1);
+    }
 
     setVictoryDetails({
       mainLevel: activeLevel,
@@ -438,6 +450,29 @@ export default function ProgressiveCognitiveSuitePage() {
     setSelectedMainLevel(mainLvl);
     setIsSublevelModalOpen(true);
   };
+
+  // -------------------------------------------------------------
+  // 4b. AI Clinical Report Auto-Launch Effect
+  // If medical report was uploaded and analyzed by AI, launch user
+  // directly into the recommended starting level at Sublevel 1,
+  // keeping all preceding levels unlocked.
+  // -------------------------------------------------------------
+  const hasAutoLaunchedRef = useRef(false);
+
+  useEffect(() => {
+    if (hasAutoLaunchedRef.current) return;
+    const resolved = resolveElderAndCaregiver();
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const forceHub = urlParams?.get('hub') === 'true';
+
+    if (!forceHub && resolved.aiAnalysis && resolved.startingLevel > 1) {
+      hasAutoLaunchedRef.current = true;
+      handleStartSublevel(resolved.startingLevel, 1);
+    } else if (!forceHub && urlParams?.get('start') === 'true') {
+      hasAutoLaunchedRef.current = true;
+      handleStartSublevel(resolved.startingLevel || 1, 1);
+    }
+  }, []);
 
   // -------------------------------------------------------------
   // 5. Game Interactions for All 10 Cognitive Modes

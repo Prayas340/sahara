@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { dataStore } from '../services/dataStore.js';
 import { showToast } from './Toast.jsx';
 import { db, normalizeElderId } from '../lib/firebaseClient.js';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function AddReminderModal({ isOpen, onClose }) {
   const [title, setTitle] = useState('');
@@ -38,18 +38,28 @@ export default function AddReminderModal({ isOpen, onClose }) {
     if (db) {
       try {
         const activeUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
-        const elderId = activeUser?.linkedElder?.id || activeUser?.linkedElder?.phone || activeUser?.phone || dataStore.state?.patient?.phone || '+919854012345';
+        const patient = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
+        const elderId = activeUser?.linkedElder?.phone || activeUser?.linkedElder?.id || activeUser?.linkedElder?.email || activeUser?.phone || activeUser?.id || patient?.phone || patient?.id || patient?.email || '+919854012345';
         const cleanElderId = normalizeElderId(elderId);
         const todayDate = new Date().toISOString().split('T')[0];
         const updatedList = dataStore.getMedicines ? dataStore.getMedicines() : [];
+        const formattedRoutines = updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null }));
+
         setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate), {
           medications: updatedList,
-          routines: updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
+          routines: formattedRoutines,
+          updatedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString(),
         }, { merge: true }).catch(() => {});
+
         setDoc(doc(db, 'elders', cleanElderId), {
           medications: updatedList,
-          routines: updatedList.map(m => ({ id: m.id, title: m.title || m.name, completed: Boolean(m.taken), completedAt: m.takenAt || null })),
+          routines: formattedRoutines,
+          updatedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString(),
         }, { merge: true }).catch(() => {});
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sahara:medicines-change', { detail: { medicines: updatedList } }));
+        }
       } catch (err) {
         console.warn('Firestore reminder sync warning:', err);
       }

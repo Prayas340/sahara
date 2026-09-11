@@ -23,20 +23,47 @@ export const initializeDailyLog = async (elderId) => {
     const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', today);
     const snap = await getDoc(dailyLogRef);
 
-    if (!snap.exists()) {
-      // Create fresh document ONLY if today's log does not already exist
-      await setDoc(dailyLogRef, {
-        date: today,
-        todayScore: 0,
-        todaySessions: 0,
-        lastPlayedLevel: 1,
-        lastPlayedSublevel: 1,
-        medications: [],
-        routines: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-    }
+    // If today's log already exists, preserve it completely - never overwrite!
+    if (snap.exists()) return;
+
+    // For a brand new day, check if master elder profile already has established medications/routines
+    let existingMeds = [];
+    let existingRoutines = [];
+    try {
+      const elderSnap = await getDoc(doc(db, 'elders', cleanElderId));
+      if (elderSnap.exists()) {
+        const elderData = elderSnap.data() || {};
+        if (Array.isArray(elderData.medications) && elderData.medications.length > 0) {
+          existingMeds = elderData.medications.map(m => ({
+            ...m,
+            taken: false,
+            takenAt: null,
+            completedAt: null,
+            takenDate: null,
+          }));
+        }
+        if (Array.isArray(elderData.routines) && elderData.routines.length > 0) {
+          existingRoutines = elderData.routines.map(r => ({
+            ...r,
+            completed: false,
+            completedAt: null,
+          }));
+        }
+      }
+    } catch (e) {}
+
+    // Create fresh document ONLY if today's log does not already exist
+    await setDoc(dailyLogRef, {
+      date: today,
+      todayScore: 0,
+      todaySessions: 0,
+      lastPlayedLevel: 1,
+      lastPlayedSublevel: 1,
+      medications: existingMeds,
+      routines: existingRoutines,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
   } catch (err) {
     console.warn('[gameProgression] initializeDailyLog notice:', err?.message);
   }

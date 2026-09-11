@@ -172,22 +172,27 @@ export default function ElderDashboardPage() {
             setTodayGameScore(score);
 
             const list = data.medications || data.routines;
-            if (Array.isArray(list) && list.length > 0) {
-              const liveMeds = list.map((m, idx) => ({
-                id: m.id || `med_${idx}`,
-                title: m.title || m.name || `Routine ${idx + 1}`,
-                name: m.name || m.title || `Routine ${idx + 1}`,
-                detail: m.detail || m.title || 'Scheduled routine',
-                scheduledTime: m.scheduledTime || m.time || '08:00 AM',
-                taken: Boolean(m.taken || m.completed),
-                takenAt: m.completedAt || m.takenAt || null,
-                takenDate: m.takenDate || todayStr,
-              }));
-              setMedicines(prev => {
-                const merged = mergeWithTakenPreserved(liveMeds, prev);
-                dataStore.state.medicines = merged;
-                return merged;
-              });
+            if (Array.isArray(list)) {
+              if (list.length > 0) {
+                const liveMeds = list.map((m, idx) => ({
+                  id: m.id || `med_${idx}`,
+                  title: m.title || m.name || `Routine ${idx + 1}`,
+                  name: m.name || m.title || `Routine ${idx + 1}`,
+                  detail: m.detail || m.title || 'Scheduled routine',
+                  scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+                  taken: Boolean(m.taken || m.completed),
+                  takenAt: m.completedAt || m.takenAt || null,
+                  takenDate: m.takenDate || todayStr,
+                }));
+                setMedicines(prev => {
+                  const merged = mergeWithTakenPreserved(liveMeds, prev);
+                  dataStore.state.medicines = merged;
+                  return merged;
+                });
+              } else {
+                setMedicines([]);
+                if (dataStore?.state) dataStore.state.medicines = [];
+              }
             }
           }
         }, (err) => console.warn('[ElderDashboard] onSnapshot notice:', err.message));
@@ -794,7 +799,17 @@ Sent via Sahara Cognitive & Caregiver Companion
                 </div>
               </div>
             </section>
-          ) : null}
+          ) : (
+            <section className="relative card-tactile bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-[#cdf2cb] text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-[#ebffe7] text-[#0d631b] flex items-center justify-center mx-auto shadow-inner">
+                <span className="material-symbols-outlined text-3xl">event_available</span>
+              </div>
+              <h3 className="text-xl font-extrabold text-[#032109]">No Scheduled Routines Today</h3>
+              <p className="text-xs sm:text-sm text-[#40493d] max-w-md mx-auto leading-relaxed">
+                Your daily care schedule will appear here once configured by {caregiverName || 'your caregiver'} from the Caregiver Portal. No actions are required at this time.
+              </p>
+            </section>
+          )}
 
           {/* 2. Play Memory Match Game Card */}
           <section

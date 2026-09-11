@@ -509,22 +509,29 @@ export async function firestoreSaveGameDailyLog(elderId, dateStr, scoreData) {
     ? existing.todayScore
     : (typeof existing.totalScore === 'number' ? existing.totalScore : currentSessions * 50);
 
-  const isTimedOut = scoreData.status === 'timed_out' || Number(scoreData.pointsEarned) === 0 || scoreData.status === 'Timed Out';
-  const ptsToAdd = isTimedOut ? 0 : 50;
+  const isTimedOut = scoreData.status === 'timed_out' || scoreData.status === 'Timed Out' || scoreData.isTimedOut;
+  const ptsToAdd = isTimedOut ? 0 : (scoreData.pointsEarned !== undefined ? Number(scoreData.pointsEarned) : (scoreData.score !== undefined ? Number(scoreData.score) : 10));
 
-  const nextSessions = isTimedOut ? currentSessions : Math.min(5, currentSessions + 1);
-  const nextScore = Math.min(250, currentScore + ptsToAdd);
-  const playedLevel = Number(scoreData.level) || 1;
+  const playedLevel = Number(scoreData.mainLevel || scoreData.level) || 1;
+  const playedSublevel = Number(scoreData.subLevel) || 1;
+  const isLastSublevel = playedSublevel >= 5;
+
+  // Only increment completed daily sessions when mastering the final sublevel (Sublevel 5)
+  const nextSessions = (!isTimedOut && isLastSublevel) ? (currentSessions + 1) : currentSessions;
+  const nextScore = currentScore + ptsToAdd;
 
   const existingHistory = Array.isArray(existing.sessionsHistory) ? existing.sessionsHistory : [];
   const sessionEntry = {
-    sessionNumber: nextSessions,
+    sessionNumber: nextSessions || 1,
+    mainLevel: playedLevel,
     level: playedLevel,
+    subLevel: playedSublevel,
     pointsEarned: ptsToAdd,
     completedAt: scoreData.completedAt || new Date().toISOString(),
     timestamp: scoreData.timestamp || scoreData.completedAt || new Date().toISOString(),
-    remainingTimeSeconds: Number(scoreData.remainingTimeSeconds) || Number(scoreData.durationSeconds) || 0,
-    status: isTimedOut ? 'timed_out' : 'completed',
+    remainingTimeSeconds: Number(scoreData.remainingTimeSeconds) || 0,
+    durationSeconds: Number(scoreData.durationSeconds) || 30,
+    status: isTimedOut ? 'timed_out' : `Sublevel ${playedSublevel}/5 Completed (+${ptsToAdd} pts)`,
     accuracy: scoreData.accuracy !== undefined ? Number(scoreData.accuracy) : 100,
   };
 
@@ -538,6 +545,7 @@ export async function firestoreSaveGameDailyLog(elderId, dateStr, scoreData) {
     totalScore: nextScore,
     lastGameScore: ptsToAdd,
     lastPlayedLevel: playedLevel,
+    lastPlayedSublevel: playedSublevel,
     lastPlayedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     sessionsHistory: updatedHistory,
@@ -551,12 +559,13 @@ export async function firestoreSaveGameDailyLog(elderId, dateStr, scoreData) {
   const existingElder = (await firestoreGetDocument(elderPath)) || {};
   const currentUnlocked = Number(existingElder.unlockedLevel) || 1;
   let nextUnlocked = currentUnlocked;
-  if (!isTimedOut && playedLevel >= currentUnlocked && currentUnlocked < 10) {
+  if (!isTimedOut && isLastSublevel && playedLevel >= currentUnlocked && currentUnlocked < 10) {
     nextUnlocked = Math.min(10, currentUnlocked + 1);
   }
   if (scoreData.unlockedLevel && Number(scoreData.unlockedLevel) > nextUnlocked) {
     nextUnlocked = Math.min(10, Number(scoreData.unlockedLevel));
   }
+  const nextSublevel = isLastSublevel ? 1 : (scoreData.currentSublevel !== undefined ? Number(scoreData.currentSublevel) : Math.min(5, playedSublevel + 1));
 
   const elderPatch = {
     id: cleanElderId,
@@ -564,6 +573,8 @@ export async function firestoreSaveGameDailyLog(elderId, dateStr, scoreData) {
     todayGameSessions: nextSessions,
     lastGameScore: ptsToAdd,
     lastPlayedLevel: playedLevel,
+    lastPlayedSublevel: playedSublevel,
+    currentSublevel: nextSublevel,
     unlockedLevel: nextUnlocked,
     lastActive: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
