@@ -297,7 +297,7 @@ export default function ProgressiveCognitiveSuitePage() {
   // -------------------------------------------------------------
   // 3. Sublevel Victory & Atomic +10 Point Mutation
   // -------------------------------------------------------------
-  const handleSublevelVictory = async (customAccuracy = 100) => {
+  const handleSublevelVictory = (customAccuracy = 100) => {
     if (isRecordingRef.current || isTimedOut || roundCompleted) return;
     isRecordingRef.current = true;
     setIsTimerRunning(false);
@@ -306,17 +306,9 @@ export default function ProgressiveCognitiveSuitePage() {
     const finalRemaining = timeLeft;
     const { cleanElderId, caregiverEmail } = resolveElderAndCaregiver();
 
-    // Call Universal Atomic Sublevel Persistence (+10 points)
-    const result = await recordSublevelScore(cleanElderId, activeLevel, activeSublevel, {
-      accuracy: customAccuracy,
-      moves: moves || 3,
-      durationSeconds: timerMax - finalRemaining,
-      remainingTimeSeconds: finalRemaining,
-    }, caregiverEmail);
-
     const isMastered = activeSublevel === 5;
     const nextSub = isMastered ? 1 : activeSublevel + 1;
-    const nextUnl = isMastered ? Math.min(10, activeLevel + 1) : unlockedLevel;
+    const nextUnl = isMastered ? Math.min(10, activeLevel + 1) : Math.max(unlockedLevel, activeLevel);
 
     if (isMastered) {
       setUnlockedLevel(prev => Math.max(prev, nextUnl));
@@ -346,6 +338,16 @@ export default function ProgressiveCognitiveSuitePage() {
       speakText(`Wonderful job! Sublevel ${activeSublevel} complete! You earned 10 points!`);
       showToast(`🎉 Sublevel ${activeSublevel}/5 Complete! +10 Points Awarded!`, 'success', 4000);
     }
+
+    // Call Universal Atomic Sublevel Persistence (+10 points) in background
+    try {
+      recordSublevelScore(cleanElderId, activeLevel, activeSublevel, {
+        accuracy: customAccuracy,
+        moves: moves || 3,
+        durationSeconds: timerMax - finalRemaining,
+        remainingTimeSeconds: finalRemaining,
+      }, caregiverEmail).catch(err => console.warn('Score recording notice:', err));
+    } catch (e) {}
   };
 
   // -------------------------------------------------------------
@@ -444,11 +446,10 @@ export default function ProgressiveCognitiveSuitePage() {
   // Level 1: Memory Match Flip
   const handleCardClick = (index) => {
     if (isTimedOut || roundCompleted || flippedIndices.length === 2) return;
-    if (cards[index].flipped || cards[index].matched) return;
+    if (!cards[index] || cards[index].flipped || cards[index].matched) return;
 
-    const newCards = [...cards];
-    newCards[index].flipped = true;
-    setCards(newCards);
+    const nextCards = cards.map((c, i) => (i === index ? { ...c, flipped: true } : c));
+    setCards(nextCards);
 
     const nextFlipped = [...flippedIndices, index];
     setFlippedIndices(nextFlipped);
@@ -456,23 +457,34 @@ export default function ProgressiveCognitiveSuitePage() {
     if (nextFlipped.length === 2) {
       setMoves(m => m + 1);
       const [firstIdx, secondIdx] = nextFlipped;
-      if (cards[firstIdx].pairId === cards[secondIdx].pairId) {
-        newCards[firstIdx].matched = true;
-        newCards[secondIdx].matched = true;
-        setCards(newCards);
+      const firstCard = nextCards[firstIdx];
+      const secondCard = nextCards[secondIdx];
+
+      const isMatch = Boolean(
+        firstCard && secondCard && (
+          (firstCard.pairId && secondCard.pairId && firstCard.pairId === secondCard.pairId) ||
+          (firstCard.title && secondCard.title && firstCard.title === secondCard.title)
+        )
+      );
+
+      if (isMatch) {
+        const matchedCards = nextCards.map((c, i) => (
+          (i === firstIdx || i === secondIdx) ? { ...c, matched: true, flipped: true } : c
+        ));
+        setCards(matchedCards);
         setFlippedIndices([]);
 
-        const allMatched = newCards.every(c => c.matched);
+        const allMatched = matchedCards.every(c => c.matched);
         if (allMatched) {
           handleSublevelVictory(100);
         }
       } else {
         setTimeout(() => {
-          newCards[firstIdx].flipped = false;
-          newCards[secondIdx].flipped = false;
-          setCards([...newCards]);
+          setCards(prev => prev.map((c, i) => (
+            (i === firstIdx || i === secondIdx) ? { ...c, flipped: false } : c
+          )));
           setFlippedIndices([]);
-        }, 800);
+        }, 750);
       }
     }
   };
@@ -1394,6 +1406,67 @@ export default function ProgressiveCognitiveSuitePage() {
                       {opt}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* In-Page Next Sublevel Action Card (Always visible on stage completion) */}
+            {roundCompleted && victoryDetails && (
+              <div className="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-xl border-2 border-[#006e1c] text-center space-y-4 animate-scaleUp">
+                <div className="flex items-center justify-center gap-2">
+                  <span className="w-10 h-10 rounded-full bg-[#d9fdd6] text-[#006e1c] flex items-center justify-center text-xl font-black shadow-xs">
+                    {victoryDetails.isMastered ? '🏆' : '⭐'}
+                  </span>
+                  <div className="text-left">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#006e1c] bg-[#d9fdd6] px-2 py-0.5 rounded-full">
+                      +10 Points Awarded & Synced
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-black text-[#032109]">
+                      {victoryDetails.isMastered
+                        ? `Level ${victoryDetails.mainLevel} Mastered!`
+                        : `Sublevel ${victoryDetails.subLevel}/5 Cleared!`}
+                    </h3>
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm text-[#40493d] max-w-md mx-auto">
+                  {victoryDetails.isMastered
+                    ? `Magnificent! You completed all 5 sublevels and unlocked Level ${victoryDetails.nextUnlockedLevel}!`
+                    : `Great focus, ${elderName.split(' ')[0]} ji! 10 points added to today's cumulative score.`}
+                </p>
+                <div className="flex items-center justify-center gap-3 flex-wrap pt-1">
+                  {victoryDetails.isMastered ? (
+                    <button
+                      type="button"
+                      onClick={() => handleStartSublevel(victoryDetails.nextUnlockedLevel, 1)}
+                      className="btn-tactile px-6 py-3 rounded-2xl bg-[#006e1c] hover:bg-[#0d631b] text-white font-black text-sm shadow-md flex items-center gap-2 cursor-pointer transition-transform active:scale-95"
+                    >
+                      <span>Play Level {victoryDetails.nextUnlockedLevel} (Sublevel 1)</span>
+                      <span className="material-symbols-outlined text-base">arrow_forward</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleStartSublevel(victoryDetails.mainLevel, victoryDetails.nextSublevel)}
+                      className="btn-tactile px-6 py-3 rounded-2xl bg-[#006e1c] hover:bg-[#0d631b] text-white font-black text-sm shadow-md flex items-center gap-2 cursor-pointer transition-transform active:scale-95"
+                    >
+                      <span>Next: Play Sublevel {victoryDetails.nextSublevel}/5</span>
+                      <span className="material-symbols-outlined text-base">arrow_forward</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleStartSublevel(activeLevel, activeSublevel)}
+                    className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs cursor-pointer"
+                  >
+                    Replay Sublevel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('hub')}
+                    className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs cursor-pointer"
+                  >
+                    Exit to Hub
+                  </button>
                 </div>
               </div>
             )}
