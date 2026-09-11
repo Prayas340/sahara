@@ -1,23 +1,27 @@
 // Sahara Natural Human-Cadence Multilingual Female Voice Synthesis Engine
-// Delivers dignified, calm, soothing female speech with natural breathing gaps and pauses.
+// Strictly delivers dignified, calm, soothing female speech with natural breathing gaps and pauses.
 
 let activeSpeechQueue = [];
 let isPlayingQueue = false;
 let currentUtterance = null;
 let currentTimeoutId = null;
 
-// Preferred female voice names per language code
-const FEMALE_VOICE_KEYWORDS = [
-  'female', 'woman', 'girl',
-  'swara', 'heera', 'aditi', 'kalpana', 'geeta', 'tanya', 'veena', 'lekha', 'kalyani', 'raveena',
-  'samantha', 'victoria', 'karen', 'zira', 'susan', 'catherine', 'moira', 'fiona', 'hazel',
-  'google uk english female', 'google us english female', 'google hindi', 'google বাংলা', 'google हिन्दी',
-  'microsoft swara online', 'microsoft heera online', 'microsoft zira',
-  'natural'
+// Confirmed female voice names and keywords
+const FEMALE_VOICE_NAMES = [
+  'zira', 'heera', 'neerja', 'swara', 'kalpana', 'ananya', 'samantha', 'victoria', 'karen',
+  'tanya', 'geeta', 'aditi', 'jenny', 'aria', 'sonia', 'female', 'woman', 'girl',
+  'hazel', 'susan', 'catherine', 'moira', 'fiona', 'veena', 'lekha', 'kalyani', 'raveena',
+  'tanisha', 'google हिन्दी', 'google বাংলা', 'google uk english female', 'google us english female'
+];
+
+// Male voice names to strictly exclude
+const MALE_VOICE_NAMES = [
+  'david', 'mark', 'george', 'ravi', 'madhur', 'prabhat', 'guy', 'hemant',
+  'stefan', 'male', 'man', 'boy', 'richard', 'james', 'paul', 'tom', 'steve', 'peter', 'alex'
 ];
 
 /**
- * Find the best female voice matching the language code
+ * Strictly find the best female voice matching the language code
  */
 export function getBestFemaleVoice(langCode = 'en-IN') {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
@@ -27,31 +31,45 @@ export function getBestFemaleVoice(langCode = 'en-IN') {
 
   const primaryPrefix = langCode.split('-')[0].toLowerCase();
 
-  // 1. Direct language match with female keyword
+  // Helper to test if a voice is confirmed female
+  const isConfirmedFemale = (v) => {
+    const name = (v.name || '').toLowerCase();
+    const isMale = MALE_VOICE_NAMES.some(m => name.includes(m));
+    if (isMale) return false;
+    return FEMALE_VOICE_NAMES.some(f => name.includes(f));
+  };
+
+  // Helper to test if a voice is NOT male
+  const isNotMale = (v) => {
+    const name = (v.name || '').toLowerCase();
+    return !MALE_VOICE_NAMES.some(m => name.includes(m));
+  };
+
+  // 1. Direct language match + confirmed female
   const exactLangFemale = voices.find(v => {
     const vLang = (v.lang || '').toLowerCase();
-    const vName = (v.name || '').toLowerCase();
     const matchesLang = vLang === langCode.toLowerCase() || vLang.startsWith(primaryPrefix);
-    const isFemale = FEMALE_VOICE_KEYWORDS.some(kw => vName.includes(kw));
-    return matchesLang && isFemale;
+    return matchesLang && isConfirmedFemale(v);
   });
   if (exactLangFemale) return exactLangFemale;
 
-  // 2. Direct language match (any voice in that language)
-  const exactLangAny = voices.find(v => {
+  // 2. Any confirmed female voice in the entire system (e.g. Zira, Swara, Samantha, Google UK English Female)
+  const anyConfirmedFemale = voices.find(v => isConfirmedFemale(v));
+  if (anyConfirmedFemale) return anyConfirmedFemale;
+
+  // 3. Direct language match that is NOT male
+  const exactLangNotMale = voices.find(v => {
     const vLang = (v.lang || '').toLowerCase();
-    return vLang === langCode.toLowerCase() || vLang.startsWith(primaryPrefix);
+    const matchesLang = vLang === langCode.toLowerCase() || vLang.startsWith(primaryPrefix);
+    return matchesLang && isNotMale(v);
   });
-  if (exactLangAny) return exactLangAny;
+  if (exactLangNotMale) return exactLangNotMale;
 
-  // 3. Fallback to Indian English or global female voice
-  const fallbackFemale = voices.find(v => {
-    const vName = (v.name || '').toLowerCase();
-    return FEMALE_VOICE_KEYWORDS.some(kw => vName.includes(kw));
-  });
-  if (fallbackFemale) return fallbackFemale;
+  // 4. Any voice that is NOT male
+  const anyNotMale = voices.find(v => isNotMale(v));
+  if (anyNotMale) return anyNotMale;
 
-  // 4. Any default voice
+  // 5. Fallback
   return voices[0] || null;
 }
 
@@ -75,11 +93,11 @@ export function splitIntoHumanPhrases(text) {
     if (!rawChunk) continue;
 
     // Determine natural pause after this chunk
-    let pauseMs = 180; // default breath pause (commas, phrases)
+    let pauseMs = 190; // default breath pause (commas, phrases)
     if (/[.!?।॥\n]/.test(rawChunk)) {
-      pauseMs = 450; // full stop / sentence conclusion breath
+      pauseMs = 480; // full stop / sentence conclusion breath
     } else if (/[,;:—–]/.test(rawChunk)) {
-      pauseMs = 220; // gentle mid-sentence pause
+      pauseMs = 240; // gentle mid-sentence pause
     }
 
     phrases.push({
@@ -127,8 +145,8 @@ export function speakHumanText(text, options = {}) {
 
   const {
     lang = 'en-IN',
-    rate = 0.90,       // Calm, warm, dignified elderly cadence (not rushed)
-    pitch = 1.10,      // Natural warm female pitch
+    rate = 0.88,       // Calm, warm, dignified cadence
+    pitch = 1.22,      // Explicitly tuned warm female pitch
     volume = 1.0,
     onStart = null,
     onChunk = null,

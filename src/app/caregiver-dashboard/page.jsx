@@ -26,6 +26,14 @@ export default function CaregiverDashboardPage() {
   const { t, lang } = useTranslation();
   const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'memories' | 'routine' | 'contacts' | 'report'
+
+  useEffect(() => {
+    try {
+      window.dispatchEvent(new CustomEvent('sahara:portal-tab-change', {
+        detail: { tab: activeTab, layout: 'caregiver-dashboard' }
+      }));
+    } catch (e) {}
+  }, [activeTab]);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [patient, setPatient] = useState(null);
   const [caregiver, setCaregiver] = useState(null);

@@ -20,6 +20,15 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
       : 'flex flex-col items-center py-1 px-2 rounded-xl text-[#40493d] hover:bg-[#cdf2cb] font-semibold text-[10px] sm:text-xs transition-colors cursor-pointer shrink-0';
   };
 
+  const handleSelectTab = (tabName) => {
+    if (onSelectTab) onSelectTab(tabName);
+    try {
+      window.dispatchEvent(new CustomEvent('sahara:portal-tab-change', {
+        detail: { tab: tabName, layout: 'caregiver-dashboard' }
+      }));
+    } catch (e) {}
+  };
+
   const handleEmergencyAlert = () => {
     showToast('🚨 Emergency alert dispatched to primary family members and doctors!', 'error', 6000);
   };
@@ -32,7 +41,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getMobileTabClass('overview')}
-            onClick={() => onSelectTab('overview')}
+            onClick={() => handleSelectTab('overview')}
           >
             <span className="material-symbols-outlined text-lg sm:text-xl">space_dashboard</span>
             <span>{t.tabOverview || 'Overview'}</span>
@@ -40,7 +49,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getMobileTabClass('memories')}
-            onClick={() => onSelectTab('memories')}
+            onClick={() => handleSelectTab('memories')}
           >
             <span className="material-symbols-outlined text-lg sm:text-xl">leaderboard</span>
             <span>{t.tabGameScores || 'Games'}</span>
@@ -48,7 +57,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getMobileTabClass('routine')}
-            onClick={() => onSelectTab('routine')}
+            onClick={() => handleSelectTab('routine')}
           >
             <span className="material-symbols-outlined text-lg sm:text-xl">schedule</span>
             <span>{t.tabRoutine || 'Routine'}</span>
@@ -56,7 +65,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getMobileTabClass('contacts')}
-            onClick={() => onSelectTab('contacts')}
+            onClick={() => handleSelectTab('contacts')}
           >
             <span className="material-symbols-outlined text-lg sm:text-xl">contact_phone</span>
             <span>{t.tabContacts || 'Contacts'}</span>
@@ -64,7 +73,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getMobileTabClass('report')}
-            onClick={() => onSelectTab('report')}
+            onClick={() => handleSelectTab('report')}
           >
             <span className="material-symbols-outlined text-lg sm:text-xl">summarize</span>
             <span>{t.tabReport || 'Report'}</span>
@@ -103,7 +112,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getSidebarLinkClass('overview')}
-            onClick={() => onSelectTab('overview')}
+            onClick={() => handleSelectTab('overview')}
           >
             <span className="material-symbols-outlined text-2xl">space_dashboard</span>
             <span>{t.tabOverview || 'Caregiver Overview'}</span>
@@ -111,7 +120,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getSidebarLinkClass('memories')}
-            onClick={() => onSelectTab('memories')}
+            onClick={() => handleSelectTab('memories')}
           >
             <span className="material-symbols-outlined text-2xl">leaderboard</span>
             <span>{t.tabGameScores || 'Patient Game Score'}</span>
@@ -119,7 +128,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getSidebarLinkClass('routine')}
-            onClick={() => onSelectTab('routine')}
+            onClick={() => handleSelectTab('routine')}
           >
             <span className="material-symbols-outlined text-2xl">schedule</span>
             <span>{t.tabRoutine || 'Daily Rhythm & Routine'}</span>
@@ -127,7 +136,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getSidebarLinkClass('contacts')}
-            onClick={() => onSelectTab('contacts')}
+            onClick={() => handleSelectTab('contacts')}
           >
             <span className="material-symbols-outlined text-2xl">contact_phone</span>
             <span>{t.tabContacts || 'Family Contact'}</span>
@@ -135,7 +144,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
           <button
             type="button"
             className={getSidebarLinkClass('report')}
-            onClick={() => onSelectTab('report')}
+            onClick={() => handleSelectTab('report')}
           >
             <span className="material-symbols-outlined text-2xl">summarize</span>
             <span>{t.tabReport || 'AI Report Generator'}</span>

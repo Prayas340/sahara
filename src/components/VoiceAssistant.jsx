@@ -170,8 +170,8 @@ export default function VoiceAssistant() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [spokenSubtitle, setSpokenSubtitle] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [activePortalTab, setActivePortalTab] = useState('overview');
   const [activeGameLevel, setActiveGameLevel] = useState(1);
-  const [autoGuideEnabled, setAutoGuideEnabled] = useState(false);
 
   // Sync language changes
   useEffect(() => {
@@ -214,6 +214,17 @@ export default function VoiceAssistant() {
     };
   }, []);
 
+  // Listen for tab changes in Caregiver Dashboard
+  useEffect(() => {
+    const onTabChange = (e) => {
+      if (e.detail?.tab) {
+        setActivePortalTab(e.detail.tab);
+      }
+    };
+    window.addEventListener('sahara:portal-tab-change', onTabChange);
+    return () => window.removeEventListener('sahara:portal-tab-change', onTabChange);
+  }, []);
+
   // Listen for active game level broadcast from memory game page
   useEffect(() => {
     const onLevelChange = (e) => {
@@ -228,36 +239,42 @@ export default function VoiceAssistant() {
   const guidance = getVoiceGuidance(lang);
   const isGameRoute = pathname?.includes('/memory-game');
 
-  // Determine current layout key
+  // Determine current layout key with deep tab awareness
   const getLayoutKey = () => {
     if (!pathname || pathname === '/') return 'home';
     if (pathname.includes('/elder-dashboard')) return 'elder-dashboard';
-    if (pathname.includes('/caregiver-dashboard')) return 'caregiver-dashboard';
+    if (pathname.includes('/caregiver-dashboard')) {
+      if (activePortalTab === 'contacts') return 'caregiver-contacts';
+      if (activePortalTab === 'memories') return 'caregiver-memories';
+      if (activePortalTab === 'routine') return 'caregiver-routine';
+      if (activePortalTab === 'report') return 'caregiver-report';
+      return 'caregiver-overview';
+    }
     if (pathname.includes('/caregiver-login')) return 'caregiver-login';
     if (pathname.includes('/contacts')) return 'contacts';
     if (pathname.includes('/memory-game')) return 'memory-game-hub';
     return 'home';
   };
 
+  const layoutKey = getLayoutKey();
+  const currentTitle = guidance.layoutTitles?.[layoutKey] || guidance.layoutTitles?.home || 'Current Screen';
+
   const handleSpeakLayoutGuidance = () => {
-    const layoutKey = getLayoutKey();
     const text = guidance.layouts[layoutKey] || guidance.layouts.home;
     speakHumanText(text, {
       lang: guidance.langCode,
-      rate: 0.89,
-      pitch: 1.10,
+      rate: 0.88,
+      pitch: 1.22,
     });
-    setIsExpanded(true);
   };
 
   const handleSpeakGameGuidance = (lvl = activeGameLevel) => {
     const text = guidance.games[lvl] || guidance.games[1];
     speakHumanText(text, {
       lang: guidance.langCode,
-      rate: 0.89,
-      pitch: 1.10,
+      rate: 0.88,
+      pitch: 1.22,
     });
-    setIsExpanded(true);
   };
 
   const handleStop = () => {
@@ -270,7 +287,7 @@ export default function VoiceAssistant() {
     <div className="fixed bottom-5 right-5 z-[9999] flex flex-col items-end pointer-events-none select-none font-sans">
       {/* Real-Time Live Speech Subtitle Bubble */}
       {isSpeaking && spokenSubtitle && (
-        <div className="pointer-events-auto mb-3 max-w-[340px] sm:max-w-[400px] bg-white/95 backdrop-blur-md text-[#032109] p-4 rounded-2xl shadow-xl border-2 border-[#2ec4b6] animate-in fade-in slide-in-from-bottom-3 duration-300">
+        <div className="pointer-events-auto mb-3 max-w-[340px] sm:max-w-[420px] bg-white/95 backdrop-blur-md text-[#032109] p-4 rounded-2xl shadow-xl border-2 border-[#2ec4b6] animate-in fade-in slide-in-from-bottom-3 duration-300">
           <div className="flex items-center gap-2 mb-1.5 pb-1 border-b border-[#ebffe7]">
             <span className="w-2.5 h-2.5 rounded-full bg-[#2ec4b6] animate-ping" />
             <span className="text-xs font-bold uppercase tracking-wider text-[#0d631b]">
@@ -285,7 +302,7 @@ export default function VoiceAssistant() {
 
       {/* Expanded Control Card */}
       {isExpanded && (
-        <div className="pointer-events-auto mb-3 w-[330px] sm:w-[380px] bg-[#ffffff] text-[#032109] rounded-3xl p-5 shadow-2xl border-2 border-[#bfe3bd] animate-in zoom-in-95 duration-200">
+        <div className="pointer-events-auto mb-3 w-[330px] sm:w-[390px] bg-[#ffffff] text-[#032109] rounded-3xl p-5 shadow-2xl border-2 border-[#bfe3bd] animate-in zoom-in-95 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-[#ebffe7]">
             <div className="flex items-center gap-3">
@@ -303,7 +320,7 @@ export default function VoiceAssistant() {
             </div>
             <button
               onClick={() => setIsExpanded(false)}
-              className="p-1.5 text-gray-500 hover:text-black rounded-full hover:bg-gray-100 transition-colors"
+              className="p-1.5 text-gray-500 hover:text-black rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
               title="Minimize"
               aria-label="Minimize"
             >
@@ -317,27 +334,29 @@ export default function VoiceAssistant() {
               {guidance.listeningPrompt}
             </p>
 
-            {/* Quick Action: Screen Guidance */}
+            {/* Quick Action: Screen Guidance (ONLY triggers speech when explicitly clicked) */}
             <button
+              type="button"
               onClick={handleSpeakLayoutGuidance}
-              className="w-full flex items-center justify-between px-3.5 py-2.5 bg-[#ebffe7] hover:bg-[#d9fdd6] active:scale-[0.99] rounded-xl text-left border border-[#bfe3bd] transition-all"
+              className="w-full flex items-center justify-between px-3.5 py-3 bg-[#ebffe7] hover:bg-[#d9fdd6] active:scale-[0.98] rounded-xl text-left border border-[#bfe3bd] transition-all cursor-pointer shadow-xs"
             >
               <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[#0d631b] text-xl">record_voice_over</span>
+                <span className="material-symbols-outlined text-[#0d631b] text-2xl">record_voice_over</span>
                 <div>
-                  <div className="text-xs font-bold text-[#032109]">{guidance.explainScreenBtn}</div>
-                  <div className="text-[10px] text-[#40493d] capitalize font-medium">{getLayoutKey().replace('-', ' ')} Layout</div>
+                  <div className="text-xs font-extrabold text-[#032109]">{guidance.explainScreenBtn}</div>
+                  <div className="text-[11px] text-[#0d631b] font-bold mt-0.5">{currentTitle}</div>
                 </div>
               </div>
-              <span className="material-symbols-outlined text-xs text-[#0d631b]">volume_up</span>
+              <span className="material-symbols-outlined text-sm text-[#0d631b] bg-white p-1.5 rounded-full shadow-xs">volume_up</span>
             </button>
 
-            {/* Quick Action: Game Guidance (if on memory-game or level active) */}
+            {/* Quick Action: Game Guidance (if on memory-game route) */}
             {isGameRoute ? (
               <div className="space-y-1.5 pt-1">
                 <button
+                  type="button"
                   onClick={() => handleSpeakGameGuidance(activeGameLevel)}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 bg-[#e6fffa] hover:bg-[#ccfbf1] active:scale-[0.99] rounded-xl text-left border border-[#99f6e4] transition-all"
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 bg-[#e6fffa] hover:bg-[#ccfbf1] active:scale-[0.98] rounded-xl text-left border border-[#99f6e4] transition-all cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="material-symbols-outlined text-[#0f766e] text-xl">sports_esports</span>
@@ -354,8 +373,9 @@ export default function VoiceAssistant() {
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lvl) => (
                     <button
                       key={lvl}
+                      type="button"
                       onClick={() => handleSpeakGameGuidance(lvl)}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-colors ${
+                      className={`px-2 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-colors cursor-pointer ${
                         activeGameLevel === lvl
                           ? 'bg-[#0d631b] text-white shadow-sm'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -371,8 +391,9 @@ export default function VoiceAssistant() {
             {/* Stop Speech Action */}
             {isSpeaking && (
               <button
+                type="button"
                 onClick={handleStop}
-                className="w-full flex items-center justify-center gap-2 px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 active:scale-[0.99] rounded-xl font-bold text-xs border border-red-200 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 active:scale-[0.98] rounded-xl font-bold text-xs border border-red-200 transition-colors cursor-pointer shadow-xs"
               >
                 <span className="material-symbols-outlined text-base">stop_circle</span>
                 {guidance.stopBtn}
@@ -386,24 +407,19 @@ export default function VoiceAssistant() {
               <span className="material-symbols-outlined text-xs text-[#0d631b]">language</span>
               Language: <strong className="text-gray-800">{lang}</strong>
             </span>
-            <span className="text-[10px] text-[#2ec4b6] font-bold">Female Audio Cadence ✓</span>
+            <span className="text-[10px] text-[#2ec4b6] font-bold">Female Voice Cadence ✓</span>
           </div>
         </div>
       )}
 
       {/* Floating Interactive Avatar Pill / Launcher */}
       <button
+        type="button"
         onClick={() => {
-          if (!isExpanded) {
-            setIsExpanded(true);
-            if (!isSpeaking) {
-              handleSpeakLayoutGuidance();
-            }
-          } else {
-            setIsExpanded(false);
-          }
+          // Strictly toggle open/close. NEVER start speaking automatically on initial tap.
+          setIsExpanded(prev => !prev);
         }}
-        className={`pointer-events-auto relative group flex items-center gap-2.5 p-2 pr-4 bg-white/95 hover:bg-white text-[#032109] rounded-full shadow-2xl border-2 transition-all duration-300 transform active:scale-95 ${
+        className={`pointer-events-auto relative group flex items-center gap-2.5 p-2 pr-4 bg-white/95 hover:bg-white text-[#032109] rounded-full shadow-2xl border-2 transition-all duration-300 transform active:scale-95 cursor-pointer ${
           isSpeaking
             ? 'border-[#2ec4b6] ring-4 ring-[#2ec4b6]/30 animate-pulse'
             : 'border-[#bfe3bd] hover:border-[#0d631b]'
