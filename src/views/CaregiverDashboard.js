@@ -382,6 +382,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
               ${(() => {
                 const curPatient = dataStore.getPatient ? dataStore.getPatient() : (dataStore.state?.patient || {});
                 const unLevel = Number(curPatient.unlockedLevel) || 1;
+                const curSub = Math.max(1, Math.min(5, Number(curPatient.currentSublevel) || 1));
                 const startLevel = Number(curPatient.startingLevel) || 1;
                 const ai = curPatient.aiAnalysis;
 
@@ -405,12 +406,13 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                         <span class="material-symbols-outlined text-2xl text-[#0d631b]">psychology</span>
                         <div>
                           <h2 class="text-lg sm:text-xl font-extrabold text-[#032109]">10-Level Cognitive Progression Track</h2>
-                          <p class="text-xs text-[#40493d]">Strict 1-minute sessions (+50 pts). Levels unlock sequentially as challenges are completed.</p>
+                          <p class="text-xs text-[#40493d]">5 progressive sublevels per game mode (+10 pts per sublevel, 50 pts per full level). Sublevels scale progressively and unlock sequentially.</p>
                         </div>
                       </div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs font-black px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]">
-                          Level ${unLevel} of 10 Unlocked
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs font-black px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb] flex items-center gap-1.5">
+                          <span class="w-2 h-2 rounded-full bg-[#006e1c] animate-pulse"></span>
+                          <span>Level ${unLevel} - Sublevel ${curSub}/5 Active</span>
                         </span>
                         ${ai ? `
                           <span class="text-xs font-bold px-3 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-200 flex items-center gap-1">
@@ -424,20 +426,38 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                     <div class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 pt-2">
                       ${levels.map(lvl => {
                         const isUnlocked = lvl.level <= unLevel;
+                        const isCurrentActive = lvl.level === unLevel;
+                        const isFullyCleared = lvl.level < unLevel;
                         const isAiStart = ai && lvl.level === (ai.recommendedLevel || startLevel);
+
                         return `
-                          <div class="p-2 rounded-xl border text-center transition-all flex flex-col justify-between min-h-[90px] ${
+                          <div class="p-2.5 rounded-2xl border text-center transition-all flex flex-col justify-between min-h-[110px] ${
                             isUnlocked
-                              ? 'bg-[#ebffe7] border-[#006e1c] text-[#032109]'
+                              ? isCurrentActive
+                                ? 'bg-[#d9fdd6]/80 border-2 border-[#006e1c] text-[#032109] shadow-sm ring-2 ring-[#006e1c]/20'
+                                : 'bg-[#ebffe7] border-[#006e1c] text-[#032109]'
                               : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'
                           }">
                             <div class="flex items-center justify-between">
                               <span class="text-[10px] font-black px-1.5 py-0.5 rounded ${isUnlocked ? 'bg-[#006e1c] text-white' : 'bg-gray-200 text-gray-500'}">L${lvl.level}</span>
-                              <span class="material-symbols-outlined text-sm">${isUnlocked ? 'check_circle' : 'lock'}</span>
+                              <span class="material-symbols-outlined text-sm">${isFullyCleared ? 'verified' : isCurrentActive ? 'play_circle' : isUnlocked ? 'check_circle' : 'lock'}</span>
                             </div>
                             <p class="text-[10px] font-bold leading-tight my-1 truncate">${lvl.title}</p>
+                            
+                            <div class="flex items-center justify-center gap-1 my-1">
+                              ${[1, 2, 3, 4, 5].map(subIdx => {
+                                const isSubDone = isFullyCleared || (isCurrentActive && subIdx < curSub);
+                                const isSubActive = isCurrentActive && subIdx === curSub;
+                                return `<span class="w-1.5 h-1.5 rounded-full ${isSubDone ? 'bg-[#006e1c]' : isSubActive ? 'bg-amber-500 animate-pulse' : 'bg-gray-300'}"></span>`;
+                              }).join('')}
+                            </div>
+
                             ${isAiStart
                               ? `<span class="text-[8px] font-extrabold uppercase bg-teal-600 text-white rounded py-0.5">AI Start</span>`
+                              : isCurrentActive
+                              ? `<span class="text-[9px] font-extrabold text-[#006e1c] bg-white/80 rounded py-0.5">Sub ${curSub}/5</span>`
+                              : isFullyCleared
+                              ? `<span class="text-[9px] font-semibold text-[#006e1c]">5/5 Done</span>`
                               : `<span class="text-[9px] ${isUnlocked ? 'text-[#006e1c] font-semibold' : 'text-gray-400'}">${isUnlocked ? 'Unlocked' : 'Locked'}</span>`
                             }
                           </div>
@@ -642,8 +662,9 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                                 })
                               : 'Today';
                             const isTimedOutSess = sess.status === 'timed_out' || Number(sess.pointsEarned) === 0 || sess.status === 'Timed Out';
-                            const ptsEarned = sess.pointsEarned !== undefined ? Number(sess.pointsEarned) : (sess.score !== undefined ? Number(sess.score) : (isTimedOutSess ? 0 : 50));
+                            const ptsEarned = sess.pointsEarned !== undefined ? Number(sess.pointsEarned) : (sess.score !== undefined ? Number(sess.score) : (isTimedOutSess ? 0 : 10));
                             const playedLvl = sess.level || 1;
+                            const playedSub = sess.subLevel || sess.sublevel || 1;
 
                             return `
                               <tr class="hover:bg-[#ebffe7]/50 transition-colors">
@@ -651,8 +672,8 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                                   <span class="font-bold block text-[#032109]">${dateFormatted}</span>
                                   <span class="text-[11px] text-[#40493d]">
                                     ${sess.remainingTimeSeconds !== undefined && sess.remainingTimeSeconds > 0
-                                      ? `${sess.remainingTimeSeconds}s left on 60s clock`
-                                      : (isTimedOutSess ? '60s time expired' : `${sess.durationSeconds || 30}s duration`)}
+                                      ? `${sess.remainingTimeSeconds}s left on clock`
+                                      : (isTimedOutSess ? 'Time expired' : `${sess.durationSeconds || 30}s duration`)}
                                   </span>
                                 </td>
                                 <td class="py-3.5 px-3">
@@ -664,7 +685,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                                 <td class="py-3.5 px-3 text-center">
                                   <span class="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]">
                                     <span class="material-symbols-outlined text-xs">psychology</span>
-                                    <span>Level ${playedLvl}</span>
+                                    <span>Level ${playedLvl} · Sub ${playedSub}/5</span>
                                   </span>
                                 </td>
                                 <td class="py-3.5 px-3 text-center font-bold text-xs">
@@ -685,7 +706,7 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                                 <td class="py-3.5 px-3 text-right">
                                   <span class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${isTimedOutSess ? 'text-amber-800 bg-amber-50 border border-amber-200' : 'text-emerald-800 bg-emerald-50 border border-emerald-200'}">
                                     <span class="material-symbols-outlined text-sm">${isTimedOutSess ? 'schedule' : 'check_circle'}</span>
-                                    ${isTimedOutSess ? 'Timed Out' : 'Completed (+50 pts)'}
+                                    ${isTimedOutSess ? 'Timed Out' : `Completed (+${ptsEarned} pts)`}
                                   </span>
                                 </td>
                               </tr>

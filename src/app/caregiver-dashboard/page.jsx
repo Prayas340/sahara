@@ -396,10 +396,12 @@ export default function CaregiverDashboardPage() {
         .then(sData => {
           if (sData?.success) {
             const unLvl = sData.analytics?.unlockedLevel || sData.unlockedLevel;
+            const curSub = sData.analytics?.currentSublevel || sData.currentSublevel || 1;
             if (unLvl) {
-              setPatient(prev => prev ? { ...prev, unlockedLevel: Math.max(Number(prev.unlockedLevel) || 1, unLvl) } : { unlockedLevel: unLvl });
+              setPatient(prev => prev ? { ...prev, unlockedLevel: Math.max(Number(prev.unlockedLevel) || 1, unLvl), currentSublevel: curSub } : { unlockedLevel: unLvl, currentSublevel: curSub });
               if (dataStore.state?.patient) {
                 dataStore.state.patient.unlockedLevel = Math.max(Number(dataStore.state.patient.unlockedLevel) || 1, unLvl);
+                dataStore.state.patient.currentSublevel = curSub;
               }
             }
             if (sData.scores && Array.isArray(sData.scores)) {
@@ -1400,15 +1402,28 @@ export default function CaregiverDashboardPage() {
                         10-Level Cognitive Progression Track
                       </h2>
                       <p className="text-xs text-[#40493d]">
-                        Strict 1-minute sessions (+50 pts). Levels unlock sequentially as {(patient?.name ? patient.name.split(' ')[0] : 'the elder')} completes cognitive challenges.
+                        5 progressive sublevels per game mode (+10 pts per sublevel, 50 pts per full level). Sublevels scale dynamically and unlock sequentially.
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]">
-                      Level {Math.max(Number(patient?.unlockedLevel) || 1, Number(gameAnalytics?.unlockedLevel) || 1, gameAnalytics?.sessions?.length ? Math.min(10, Math.max(...gameAnalytics.sessions.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out').map(s => (Number(s.level) || 0) + 1))) : 1)} of 10 Unlocked
-                    </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(() => {
+                      const activeUnlocked = Math.max(
+                        Number(patient?.unlockedLevel) || 1,
+                        Number(gameAnalytics?.unlockedLevel) || 1,
+                        gameAnalytics?.sessions?.length
+                          ? Math.min(10, Math.max(...gameAnalytics.sessions.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out').map(s => (Number(s.level) || 0) + 1)))
+                          : 1
+                      );
+                      const activeSub = Math.max(1, Math.min(5, Number(patient?.currentSublevel) || Number(gameAnalytics?.currentSublevel) || 1));
+                      return (
+                        <span className="text-xs font-black px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb] flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-[#006e1c] animate-pulse"></span>
+                          <span>Level {activeUnlocked} - Sublevel {activeSub}/5 Active</span>
+                        </span>
+                      );
+                    })()}
                     {patient?.aiAnalysis && (
                       <span className="text-xs font-bold px-3 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-200 flex items-center gap-1">
                         <span className="material-symbols-outlined text-sm">clinical_notes</span>
@@ -1418,7 +1433,7 @@ export default function CaregiverDashboardPage() {
                   </div>
                 </div>
 
-                {/* 10-Level Stepped Grid */}
+                {/* 10-Level Stepped Grid with Sublevel Progress Dots */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 pt-2">
                   {(() => {
                     const activeUnlocked = Math.max(
@@ -1428,17 +1443,22 @@ export default function CaregiverDashboardPage() {
                         ? Math.min(10, Math.max(...gameAnalytics.sessions.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out').map(s => (Number(s.level) || 0) + 1)))
                         : 1
                     );
+                    const activeSub = Math.max(1, Math.min(5, Number(patient?.currentSublevel) || Number(gameAnalytics?.currentSublevel) || 1));
 
                     return COGNITIVE_LEVELS.map((lvl) => {
                       const isUnlocked = lvl.level <= activeUnlocked;
+                      const isCurrentActiveLevel = lvl.level === activeUnlocked;
+                      const isFullyCleared = lvl.level < activeUnlocked;
                       const isAiStarting = patient?.aiAnalysis && lvl.level === (patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1);
 
                     return (
                       <div
                         key={lvl.level}
-                        className={`p-2.5 rounded-2xl border text-center transition-all flex flex-col justify-between min-h-[95px] ${
+                        className={`p-2.5 rounded-2xl border text-center transition-all flex flex-col justify-between min-h-[110px] ${
                           isUnlocked
-                            ? 'bg-[#ebffe7] border-[#006e1c] text-[#032109] shadow-xs'
+                            ? isCurrentActiveLevel
+                              ? 'bg-[#d9fdd6]/80 border-2 border-[#006e1c] text-[#032109] shadow-sm ring-2 ring-[#006e1c]/20'
+                              : 'bg-[#ebffe7] border-[#006e1c] text-[#032109] shadow-xs'
                             : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'
                         }`}
                       >
@@ -1449,7 +1469,7 @@ export default function CaregiverDashboardPage() {
                             L{lvl.level}
                           </span>
                           <span className="material-symbols-outlined text-sm">
-                            {isUnlocked ? 'check_circle' : 'lock'}
+                            {isFullyCleared ? 'verified' : isCurrentActiveLevel ? 'play_circle' : isUnlocked ? 'check_circle' : 'lock'}
                           </span>
                         </div>
 
@@ -1462,9 +1482,38 @@ export default function CaregiverDashboardPage() {
                           </p>
                         </div>
 
+                        {/* 5 Sublevel Indicator Dots */}
+                        <div className="flex items-center justify-center gap-1 my-1">
+                          {[1, 2, 3, 4, 5].map(subIdx => {
+                            const isSubDone = isFullyCleared || (isCurrentActiveLevel && subIdx < activeSub);
+                            const isSubActive = isCurrentActiveLevel && subIdx === activeSub;
+                            return (
+                              <span
+                                key={subIdx}
+                                title={`Sublevel ${subIdx}`}
+                                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                                  isSubDone
+                                    ? 'bg-[#006e1c]'
+                                    : isSubActive
+                                    ? 'bg-amber-500 ring-2 ring-amber-300 animate-pulse scale-125'
+                                    : 'bg-gray-300'
+                                }`}
+                              />
+                            );
+                          })}
+                        </div>
+
                         {isAiStarting ? (
                           <span className="text-[8px] font-extrabold uppercase bg-teal-600 text-white rounded py-0.5">
                             AI Start
+                          </span>
+                        ) : isCurrentActiveLevel ? (
+                          <span className="text-[9px] font-extrabold text-[#006e1c] bg-white/80 rounded py-0.5">
+                            Sub {activeSub}/5
+                          </span>
+                        ) : isFullyCleared ? (
+                          <span className="text-[9px] font-semibold text-[#006e1c]">
+                            5/5 Done
                           </span>
                         ) : (
                           <span className={`text-[9px] font-semibold ${isUnlocked ? 'text-[#006e1c]' : 'text-gray-400'}`}>
@@ -1740,8 +1789,9 @@ export default function CaregiverDashboardPage() {
                             })
                           : 'Today';
                         const isTimedOutSess = sess.status === 'timed_out' || Number(sess.pointsEarned) === 0 || sess.status === 'Timed Out';
-                        const ptsEarned = sess.pointsEarned !== undefined ? Number(sess.pointsEarned) : (sess.score !== undefined ? Number(sess.score) : (isTimedOutSess ? 0 : 50));
+                        const ptsEarned = sess.pointsEarned !== undefined ? Number(sess.pointsEarned) : (sess.score !== undefined ? Number(sess.score) : (isTimedOutSess ? 0 : 10));
                         const playedLevelNum = sess.level || 1;
+                        const playedSublevelNum = sess.subLevel || sess.sublevel || 1;
                         const levelTitle = COGNITIVE_LEVELS.find(l => l.level === playedLevelNum)?.title || 'Memory Match';
 
                         return (
@@ -1750,8 +1800,8 @@ export default function CaregiverDashboardPage() {
                               <span className="font-bold block text-[#032109]">{dateFormatted}</span>
                               <span className="text-[11px] text-[#40493d]">
                                 {sess.remainingTimeSeconds !== undefined && sess.remainingTimeSeconds > 0
-                                  ? `${sess.remainingTimeSeconds}s left on 60s clock`
-                                  : (isTimedOutSess ? '60s time expired' : `${sess.durationSeconds || 30}s duration`)}
+                                  ? `${sess.remainingTimeSeconds}s left on clock`
+                                  : (isTimedOutSess ? 'Time expired' : `${sess.durationSeconds || 30}s duration`)}
                               </span>
                             </td>
                             <td className="py-3.5 px-3">
@@ -1763,7 +1813,7 @@ export default function CaregiverDashboardPage() {
                             <td className="py-3.5 px-3 text-center">
                               <span className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]" title={levelTitle}>
                                 <span className="material-symbols-outlined text-xs">psychology</span>
-                                <span>L{playedLevelNum}: {levelTitle}</span>
+                                <span>L{playedLevelNum} · Sub {playedSublevelNum}/5: {levelTitle}</span>
                               </span>
                             </td>
                             <td className="py-3.5 px-3 text-center font-bold text-xs">
@@ -1790,7 +1840,7 @@ export default function CaregiverDashboardPage() {
                                   : 'text-emerald-800 bg-emerald-50 border border-emerald-200'
                               }`}>
                                 <span className="material-symbols-outlined text-sm">{isTimedOutSess ? 'schedule' : 'check_circle'}</span>
-                                {isTimedOutSess ? 'Timed Out' : 'Completed (+50 pts)'}
+                                {isTimedOutSess ? 'Timed Out' : `Completed (+${ptsEarned} pts)`}
                               </span>
                             </td>
                           </tr>

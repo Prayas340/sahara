@@ -520,7 +520,7 @@ export function renderMemoryMatchGame(onNavigate) {
                 const remainingSec = timeLeft;
                 roundCompleted = true;
                 const nextSessionNum = Math.min(5, todaySessions + 1);
-                const nextScore = Math.min(250, todayScore + 50);
+                const nextScore = Math.min(250, todayScore + 10);
 
                 todaySessions = nextSessionNum;
                 todayScore = nextScore;
@@ -535,68 +535,38 @@ export function renderMemoryMatchGame(onNavigate) {
                 if (victoryBanner) victoryBanner.classList.remove('hidden');
                 if (victoryScoreText) victoryScoreText.innerText = `${todayScore} Points`;
                 if (victoryDetailText) {
-                  victoryDetailText.innerHTML = `Finished with <strong>${remainingSec}s</strong> remaining on the clock! (Session ${todaySessions} of 5 completed)`;
+                  victoryDetailText.innerHTML = `Finished with <strong>${remainingSec}s</strong> remaining on the clock! (+10 pts earned)`;
                 }
                 if (nextSessionBtn) {
                   if (todaySessions >= 5) {
                     nextSessionBtn.classList.add('hidden');
                   } else {
                     nextSessionBtn.classList.remove('hidden');
-                    nextSessionBtn.innerText = `Play Session ${todaySessions + 1} of 5 →`;
+                    nextSessionBtn.innerText = `Play Next Sublevel →`;
                   }
                 }
 
-                // 1. Atomic Firestore mutation (+50 pts)
-                import('../lib/firebaseClient.js').then(({ db, normalizeElderId }) => {
-                  if (db && elderId) {
-                    import('firebase/firestore').then(({ doc, setDoc, increment, serverTimestamp, arrayUnion }) => {
-                      const cleanElderId = normalizeElderId(elderId);
-                      const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
-                      const elderRef = doc(db, 'elders', cleanElderId);
-
-                      const sessionEntry = {
-                        sessionNumber: nextSessionNum,
-                        level: 1,
-                        pointsEarned: 50,
-                        completedAt: new Date().toISOString(),
-                        timestamp: new Date().toISOString(),
-                        remainingTimeSeconds: remainingSec,
-                        status: 'completed',
-                        accuracy: 100,
-                      };
-
-                      setDoc(dailyLogRef, {
-                        todaySessions: increment(1),
-                        todayScore: increment(50),
-                        completedSessions: increment(1),
-                        totalScore: increment(50),
-                        gameSessions: increment(1),
-                        gameScore: increment(50),
-                        lastGameScore: 50,
-                        lastPlayedAt: serverTimestamp(),
-                        updatedAt: serverTimestamp(),
-                        sessionsHistory: arrayUnion(sessionEntry),
-                        gamesHistory: arrayUnion(sessionEntry),
-                      }, { merge: true }).catch(() => {});
-
-                      setDoc(elderRef, {
-                        id: cleanElderId,
-                        todayGameScore: increment(50),
-                        todayGameSessions: increment(1),
-                        lastGameScore: 50,
-                        lastGameAt: new Date().toISOString(),
-                        lastActive: serverTimestamp(),
-                        updatedAt: serverTimestamp(),
-                      }, { merge: true }).catch(() => {});
-                    });
-                  }
-                });
+                // 1. Atomic Firestore Sublevel Mutation (+10 pts)
+                import('../lib/gameProgression.js').then(({ recordSublevelCompletion }) => {
+                  recordSublevelCompletion(elderId, 1, 1, {
+                    score: 10,
+                    pointsEarned: 10,
+                    sessionNumber: nextSessionNum,
+                    moves,
+                    matchedPairs: 3,
+                    accuracy: 100,
+                    durationSeconds: 60 - remainingSec,
+                    remainingTimeSeconds: remainingSec,
+                    status: 'Completed (+10 pts)',
+                    date: todayDate,
+                  }, caregiverEmail).catch(() => {});
+                }).catch(() => {});
 
                 // 2. Update local dataStore
                 dataStore.incrementGamesCount?.();
                 dataStore.recordGameScore?.({
-                  score: 50,
-                  pointsEarned: 50,
+                  score: 10,
+                  pointsEarned: 10,
                   sessionNumber: nextSessionNum,
                   moves,
                   matchedPairs: 3,
@@ -606,32 +576,12 @@ export function renderMemoryMatchGame(onNavigate) {
                   date: todayDate,
                   elderId,
                   caregiverEmail,
-                  status: 'Completed (+50 pts)',
+                  status: 'Completed (+10 pts)',
                   skipServerPersist: true,
                 });
 
-                // 3. Persist to server API
-                fetch('/api/game-scores', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    elderId,
-                    caregiverEmail,
-                    score: 50,
-                    pointsEarned: 50,
-                    sessionNumber: nextSessionNum,
-                    moves,
-                    matchedPairs: 3,
-                    accuracy: 100,
-                    durationSeconds: 60 - remainingSec,
-                    remainingTimeSeconds: remainingSec,
-                    status: 'Completed (+50 pts)',
-                    date: todayDate,
-                  }),
-                }).catch(() => {});
-
-                showToast(`🌟 Round Complete! +50 Points Earned! (Session ${nextSessionNum}/5)`, 'success', 5000);
-                speakText('Round Complete! You earned 50 points!');
+                showToast(`🌟 Sublevel Complete! +10 Points Earned!`, 'success', 5000);
+                speakText('Sublevel Complete! You earned 10 points!');
               }
             } else {
               setTimeout(() => {

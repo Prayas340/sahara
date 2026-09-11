@@ -633,12 +633,14 @@ export async function saveGameScoreToDb(scoreData) {
   const dateStr = scoreData.date || getLocalDateString();
   const timestamp = scoreData.timestamp || new Date().toISOString();
 
-  const isTimedOut = scoreData.status === 'timed_out' || Number(scoreData.pointsEarned) === 0 || scoreData.status === 'Timed Out';
-  const ptsToAdd = isTimedOut ? 0 : 50;
-  const playedLevel = Number(scoreData.level) || 1;
-  const nextUnlockedLevel = scoreData.unlockedLevel
+  const isTimedOut = scoreData.status === 'timed_out' || scoreData.status === 'Timed Out';
+  const ptsToAdd = isTimedOut ? 0 : (scoreData.pointsEarned !== undefined ? Number(scoreData.pointsEarned) : (scoreData.score !== undefined ? Number(scoreData.score) : 10));
+  const playedLevel = Number(scoreData.mainLevel || scoreData.level) || 1;
+  const playedSublevel = Number(scoreData.subLevel) || 1;
+  const nextSublevel = scoreData.currentSublevel !== undefined ? Number(scoreData.currentSublevel) : (playedSublevel === 5 ? 1 : playedSublevel + 1);
+  const nextUnlockedLevel = scoreData.unlockedLevel !== undefined
     ? Math.min(10, Math.max(1, Number(scoreData.unlockedLevel)))
-    : (isTimedOut ? playedLevel : Math.min(10, playedLevel + 1));
+    : (playedSublevel === 5 ? Math.min(10, playedLevel + 1) : playedLevel);
 
   const record = {
     id,
@@ -647,6 +649,9 @@ export async function saveGameScoreToDb(scoreData) {
     score: ptsToAdd,
     pointsEarned: ptsToAdd,
     level: playedLevel,
+    mainLevel: playedLevel,
+    subLevel: playedSublevel,
+    currentSublevel: nextSublevel,
     unlockedLevel: nextUnlockedLevel,
     moves: Number(scoreData.moves) || 3,
     matchedPairs: Number(scoreData.matchedPairs) || 3,
@@ -655,7 +660,7 @@ export async function saveGameScoreToDb(scoreData) {
     remainingTimeSeconds: Number(scoreData.remainingTimeSeconds) || 0,
     date: dateStr,
     timestamp,
-    status: isTimedOut ? 'Timed Out' : 'Completed (+50 pts)',
+    status: isTimedOut ? 'Timed Out' : `Sublevel ${playedSublevel}/5 Completed (+${ptsToAdd} pts)`,
   };
 
   const addRecord = (list) => {
@@ -683,9 +688,11 @@ export async function saveGameScoreToDb(scoreData) {
                       (caregiverEmail ? findElderInDb(caregiverEmail) : null);
   if (targetElder) {
     targetElder.unlockedLevel = Math.max(Number(targetElder.unlockedLevel) || 1, nextUnlockedLevel);
-    targetElder.todayGameScore = Math.min(250, (Number(targetElder.todayGameScore) || 0) + ptsToAdd);
-    targetElder.todayGameSessions = Math.min(5, (Number(targetElder.todayGameSessions) || 0) + (isTimedOut ? 0 : 1));
+    targetElder.currentSublevel = nextSublevel;
+    targetElder.todayGameScore = (Number(targetElder.todayGameScore) || 0) + ptsToAdd;
+    targetElder.todayGameSessions = (Number(targetElder.todayGameSessions) || 0) + (isTimedOut ? 0 : 1);
     targetElder.lastPlayedLevel = playedLevel;
+    targetElder.lastPlayedSublevel = playedSublevel;
     targetElder.lastGameScore = ptsToAdd;
     targetElder.lastActive = 'Just now';
     targetElder.updatedAt = timestamp;
@@ -696,9 +703,11 @@ export async function saveGameScoreToDb(scoreData) {
     const cg = store.caregivers[caregiverEmail];
     if (cg.linkedElder) {
       cg.linkedElder.unlockedLevel = Math.max(Number(cg.linkedElder.unlockedLevel) || 1, nextUnlockedLevel);
+      cg.linkedElder.currentSublevel = nextSublevel;
       cg.linkedElder.todayGameScore = targetElder?.todayGameScore || ptsToAdd;
       cg.linkedElder.todayGameSessions = targetElder?.todayGameSessions || (isTimedOut ? 0 : 1);
       cg.linkedElder.lastPlayedLevel = playedLevel;
+      cg.linkedElder.lastPlayedSublevel = playedSublevel;
       cg.linkedElder.lastGameScore = ptsToAdd;
       cg.linkedElder.updatedAt = timestamp;
     }
@@ -963,8 +972,10 @@ export async function getGameScoresFromDb(args) {
     success: true,
     scores,
     unlockedLevel: finalUnlockedLevel,
+    currentSublevel: resolvedElder?.currentSublevel || 1,
     analytics: {
       unlockedLevel: finalUnlockedLevel,
+      currentSublevel: resolvedElder?.currentSublevel || 1,
       todayScore: todayTotalScore,
       todaySessions: todaySessionsCount,
       todayAvgScore: todaySessionsCount > 0 ? Math.round(todayTotalScore / todaySessionsCount) : 0,
