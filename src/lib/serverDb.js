@@ -212,6 +212,8 @@ export async function getElderFromDb(rawIdentifier) {
   return null;
 }
 
+export const findElderByIdentifier = getElderFromDb;
+
 /**
  * Save or update elder profile & linked caregiver in Firebase Auth & Database
  */
@@ -230,10 +232,10 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
   const cleanCgEmail = caregiverData?.email ? caregiverData.email.trim().toLowerCase() : 'riya@sahara.care';
 
   // Check for existing elder record in server store or fallback to prevent data loss on re-login
-  const existing = await findElderByIdentifier(rawIdentifier) ||
-                   await findElderByIdentifier(elderId) ||
-                   (elderPhone ? await findElderByIdentifier(elderPhone) : null) ||
-                   (elderEmail ? await findElderByIdentifier(elderEmail) : null);
+  const existing = await getElderFromDb(rawIdentifier) ||
+                   await getElderFromDb(elderId) ||
+                   (elderPhone ? await getElderFromDb(elderPhone) : null) ||
+                   (elderEmail ? await getElderFromDb(elderEmail) : null);
 
   const startingLevel = Math.max(1, Math.min(10, parseInt(patientData?.startingLevel, 10) || existing?.startingLevel || 1));
   const unlockedLevel = patientData?.unlockedLevel
