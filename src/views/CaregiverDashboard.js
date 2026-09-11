@@ -498,9 +498,6 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
                         </span>
                         <span class="text-xs font-bold text-[#40493d]">Today's Score</span>
                       </div>
-                      <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-[#cdf2cb] text-[#006e1c]">
-                        ${ga.todaySessions || 0} Sessions
-                      </span>
                     </div>
                     <div>
                       <div class="flex items-baseline gap-1.5">

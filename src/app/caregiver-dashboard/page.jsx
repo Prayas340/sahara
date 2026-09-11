@@ -1496,9 +1496,6 @@ export default function CaregiverDashboardPage() {
                       </span>
                       <span className="text-xs font-bold text-[#40493d]">{t.dailyScore || "Today's Game Score"}</span>
                     </div>
-                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-[#cdf2cb] text-[#006e1c]">
-                      {displayTodaySessions} Sessions
-                    </span>
                   </div>
                   <div>
                     <div className="flex items-baseline gap-1.5">
