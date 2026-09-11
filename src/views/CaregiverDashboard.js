@@ -107,8 +107,8 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
   const getMobileTabClass = (tabName) => {
     const isActive = activeTab === tabName;
     return isActive
-      ? 'flex flex-col items-center py-2 px-3 rounded-xl bg-[#006e1c] text-white font-bold text-xs shadow-sm'
-      : 'flex flex-col items-center py-2 px-3 rounded-xl text-[#40493d] hover:bg-[#cdf2cb] font-semibold text-xs transition-colors';
+      ? 'flex flex-col items-center justify-center py-1.5 px-3 rounded-xl bg-[#006e1c] text-white font-extrabold text-[11px] shadow-xs shrink-0 whitespace-nowrap cursor-pointer'
+      : 'flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-[#40493d] hover:bg-[#ebffe7] hover:text-[#006e1c] font-bold text-[11px] transition-colors shrink-0 whitespace-nowrap cursor-pointer';
   };
 
   const html = `
@@ -116,28 +116,28 @@ export function renderCaregiverDashboard(onNavigate, params = {}) {
       ${renderNavbar('caregiver-dashboard', onNavigate)}
 
       <!-- Mobile Sub-Navigation Bar (always visible on small screens so navigation is never lost) -->
-      <div class="lg:hidden fixed top-16 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#cdf2cb] px-2 py-1.5 shadow-sm">
-        <div class="flex items-center justify-around max-w-lg mx-auto">
+      <div class="lg:hidden fixed top-16 sm:top-20 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#cdf2cb] px-2 py-1.5 shadow-xs overflow-x-auto no-scrollbar">
+        <div class="flex items-center justify-around sm:justify-center max-w-lg mx-auto gap-1 sm:gap-3">
           <button type="button" class="${getMobileTabClass('overview')}" id="mob-tab-overview">
-            <span class="material-symbols-outlined text-xl">space_dashboard</span>
+            <span class="material-symbols-outlined text-lg">space_dashboard</span>
             <span>Overview</span>
           </button>
           <button type="button" class="${getMobileTabClass('memories')}" id="mob-tab-memories">
-            <span class="material-symbols-outlined text-xl">leaderboard</span>
-            <span>Game Score</span>
+            <span class="material-symbols-outlined text-lg">leaderboard</span>
+            <span>Scores</span>
           </button>
           <button type="button" class="${getMobileTabClass('routine')}" id="mob-tab-routine">
-            <span class="material-symbols-outlined text-xl">schedule</span>
+            <span class="material-symbols-outlined text-lg">schedule</span>
             <span>Routine</span>
           </button>
           <button type="button" class="${getMobileTabClass('contacts')}" id="mob-tab-contacts">
-            <span class="material-symbols-outlined text-xl">contact_phone</span>
-            <span>Family Contact</span>
+            <span class="material-symbols-outlined text-lg">contact_phone</span>
+            <span>Contacts</span>
           </button>
         </div>
       </div>
 
-      <div class="flex-1 flex pt-20 lg:pt-20">
+      <div class="flex-1 flex pt-28 sm:pt-32 lg:pt-20">
         <!-- Persistent Left Sidebar (Visible on desktop/tablets) -->
         <aside class="hidden lg:flex w-72 bg-[#d9fdd6] flex-col pt-6 pb-8 px-4 border-r border-[#cdf2cb] shadow-sm shrink-0 sticky top-20 h-[calc(100vh-5rem)] overflow-y-auto">
           <!-- Active Patient Card -->

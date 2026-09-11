@@ -151,15 +151,15 @@ export default function Navbar({ activeView = 'elder' }) {
 
           {/* Center View Indicator (Shown only on extra-large viewports to prevent wrapping/overlap) */}
           {isCaregiver ? (
-            <div className="hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs font-extrabold text-[#0d631b] whitespace-nowrap">
+            <div className="hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs font-extrabold text-[#0d631b] whitespace-nowrap shrink-0 max-w-[280px] overflow-hidden">
               <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse shrink-0"></span>
               <span className="material-symbols-outlined text-base shrink-0">health_and_safety</span>
-              <span className="truncate max-w-xs">{t.caregiverPortal || 'Caregiver Portal'} · {t.monitoring || 'Monitoring'} {patient?.name || 'Loved One'}</span>
+              <span className="truncate">{t.caregiverPortal || 'Caregiver Portal'} · {t.monitoring || 'Monitoring'} {patient?.name || 'Loved One'}</span>
             </div>
           ) : (
-            <div className="hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs font-extrabold text-[#0d631b] whitespace-nowrap">
+            <div className="hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs font-extrabold text-[#0d631b] whitespace-nowrap shrink-0 max-w-[280px] overflow-hidden">
               <span className="material-symbols-outlined text-base text-[#0d631b] shrink-0">spa</span>
-              <span className="truncate max-w-xs">{elderDisplayName} · {t.sanctuary || 'Sanctuary'}</span>
+              <span className="truncate">{elderDisplayName} · {t.sanctuary || 'Sanctuary'}</span>
             </div>
           )}
 
@@ -182,13 +182,13 @@ export default function Navbar({ activeView = 'elder' }) {
               title="Voice Guidance"
               className="flex items-center gap-1 bg-white hover:bg-[#ebffe7] text-[#0d631b] px-2 sm:px-2.5 py-1.5 rounded-full shadow-xs border border-[#cdf2cb] text-xs font-bold transition-all active:scale-95 cursor-pointer shrink-0"
             >
-              <span className="material-symbols-outlined text-sm sm:text-base text-[#0d631b]">record_voice_over</span>
+              <span className="material-symbols-outlined text-sm sm:text-base text-[#0d631b] shrink-0">record_voice_over</span>
               <span className="hidden sm:inline text-[11px] font-bold">{t.listen || 'Listen'}</span>
             </button>
 
             {/* Language Selector */}
             <div className="relative flex items-center bg-white px-2 sm:px-2.5 py-1 rounded-full shadow-xs border border-[#cdf2cb] shrink-0">
-              <span className="material-symbols-outlined text-[#0d631b] text-sm sm:text-base mr-1">translate</span>
+              <span className="material-symbols-outlined text-[#0d631b] text-sm sm:text-base mr-1 shrink-0">translate</span>
               <select
                 value={currentLang}
                 onChange={handleLanguageChange}
@@ -207,7 +207,7 @@ export default function Navbar({ activeView = 'elder' }) {
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 type="button"
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-[#cdf2cb] hover:ring-[#006e1c] overflow-hidden flex items-center justify-center bg-white shadow-xs transition-all cursor-pointer"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-[#cdf2cb] hover:ring-[#006e1c] overflow-hidden flex items-center justify-center bg-white shadow-xs transition-all cursor-pointer shrink-0"
               >
                 <img
                   alt="Profile"

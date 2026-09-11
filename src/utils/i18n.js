@@ -69,6 +69,11 @@ export const translations = {
     tabMemories: "Patient Game Score",
     tabRoutine: "Daily Routine & Medicines",
     tabContacts: "Family Contact",
+    overviewShort: "Overview",
+    scoresShort: "Scores",
+    routineShort: "Routine",
+    contactsShort: "Contacts",
+    reportShort: "Report",
     
     // Game Score Analytics
     tabGameScores: "Patient Game Score",
@@ -207,6 +212,11 @@ export const translations = {
     tabMemories: "मरीज़ खेल स्कोर",
     tabRoutine: "दैनिक दवा व दिनचर्या",
     tabContacts: "पारिवारिक संपर्क (Family Contact)",
+    overviewShort: "अवलोकन",
+    scoresShort: "स्कोर",
+    routineShort: "दिनचर्या",
+    contactsShort: "संपर्क",
+    reportShort: "रिपोर्ट",
     
     // Game Score Analytics
     tabGameScores: "मरीज़ खेल स्कोर व विश्लेषण",
@@ -345,6 +355,11 @@ export const translations = {
     tabMemories: "মৰীজৰ খেল স্কোৰ",
     tabRoutine: "দৈনিক নিয়ম আৰু ঔষধ",
     tabContacts: "পৰিয়ালৰ যোগাযোগ (Family Contact)",
+    overviewShort: "অৱলোকন",
+    scoresShort: "স্কোৰ",
+    routineShort: "ৰুটিন",
+    contactsShort: "যোগাযোগ",
+    reportShort: "প্ৰতিবেদন",
     
     // Game Score Analytics
     tabGameScores: "মৰীজৰ খেল স্কোৰ আৰু বিশ্লেষণ",
@@ -483,6 +498,11 @@ export const translations = {
     tabMemories: "রোগীর খেলার স্কোর",
     tabRoutine: "দৈনিক রুটিন ও ওষুধ",
     tabContacts: "পারিবারিক যোগাযোগ (Family Contact)",
+    overviewShort: "সারসংক্ষেপ",
+    scoresShort: "স্কোর",
+    routineShort: "রুটিন",
+    contactsShort: "যোগাযোগ",
+    reportShort: "রিপোর্ট",
     
     // Game Score Analytics
     tabGameScores: "রোগীর খেলার স্কোর ও বিশ্লেষণ",
@@ -621,6 +641,11 @@ export const translations = {
     tabMemories: "ꯑꯅꯥꯕꯒꯤ ꯁꯥꯟꯅꯕꯥ ꯃꯥꯔꯛ",
     tabRoutine: "ꯅꯨꯃꯤꯠ ꯈꯨꯗꯤꯡꯒꯤ ꯍꯤꯗꯥꯛ ꯃꯇꯝ",
     tabContacts: "ꯏꯃꯨꯡꯒꯤ ꯃꯤꯑꯣꯏꯁꯤꯡ (Family Contact)",
+    overviewShort: "ꯌꯦꯡꯁꯤꯟꯕ",
+    scoresShort: "স্কোর",
+    routineShort: "নুমিৎখুদিংগী",
+    contactsShort: "কন্টাক্ট",
+    reportShort: "রিপোর্ত",
     
     // Game Score Analytics
     tabGameScores: "ꯑꯅꯥꯕꯒꯤ ꯁꯥꯟꯅꯕꯥ ꯃꯥꯔꯛ ꯑꯃꯁꯨꯡ ꯌꯦꯡꯁꯤꯅꯕꯥ",

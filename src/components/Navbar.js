@@ -25,26 +25,26 @@ export function renderNavbar(activeView, onNavigate) {
           </div>
           <div class="flex flex-col justify-center">
             <span class="font-black text-xl sm:text-2xl lg:text-3xl text-[#0d631b] leading-none tracking-tight">Sahara</span>
-            <span class="hidden sm:inline-block text-xs font-bold text-[#40493d] tracking-normal mt-1 leading-tight">Everyday Cognitive & Caregiver Companion</span>
+            <span class="hidden lg:inline-block text-xs font-bold text-[#40493d] tracking-normal mt-1 leading-tight">Everyday Cognitive & Caregiver Companion</span>
           </div>
         </div>
 
-        <!-- Center View Indicator: Completely Isolated for Elder vs Caregiver (No Switcher Buttons) -->
+        <!-- Center View Indicator: Isolated to extra-large screens to prevent wrapping -->
         ${isCaregiver ? `
-          <div class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
-            <span class="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
-            <span class="material-symbols-outlined text-base">health_and_safety</span>
-            <span>Caregiver Portal · Monitoring ${patient?.name || 'Loved One'}</span>
+          <div class="hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs font-extrabold text-[#0d631b] whitespace-nowrap shrink-0 max-w-[280px] overflow-hidden">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse shrink-0"></span>
+            <span class="material-symbols-outlined text-base shrink-0">health_and_safety</span>
+            <span class="truncate">Caregiver Portal · Monitoring ${patient?.name || 'Loved One'}</span>
           </div>
         ` : `
-          <div class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
-            <span class="material-symbols-outlined text-base text-[#0d631b]">spa</span>
-            <span>${elderDisplayName}'s Sanctuary</span>
+          <div class="hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs font-extrabold text-[#0d631b] whitespace-nowrap shrink-0 max-w-[280px] overflow-hidden">
+            <span class="material-symbols-outlined text-base text-[#0d631b] shrink-0">spa</span>
+            <span class="truncate">${elderDisplayName}'s Sanctuary</span>
           </div>
         `}
 
         <!-- Right Controls (Language, Avatar) -->
-        <div class="flex items-center gap-2 sm:gap-3">
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0">
           <!-- Language Dropdown -->
           <div class="relative flex items-center bg-white px-2 py-1 rounded-full shadow-sm border border-[#cdf2cb]">
             <span class="material-symbols-outlined text-[#0d631b] text-base mr-1">translate</span>

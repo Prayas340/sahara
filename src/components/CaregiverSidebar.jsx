@@ -16,8 +16,8 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
   const getMobileTabClass = (tabName) => {
     const isActive = activeTab === tabName;
     return isActive
-      ? 'flex flex-col items-center justify-center py-1 px-2.5 rounded-xl bg-[#006e1c] text-white font-extrabold text-[11px] shadow-xs cursor-pointer shrink-0 transition-transform active:scale-95'
-      : 'flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[#40493d] hover:bg-[#ebffe7] hover:text-[#006e1c] font-bold text-[11px] transition-colors cursor-pointer shrink-0';
+      ? 'flex flex-col items-center justify-center py-1.5 px-2.5 sm:px-3.5 rounded-xl bg-[#006e1c] text-white font-extrabold text-[11px] shadow-xs cursor-pointer shrink-0 whitespace-nowrap transition-all active:scale-95'
+      : 'flex flex-col items-center justify-center py-1.5 px-2.5 sm:px-3.5 rounded-xl text-[#40493d] hover:bg-[#ebffe7] hover:text-[#006e1c] font-bold text-[11px] transition-colors cursor-pointer shrink-0 whitespace-nowrap';
   };
 
   const handleSelectTab = (tabName) => {
@@ -35,16 +35,16 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
 
   return (
     <>
-      {/* Mobile Sub-Navigation Bar (always visible on smaller screens so navigation never vanishes) */}
-      <div className="lg:hidden fixed top-16 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#cdf2cb] px-2 py-1 shadow-xs overflow-x-auto no-scrollbar">
-        <div className="flex items-center justify-around max-w-lg mx-auto gap-1">
+      {/* Mobile Sub-Navigation Bar (strictly positioned below the fixed navbar, responsive on all devices) */}
+      <div className="lg:hidden fixed top-16 sm:top-20 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#cdf2cb] px-2 py-1.5 shadow-xs overflow-x-auto no-scrollbar">
+        <div className="flex items-center justify-around sm:justify-center max-w-lg mx-auto gap-1 sm:gap-3">
           <button
             type="button"
             className={getMobileTabClass('overview')}
             onClick={() => handleSelectTab('overview')}
           >
             <span className="material-symbols-outlined text-lg">space_dashboard</span>
-            <span>{t.tabOverview || 'Overview'}</span>
+            <span>{t.overviewShort || 'Overview'}</span>
           </button>
           <button
             type="button"
@@ -52,7 +52,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => handleSelectTab('memories')}
           >
             <span className="material-symbols-outlined text-lg">leaderboard</span>
-            <span>{t.tabGameScores || 'Scores'}</span>
+            <span>{t.scoresShort || 'Scores'}</span>
           </button>
           <button
             type="button"
@@ -60,7 +60,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => handleSelectTab('routine')}
           >
             <span className="material-symbols-outlined text-lg">schedule</span>
-            <span>{t.tabRoutine || 'Routines'}</span>
+            <span>{t.routineShort || 'Routine'}</span>
           </button>
           <button
             type="button"
@@ -68,7 +68,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => handleSelectTab('contacts')}
           >
             <span className="material-symbols-outlined text-lg">contact_phone</span>
-            <span>{t.tabContacts || 'Contacts'}</span>
+            <span>{t.contactsShort || 'Contacts'}</span>
           </button>
           <button
             type="button"
@@ -76,7 +76,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             onClick={() => handleSelectTab('report')}
           >
             <span className="material-symbols-outlined text-lg">summarize</span>
-            <span>{t.tabReport || 'Report'}</span>
+            <span>{t.reportShort || 'Report'}</span>
           </button>
         </div>
       </div>
