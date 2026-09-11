@@ -385,25 +385,32 @@ export default function CaregiverDashboardPage() {
 
     // Fetch fresh scores from server DB and update analytics
     const fetchServerScores = (elderId, caregiverEmail) => {
-      if (!elderId && !caregiverEmail) return;
       const todayDate = getTodayDateString();
-      fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}&date=${encodeURIComponent(todayDate)}`)
+      const params = new URLSearchParams();
+      if (elderId) params.set('elderId', elderId);
+      if (caregiverEmail) params.set('caregiverEmail', caregiverEmail);
+      params.set('date', todayDate);
+
+      fetch(`/api/game-scores?${params.toString()}`)
         .then(r => r.json())
         .then(sData => {
-          if (sData?.success && sData?.scores) {
-            dataStore.saveGameScores?.(sData.scores);
+          if (sData?.success) {
+            const unLvl = sData.analytics?.unlockedLevel || sData.unlockedLevel;
+            if (unLvl) {
+              setPatient(prev => prev ? { ...prev, unlockedLevel: Math.max(Number(prev.unlockedLevel) || 1, unLvl) } : { unlockedLevel: unLvl });
+              if (dataStore.state?.patient) {
+                dataStore.state.patient.unlockedLevel = Math.max(Number(dataStore.state.patient.unlockedLevel) || 1, unLvl);
+              }
+            }
+            if (sData.scores && Array.isArray(sData.scores)) {
+              dataStore.saveGameScores?.(sData.scores);
+            }
             if (sData.analytics) {
               setGameAnalytics(sData.analytics);
               const tSessions = Number(sData.analytics.todaySessions) || 0;
               const tScore = Number(sData.analytics.todayScore) || 0;
-              if (tSessions > 0 || tScore > 0) {
-                setTodayGameSessions(prev => Math.max(prev, tSessions));
-                setTodayGameScore(prev => Math.max(prev, tScore));
-              } else if (sData.scores.length > 0) {
-                const totalScore = sData.scores.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
-                setTodayGameSessions(prev => Math.max(prev, sData.scores.length));
-                setTodayGameScore(prev => Math.max(prev, totalScore));
-              }
+              setTodayGameSessions(tSessions);
+              setTodayGameScore(tScore);
             }
           } else if (dataStore.getGameAnalytics) {
             const ga = dataStore.getGameAnalytics();
@@ -1400,7 +1407,7 @@ export default function CaregiverDashboardPage() {
 
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-black px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb]">
-                      Level {patient?.unlockedLevel || 1} of 10 Unlocked
+                      Level {Math.max(Number(patient?.unlockedLevel) || 1, Number(gameAnalytics?.unlockedLevel) || 1, gameAnalytics?.sessions?.length ? Math.min(10, Math.max(...gameAnalytics.sessions.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out').map(s => (Number(s.level) || 0) + 1))) : 1)} of 10 Unlocked
                     </span>
                     {patient?.aiAnalysis && (
                       <span className="text-xs font-bold px-3 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-200 flex items-center gap-1">
@@ -1413,9 +1420,18 @@ export default function CaregiverDashboardPage() {
 
                 {/* 10-Level Stepped Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 pt-2">
-                  {COGNITIVE_LEVELS.map((lvl) => {
-                    const isUnlocked = lvl.level <= (patient?.unlockedLevel || 1);
-                    const isAiStarting = patient?.aiAnalysis && lvl.level === (patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1);
+                  {(() => {
+                    const activeUnlocked = Math.max(
+                      Number(patient?.unlockedLevel) || 1,
+                      Number(gameAnalytics?.unlockedLevel) || 1,
+                      gameAnalytics?.sessions?.length
+                        ? Math.min(10, Math.max(...gameAnalytics.sessions.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out').map(s => (Number(s.level) || 0) + 1)))
+                        : 1
+                    );
+
+                    return COGNITIVE_LEVELS.map((lvl) => {
+                      const isUnlocked = lvl.level <= activeUnlocked;
+                      const isAiStarting = patient?.aiAnalysis && lvl.level === (patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1);
 
                     return (
                       <div
@@ -1457,7 +1473,8 @@ export default function CaregiverDashboardPage() {
                         )}
                       </div>
                     );
-                  })}
+                  });
+                  })()}
                 </div>
 
                 {/* AI Assessment Report Summary Card */}

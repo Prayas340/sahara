@@ -36,8 +36,8 @@ function resolveElderAndCaregiver() {
 
   try {
     const stored = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_active_user') || 'null') : null;
-    if (stored?.role === 'elder') {
-      elderId = stored.phone || stored.id || stored.email;
+    if (stored?.role === 'elder' || (!stored?.role && (stored?.phone || stored?.name || stored?.id))) {
+      elderId = stored.phone || stored.id || stored.email || stored.identifier;
       caregiverEmail = stored.caregiverEmail || stored.caregiver || null;
       caregiverName = stored.caregiverName || null;
       elderName = stored.name || elderName;
@@ -59,7 +59,7 @@ function resolveElderAndCaregiver() {
     try {
       const storedPatient = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('sahara_patient_profile') || 'null') : null;
       if (storedPatient) {
-        elderId = storedPatient.phone || storedPatient.id || storedPatient.email;
+        elderId = storedPatient.phone || storedPatient.id || storedPatient.email || storedPatient.identifier;
         caregiverEmail = caregiverEmail || storedPatient.caregiverEmail || storedPatient.caregiver;
         caregiverName = caregiverName || storedPatient.caregiverName;
         elderName = storedPatient.name || elderName;
@@ -72,7 +72,7 @@ function resolveElderAndCaregiver() {
 
   if (!elderId) {
     const p = dataStore.getPatient ? dataStore.getPatient() : dataStore.state?.patient;
-    elderId = p?.phone || p?.id || p?.email;
+    elderId = p?.phone || p?.id || p?.email || p?.identifier;
     caregiverEmail = caregiverEmail || p?.caregiverEmail || p?.caregiver;
     caregiverName = caregiverName || p?.caregiverName;
     elderName = p?.name || elderName;
@@ -108,22 +108,27 @@ export default function ProgressiveCognitiveSuitePage() {
   const [activeLevel, setActiveLevel] = useState(1);
   const [unlockedLevel, setUnlockedLevel] = useState(1);
   const [startingLevel, setStartingLevel] = useState(1);
+  const [levelJustUnlocked, setLevelJustUnlocked] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [elderName, setElderName] = useState('Elder');
 
-  // Daily Log Sync State
+  // Daily Sessions State (5 sessions per day cap)
   const [todaySessions, setTodaySessions] = useState(0);
   const [todayScore, setTodayScore] = useState(0);
-  const [lastPlayedLevel, setLastPlayedLevel] = useState(null);
+  const [lastPlayedLevel, setLastPlayedLevel] = useState(1);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
+
+  // Active Game State
+  const [timerSeconds, setTimerSeconds] = useState(60);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [isCompletedModalOpen, setIsCompletedModalOpen] = useState(false);
+  const [isTimeoutModalOpen, setIsTimeoutModalOpen] = useState(false);
 
   // 1-Minute Active Countdown Timer
   const [timeLeft, setTimeLeft] = useState(60);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [remainingTimeSeconds, setRemainingTimeSeconds] = useState(0);
   const [roundCompleted, setRoundCompleted] = useState(false);
   const [isTimedOut, setIsTimedOut] = useState(false);
-  const [levelJustUnlocked, setLevelJustUnlocked] = useState(null);
 
   const isRecordingRef = useRef(false);
   const timerRef = useRef(null);
@@ -189,7 +194,7 @@ export default function ProgressiveCognitiveSuitePage() {
   const [challengeAnswers, setChallengeAnswers] = useState([]);
 
   // -------------------------------------------------------------
-  // 1. Synchronize Initial User and Real-Time Firestore Listeners
+  // 1. Synchronize Initial User and Real-Time Firestore / Server Listeners
   // -------------------------------------------------------------
   useEffect(() => {
     const resolved = resolveElderAndCaregiver();
@@ -198,11 +203,32 @@ export default function ProgressiveCognitiveSuitePage() {
     setUnlockedLevel(resolved.unlockedLevel);
     if (resolved.aiAnalysis) setAiAnalysis(resolved.aiAnalysis);
 
-    const { cleanElderId } = resolved;
+    const { cleanElderId, elderId, caregiverEmail } = resolved;
     const todayDate = getTodayDateString();
 
+    // Fetch initial scores & unlocked level from Server DB
+    fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}&date=${encodeURIComponent(todayDate)}`)
+      .then(r => r.json())
+      .then(sData => {
+        setIsLoadingSession(false);
+        if (sData?.success) {
+          const unLvl = Number(sData.unlockedLevel || sData.analytics?.unlockedLevel);
+          if (unLvl) {
+            setUnlockedLevel(prev => Math.max(prev, unLvl));
+          }
+          if (sData.analytics) {
+            const tSessions = Number(sData.analytics.todaySessions) || 0;
+            const tScore = Number(sData.analytics.todayScore) || 0;
+            if (tSessions > 0 || tScore > 0) {
+              setTodaySessions(prev => Math.max(prev, tSessions));
+              setTodayScore(prev => Math.max(prev, tScore));
+            }
+          }
+        }
+      })
+      .catch(() => setIsLoadingSession(false));
+
     if (!db || !cleanElderId) {
-      setIsLoadingSession(false);
       return;
     }
 

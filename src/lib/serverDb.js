@@ -606,6 +606,8 @@ export function getLocalDateString(d = new Date()) {
 export async function saveGameScoreToDb(scoreData) {
   const store = readLocalStore();
   if (!store.gameScores) store.gameScores = {};
+  if (!store.elders) store.elders = {};
+  if (!store.caregivers) store.caregivers = {};
 
   const id = 'score_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   let elderId = scoreData.elderId ? normalizeIdentifier(scoreData.elderId) : null;
@@ -633,6 +635,10 @@ export async function saveGameScoreToDb(scoreData) {
 
   const isTimedOut = scoreData.status === 'timed_out' || Number(scoreData.pointsEarned) === 0 || scoreData.status === 'Timed Out';
   const ptsToAdd = isTimedOut ? 0 : 50;
+  const playedLevel = Number(scoreData.level) || 1;
+  const nextUnlockedLevel = scoreData.unlockedLevel
+    ? Math.min(10, Math.max(1, Number(scoreData.unlockedLevel)))
+    : (isTimedOut ? playedLevel : Math.min(10, playedLevel + 1));
 
   const record = {
     id,
@@ -640,7 +646,8 @@ export async function saveGameScoreToDb(scoreData) {
     caregiverEmail: caregiverEmail || '',
     score: ptsToAdd,
     pointsEarned: ptsToAdd,
-    level: Number(scoreData.level) || 1,
+    level: playedLevel,
+    unlockedLevel: nextUnlockedLevel,
     moves: Number(scoreData.moves) || 3,
     matchedPairs: Number(scoreData.matchedPairs) || 3,
     accuracy: scoreData.accuracy !== undefined ? Number(scoreData.accuracy) : 100,
@@ -671,19 +678,45 @@ export async function saveGameScoreToDb(scoreData) {
     addRecord(store.gameScores[caregiverEmail]);
   }
 
+  // Update elder record in store
+  const targetElder = (store.elders?.[elderId] || findElderInDb(elderId)) ||
+                      (caregiverEmail ? findElderInDb(caregiverEmail) : null);
+  if (targetElder) {
+    targetElder.unlockedLevel = Math.max(Number(targetElder.unlockedLevel) || 1, nextUnlockedLevel);
+    targetElder.todayGameScore = Math.min(250, (Number(targetElder.todayGameScore) || 0) + ptsToAdd);
+    targetElder.todayGameSessions = Math.min(5, (Number(targetElder.todayGameSessions) || 0) + (isTimedOut ? 0 : 1));
+    targetElder.lastPlayedLevel = playedLevel;
+    targetElder.lastGameScore = ptsToAdd;
+    targetElder.lastActive = 'Just now';
+    targetElder.updatedAt = timestamp;
+  }
+
+  // Update caregiver record in store
+  if (caregiverEmail && store.caregivers?.[caregiverEmail]) {
+    const cg = store.caregivers[caregiverEmail];
+    if (cg.linkedElder) {
+      cg.linkedElder.unlockedLevel = Math.max(Number(cg.linkedElder.unlockedLevel) || 1, nextUnlockedLevel);
+      cg.linkedElder.todayGameScore = targetElder?.todayGameScore || ptsToAdd;
+      cg.linkedElder.todayGameSessions = targetElder?.todayGameSessions || (isTimedOut ? 0 : 1);
+      cg.linkedElder.lastPlayedLevel = playedLevel;
+      cg.linkedElder.lastGameScore = ptsToAdd;
+      cg.linkedElder.updatedAt = timestamp;
+    }
+  }
+
   writeLocalStore(store);
 
-  // Cloud Firestore Persistence via Firebase Admin
+  // Cloud Firestore Persistence via Firebase Admin (if available)
   try {
-    const cloudRes = await firestoreSaveGameDailyLog(elderId, dateStr, scoreData);
+    const cloudRes = await firestoreSaveGameDailyLog(elderId, dateStr, { ...scoreData, unlockedLevel: nextUnlockedLevel });
     if (cloudRes) {
-      return { success: true, record, cloudAnalytics: cloudRes };
+      return { success: true, record, unlockedLevel: nextUnlockedLevel, cloudAnalytics: cloudRes };
     }
   } catch (cloudErr) {
     console.warn('[serverDb] firestoreSaveGameDailyLog notice:', cloudErr.message);
   }
 
-  return { success: true, record };
+  return { success: true, record, unlockedLevel: nextUnlockedLevel };
 }
 
 /**
@@ -755,6 +788,16 @@ export async function getGameScoresFromDb(args) {
     if (eCgEmail && Array.isArray(store.gameScores?.[eCgEmail.toLowerCase()])) candidateLists.push(store.gameScores[eCgEmail.toLowerCase()]);
   }
 
+  // Also include default_elder or all scores if list is empty
+  if (Array.isArray(store.gameScores?.['default_elder'])) {
+    candidateLists.push(store.gameScores['default_elder']);
+  }
+  if (candidateLists.length === 0 && store.gameScores) {
+    for (const list of Object.values(store.gameScores)) {
+      if (Array.isArray(list)) candidateLists.push(list);
+    }
+  }
+
   // Deduplicate raw scores by id
   const seenScoreIds = new Set();
   const scores = [];
@@ -778,6 +821,7 @@ export async function getGameScoresFromDb(args) {
           id: chKey,
           score: ch.pointsEarned !== undefined ? Number(ch.pointsEarned) : 50,
           pointsEarned: ch.pointsEarned !== undefined ? Number(ch.pointsEarned) : 50,
+          level: Number(ch.level) || 1,
           durationSeconds: 60 - (Number(ch.remainingTimeSeconds) || 0),
           remainingTimeSeconds: Number(ch.remainingTimeSeconds) || 0,
           accuracy: ch.accuracy !== undefined ? Number(ch.accuracy) : 100,
@@ -830,6 +874,27 @@ export async function getGameScoresFromDb(args) {
   // Cap at 250
   todayTotalScore = Math.min(250, todayTotalScore);
   todaySessionsCount = Math.min(5, todaySessionsCount);
+
+  // Calculate unlocked levels across all played scores
+  const maxCompletedLevel = Math.max(
+    0,
+    ...scores.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out' && Number(s.score) > 0).map(s => Number(s.level) || 0)
+  );
+
+  const maxUnlockedFromScores = Math.max(
+    1,
+    maxCompletedLevel + 1,
+    ...scores.map(s => Number(s.unlockedLevel) || 1)
+  );
+
+  const finalUnlockedLevel = Math.min(
+    10,
+    Math.max(
+      maxUnlockedFromScores,
+      Number(resolvedElder?.unlockedLevel) || 1,
+      cloudDaily?.unlockedLevel ? Number(cloudDaily.unlockedLevel) : 1
+    )
+  );
 
   // Last 7 days breakdown in local timezone
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -897,7 +962,9 @@ export async function getGameScoresFromDb(args) {
   return {
     success: true,
     scores,
+    unlockedLevel: finalUnlockedLevel,
     analytics: {
+      unlockedLevel: finalUnlockedLevel,
       todayScore: todayTotalScore,
       todaySessions: todaySessionsCount,
       todayAvgScore: todaySessionsCount > 0 ? Math.round(todayTotalScore / todaySessionsCount) : 0,
