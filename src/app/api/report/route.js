@@ -63,7 +63,13 @@ STRICT RULES:
 
 Respond ONLY with valid JSON. No markdown codeblocks, no formatting outside of JSON.`;
 
-    const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-flash-latest'];
+    const candidateModels = [
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-pro-preview',
+      'gemini-flash-latest',
+    ];
     let aiResponseText = '';
 
     for (const model of candidateModels) {

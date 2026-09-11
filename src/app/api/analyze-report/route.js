@@ -7,9 +7,10 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
  */
 async function callAiClinicalEngine(contents, systemInstruction) {
   const models = [
-    'gemini-3.5-flash-lite',
-    'gemini-3.5-flash',
     'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-pro-preview',
     'gemini-flash-latest',
   ];
   let lastError = null;
