@@ -1,12 +1,13 @@
 // Sahara Natural Human-Cadence Multilingual Female Voice Synthesis Engine
-// Strictly delivers dignified, calm, soothing female speech with natural breathing gaps and pauses.
+// Delivers crystal-clear, authentic female speech for English, Hindi, Assamese, Bengali, and Manipuri
+// Features phrase chunking with natural breathing gaps and realistic human pronunciation.
 
+let currentAudio = null;
+let currentTimeoutId = null;
 let activeSpeechQueue = [];
 let isPlayingQueue = false;
-let currentUtterance = null;
-let currentTimeoutId = null;
 
-// Confirmed female voice names and keywords
+// Confirmed female voice names and keywords for Web Speech API fallback
 const FEMALE_VOICE_NAMES = [
   'zira', 'heera', 'neerja', 'swara', 'kalpana', 'ananya', 'samantha', 'victoria', 'karen',
   'tanya', 'geeta', 'aditi', 'jenny', 'aria', 'sonia', 'female', 'woman', 'girl',
@@ -21,7 +22,7 @@ const MALE_VOICE_NAMES = [
 ];
 
 /**
- * Strictly find the best female voice matching the language code
+ * Find the best female voice matching the language code (fallback engine)
  */
 export function getBestFemaleVoice(langCode = 'en-IN') {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
@@ -31,7 +32,6 @@ export function getBestFemaleVoice(langCode = 'en-IN') {
 
   const primaryPrefix = langCode.split('-')[0].toLowerCase();
 
-  // Helper to test if a voice is confirmed female
   const isConfirmedFemale = (v) => {
     const name = (v.name || '').toLowerCase();
     const isMale = MALE_VOICE_NAMES.some(m => name.includes(m));
@@ -39,13 +39,11 @@ export function getBestFemaleVoice(langCode = 'en-IN') {
     return FEMALE_VOICE_NAMES.some(f => name.includes(f));
   };
 
-  // Helper to test if a voice is NOT male
   const isNotMale = (v) => {
     const name = (v.name || '').toLowerCase();
     return !MALE_VOICE_NAMES.some(m => name.includes(m));
   };
 
-  // 1. Direct language match + confirmed female
   const exactLangFemale = voices.find(v => {
     const vLang = (v.lang || '').toLowerCase();
     const matchesLang = vLang === langCode.toLowerCase() || vLang.startsWith(primaryPrefix);
@@ -53,11 +51,9 @@ export function getBestFemaleVoice(langCode = 'en-IN') {
   });
   if (exactLangFemale) return exactLangFemale;
 
-  // 2. Any confirmed female voice in the entire system (e.g. Zira, Swara, Samantha, Google UK English Female)
   const anyConfirmedFemale = voices.find(v => isConfirmedFemale(v));
   if (anyConfirmedFemale) return anyConfirmedFemale;
 
-  // 3. Direct language match that is NOT male
   const exactLangNotMale = voices.find(v => {
     const vLang = (v.lang || '').toLowerCase();
     const matchesLang = vLang === langCode.toLowerCase() || vLang.startsWith(primaryPrefix);
@@ -65,11 +61,9 @@ export function getBestFemaleVoice(langCode = 'en-IN') {
   });
   if (exactLangNotMale) return exactLangNotMale;
 
-  // 4. Any voice that is NOT male
   const anyNotMale = voices.find(v => isNotMale(v));
   if (anyNotMale) return anyNotMale;
 
-  // 5. Fallback
   return voices[0] || null;
 }
 
@@ -92,10 +86,9 @@ export function splitIntoHumanPhrases(text) {
     const rawChunk = m.trim();
     if (!rawChunk) continue;
 
-    // Determine natural pause after this chunk
-    let pauseMs = 190; // default breath pause (commas, phrases)
+    let pauseMs = 200; // default breath pause (commas, clauses)
     if (/[.!?।॥\n]/.test(rawChunk)) {
-      pauseMs = 480; // full stop / sentence conclusion breath
+      pauseMs = 450; // full stop / sentence conclusion breath
     } else if (/[,;:—–]/.test(rawChunk)) {
       pauseMs = 240; // gentle mid-sentence pause
     }
@@ -110,7 +103,7 @@ export function splitIntoHumanPhrases(text) {
 }
 
 /**
- * Stop any currently running speech synthesis and clear queue
+ * Stop any currently running speech synthesis, audio stream, and clear queue
  */
 export function stopSpeech() {
   if (typeof window === 'undefined') return;
@@ -118,6 +111,15 @@ export function stopSpeech() {
   if (currentTimeoutId) {
     clearTimeout(currentTimeoutId);
     currentTimeoutId = null;
+  }
+
+  if (currentAudio) {
+    try {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      currentAudio.src = '';
+    } catch (e) {}
+    currentAudio = null;
   }
 
   activeSpeechQueue = [];
@@ -137,29 +139,28 @@ export function stopSpeech() {
 }
 
 /**
- * Speak text with natural human female cadence, breath stops, and real-time event updates
+ * Speak text with natural human female cadence, breath stops, and multilingual support
+ * Uses high fidelity audio stream as primary engine with automatic browser synthesis fallback.
  */
 export function speakHumanText(text, options = {}) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  if (typeof window === 'undefined') return;
   if (!text || typeof text !== 'string') return;
 
   const {
     lang = 'en-IN',
-    rate = 0.88,       // Calm, warm, dignified cadence
-    pitch = 1.22,      // Explicitly tuned warm female pitch
+    rate = 0.88,
+    pitch = 1.22,
     volume = 1.0,
     onStart = null,
     onChunk = null,
     onEnd = null,
   } = options;
 
-  // Cancel existing audio
+  // Cancel any active audio
   stopSpeech();
 
   const phrases = splitIntoHumanPhrases(text);
   if (phrases.length === 0) return;
-
-  const voice = getBestFemaleVoice(lang);
 
   try {
     window.dispatchEvent(new CustomEvent('sahara:speech-start', {
@@ -171,6 +172,35 @@ export function speakHumanText(text, options = {}) {
 
   let phraseIndex = 0;
   isPlayingQueue = true;
+
+  // Fallback to Web Speech API if audio element fails
+  const playViaSpeechSynthesis = (phraseItem, onDone) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      onDone();
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(phraseItem.text);
+    const voice = getBestFemaleVoice(lang);
+    if (voice) {
+      utterance.voice = voice;
+      // Match utterance lang with voice lang to prevent browser drop
+      utterance.lang = voice.lang || 'en-IN';
+    } else {
+      utterance.lang = 'en-IN';
+    }
+    utterance.rate = rate;
+    utterance.pitch = pitch;
+    utterance.volume = volume;
+
+    utterance.onend = () => onDone();
+    utterance.onerror = () => onDone();
+
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      onDone();
+    }
+  };
 
   const playNextPhrase = () => {
     if (!isPlayingQueue || phraseIndex >= phrases.length) {
@@ -198,19 +228,13 @@ export function speakHumanText(text, options = {}) {
 
     if (onChunk) onChunk(currentItem.text, phraseIndex - 1, phrases.length);
 
-    const utterance = new SpeechSynthesisUtterance(currentItem.text);
-    currentUtterance = utterance;
+    // Primary: High quality audio stream via /api/tts
+    const ttsUrl = `/api/tts?text=${encodeURIComponent(currentItem.text)}&lang=${encodeURIComponent(lang)}`;
+    const audio = new Audio(ttsUrl);
+    currentAudio = audio;
+    audio.volume = volume;
 
-    if (voice) {
-      utterance.voice = voice;
-    }
-    utterance.lang = lang;
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-    utterance.volume = volume;
-
-    utterance.onend = () => {
-      // Natural human gap before the next phrase
+    const advanceWithPause = () => {
       if (phraseIndex < phrases.length) {
         currentTimeoutId = setTimeout(() => {
           playNextPhrase();
@@ -224,43 +248,27 @@ export function speakHumanText(text, options = {}) {
       }
     };
 
-    utterance.onerror = (err) => {
-      console.warn('Speech synthesis utterance notice:', err);
-      // Advance gracefully
-      if (phraseIndex < phrases.length) {
-        currentTimeoutId = setTimeout(() => {
-          playNextPhrase();
-        }, currentItem.pauseMs);
-      } else {
-        isPlayingQueue = false;
-        try {
-          window.dispatchEvent(new CustomEvent('sahara:speech-end'));
-        } catch (e) {}
-        if (onEnd) onEnd();
-      }
+    audio.onended = () => {
+      advanceWithPause();
     };
 
-    try {
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.warn('speechSynthesis.speak error:', e);
-      isPlayingQueue = false;
-      try {
-        window.dispatchEvent(new CustomEvent('sahara:speech-end'));
-      } catch (e) {}
-    }
+    audio.onerror = (err) => {
+      console.warn('Audio stream fallback to SpeechSynthesis:', err);
+      // Seamlessly fallback to browser synthesis for this phrase
+      playViaSpeechSynthesis(currentItem, () => {
+        advanceWithPause();
+      });
+    };
+
+    audio.play().catch((playErr) => {
+      console.warn('Audio play notice, falling back:', playErr);
+      playViaSpeechSynthesis(currentItem, () => {
+        advanceWithPause();
+      });
+    });
   };
 
-  // Ensure voices are loaded if browser loads them asynchronously
-  if (window.speechSynthesis.getVoices().length === 0) {
-    const handleVoicesChanged = () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
-      playNextPhrase();
-    };
-    window.speechSynthesis.addEventListener('voiceschanged', handleVoicesChanged);
-  } else {
-    playNextPhrase();
-  }
+  playNextPhrase();
 }
 
 /**
