@@ -15,6 +15,14 @@ export default function HomePage() {
 
   // Multi-step onboarding state: 1 = Phone, 2 = OTP, 3 = Profile Details
   const [step, setStep] = useState(1);
+
+  useEffect(() => {
+    try {
+      window.dispatchEvent(new CustomEvent('sahara:portal-step-change', {
+        detail: { step, layout: 'home' }
+      }));
+    } catch (e) {}
+  }, [step]);
   const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'google'
   const [googleEmail, setGoogleEmail] = useState('');
   const [activeLanguage, setActiveLanguage] = useState('English');

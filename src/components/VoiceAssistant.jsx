@@ -171,6 +171,7 @@ export default function VoiceAssistant() {
   const [spokenSubtitle, setSpokenSubtitle] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [activePortalTab, setActivePortalTab] = useState('overview');
+  const [activeHomeStep, setActiveHomeStep] = useState(1);
   const [activeGameLevel, setActiveGameLevel] = useState(1);
 
   // Sync language changes
@@ -214,6 +215,17 @@ export default function VoiceAssistant() {
     };
   }, []);
 
+  // Listen for onboarding step changes on Home page
+  useEffect(() => {
+    const onStepChange = (e) => {
+      if (e.detail?.step) {
+        setActiveHomeStep(Number(e.detail.step));
+      }
+    };
+    window.addEventListener('sahara:portal-step-change', onStepChange);
+    return () => window.removeEventListener('sahara:portal-step-change', onStepChange);
+  }, []);
+
   // Listen for tab changes in Caregiver Dashboard
   useEffect(() => {
     const onTabChange = (e) => {
@@ -239,9 +251,13 @@ export default function VoiceAssistant() {
   const guidance = getVoiceGuidance(lang);
   const isGameRoute = pathname?.includes('/memory-game');
 
-  // Determine current layout key with deep tab awareness
+  // Determine current layout key with deep tab and step awareness
   const getLayoutKey = () => {
-    if (!pathname || pathname === '/') return 'home';
+    if (!pathname || pathname === '/') {
+      if (activeHomeStep === 2) return 'home-step2';
+      if (activeHomeStep === 3) return 'home-step3';
+      return 'home-step1';
+    }
     if (pathname.includes('/elder-dashboard')) return 'elder-dashboard';
     if (pathname.includes('/caregiver-dashboard')) {
       if (activePortalTab === 'contacts') return 'caregiver-contacts';

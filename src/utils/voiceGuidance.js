@@ -1,5 +1,5 @@
 // Sahara Multilingual Spoken Guidance Dictionary
-// Authentic natural human-cadence guidance for all portal layouts, sidebar tabs, and 10 cognitive game levels.
+// Authentic natural human-cadence guidance for all portal layouts, onboarding steps, sidebar tabs, and 10 cognitive game levels.
 // Supported languages: English, हिंदी (Hindi), অসমীয়া (Assamese), বাংলা (Bengali), মৈতৈলোন্ (Manipuri)
 
 export const VOICE_GUIDANCE = {
@@ -15,6 +15,9 @@ export const VOICE_GUIDANCE = {
     
     layoutTitles: {
       home: 'Welcome & Sign In',
+      'home-step1': 'Welcome & Sign In',
+      'home-step2': 'SMS Verification Code',
+      'home-step3': 'Profile & Companion Details',
       'elder-dashboard': 'Elder Sanctuary & Daily Routine',
       'caregiver-dashboard': 'Caregiver Overview',
       'caregiver-overview': 'Caregiver Overview',
@@ -28,7 +31,13 @@ export const VOICE_GUIDANCE = {
     },
 
     layouts: {
-      home: "Welcome to Sahara, your daily cognitive companion. On this screen, you can enter your 10-digit mobile number to receive a secure SMS verification code, or sign in directly using Google. At the top right, you can change your preferred language anytime. In the setup step, you can enter the elder's name, age, city, and link a family caregiver account with a secure password.",
+      home: "Welcome to Sahara, your daily cognitive companion. On this screen, you can enter your 10-digit mobile number to receive a secure SMS verification code, or sign in directly using Google. At the top right, you can change your preferred language anytime.",
+      
+      'home-step1': "Welcome to Sahara, your daily cognitive companion. Enter your 10-digit mobile number to receive a secure SMS verification code, or sign in directly using Google. At the top right, you can change your preferred language anytime.",
+      
+      'home-step2': "This is Step 2: Verification. Please enter the 6-digit verification code sent to your mobile phone number via SMS to continue safely.",
+      
+      'home-step3': "This is Step 3 of 3: Profile and Companion Setup. Here, enter the elder's full name, age, state, and city. Below, enter the family caregiver's name, email address, and a secure password to synchronize both portals. You can also optionally upload a medical report such as MMSE or MoCA notes to let Saha AI automatically map your recommended starting cognitive level.",
       
       'elder-dashboard': "This is your personal Sanctuary. At the top, you will find your soothing daily greeting. Below, check your morning medicine schedule and tap 'Mark as Taken' once you have taken your pills. You can tap 'Open Memory Match' to enjoy 10 relaxing cognitive games, or tap the green emergency button to call your loved ones and doctors instantly with a single touch.",
       
@@ -77,6 +86,9 @@ export const VOICE_GUIDANCE = {
     
     layoutTitles: {
       home: 'स्वागत व लॉगिन',
+      'home-step1': 'स्वागत व लॉगिन',
+      'home-step2': 'ओटीपी सत्यापन',
+      'home-step3': 'प्रोफ़ाइल व साथी विवरण',
       'elder-dashboard': 'दैनिक सदन व दिनचर्या',
       'caregiver-dashboard': 'केयरगिवर अवलोकन',
       'caregiver-overview': 'केयरगिवर अवलोकन',
@@ -90,7 +102,13 @@ export const VOICE_GUIDANCE = {
     },
 
     layouts: {
-      home: "सहारा में आपका हार्दिक स्वागत है। यहाँ आप अपना 10 अंकों का मोबाइल नंबर डालकर सुरक्षित एसएमएस ओटीपी पा सकते हैं, या Google से 1-टैप में साइन इन कर सकते हैं। ऊपर दाईं ओर से कभी भी भाषा बदल सकते हैं। आगे प्रोफाइल में मरीज़ का नाम, उम्र, शहर और केयरगिवर का ईमेल व पासवर्ड जोड़ सकते हैं।",
+      home: "सहारा में आपका हार्दिक स्वागत है। यहाँ आप अपना 10 अंकों का मोबाइल नंबर डालकर सुरक्षित एसएमएस ओटीपी पा सकते हैं, या Google से सीधे साइन इन कर सकते हैं। ऊपर दाईं ओर से कभी भी भाषा बदल सकते हैं।",
+      
+      'home-step1': "सहारा में आपका हार्दिक स्वागत है। अपना 10 अंकों का मोबाइल नंबर डालकर ओटीपी प्राप्त करें, या Google से सीधे साइन इन करें।",
+      
+      'home-step2': "यह दूसरा कदम है: सत्यापन। अपने मोबाइल फ़ोन पर आए 6 अंकों के सुरक्षा कोड को यहाँ दर्ज करें।",
+      
+      'home-step3': "यह तीसरा कदम है: प्रोफ़ाइल व साथी विवरण। यहाँ वरिष्ठ नागरिक का पूरा नाम, उम्र, राज्य और शहर दर्ज करें। नीचे पारिवारिक देखभालकर्ता का नाम, ईमेल और सुरक्षित पासवर्ड जोड़ें। आप मेडिकल रिपोर्ट भी अपलोड कर सकते हैं जिससे साहा एआई खेल का प्रारंभिक स्तर स्वतः तय कर सके।",
       
       'elder-dashboard': "यह आपका दैनिक सदन है। यहाँ सुबह का सुखद संदेश देखें। अपनी सुबह की दवा देखकर 'दवा ले ली है' पर टैप करें। 10 स्तरों वाला स्मृति खेल खेलने के लिए 'स्मृति खेल शुरू करें' पर टैप करें, और परिजनों या डॉक्टर को तुरंत कॉल करने के लिए हरा आपातकालीन बटन दबाएँ।",
       
@@ -139,6 +157,9 @@ export const VOICE_GUIDANCE = {
     
     layoutTitles: {
       home: 'স্বাগতম আৰু লগইন',
+      'home-step1': 'স্বাগতম আৰু লগইন',
+      'home-step2': 'OTP পৰীক্ষণ',
+      'home-step3': 'প্ৰফাইল আৰু সংগীৰ তথ্য',
       'elder-dashboard': 'দৈনন্দিন গৃহ আৰু নিয়ম',
       'caregiver-dashboard': 'কেয়াৰগিভাৰ তদাৰকী',
       'caregiver-overview': 'কেয়াৰগিভাৰ তদাৰকী',
@@ -152,7 +173,13 @@ export const VOICE_GUIDANCE = {
     },
 
     layouts: {
-      home: "সাহাৰালৈ আপোনাক স্বাগতম। আপোনাৰ ১০ সংখ্যাৰ মোবাইল নম্বৰ দি সুৰক্ষিত OTP লওক, অথবা Google ৰে পোনপটীয়াকৈ লগইন কৰক। ওপৰত ভাষা সলনি কৰিব পাৰিব। প্ৰফাইলত নাম, বয়স, চহৰ আৰু পৰিয়ালৰ যত্ন লওঁতাৰ একাউণ্ট সংযোগ কৰক।",
+      home: "সাহাৰালৈ আপোনাক স্বাগতম। আপোনাৰ ১০ সংখ্যাৰ মোবাইল নম্বৰ দি সুৰক্ষিত OTP লওক, অথবা Google ৰে পোনপটীয়াকৈ লগইন কৰক। ওপৰত ভাষা সলনি কৰিব পাৰিব।",
+      
+      'home-step1': "সাহাৰালৈ আপোনাক স্বাগতম। আপোনাৰ ১০ সংখ্যাৰ মোবাইল নম্বৰ দি সুৰক্ষিত OTP লওক, অথবা Google ৰে পোনপটীয়াকৈ লগইন কৰক।",
+      
+      'home-step2': "এইটো দ্বিতীয় পদক্ষেপ: পৰীক্ষণ। আপোনাৰ মোবাইললৈ অহা ৬ সংখ্যাৰ ক’ডটো ইয়াত ভৰাওক।",
+      
+      'home-step3': "এইটো তৃতীয় পদক্ষেপ: প্ৰফাইল আৰু সংগীৰ তথ্য। ইয়াত জ্যেষ্ঠজনৰ সম্পূৰ্ণ নাম, বয়স, ৰাজ্য আৰু চহৰ লিখক। তলত পৰিয়ালৰ যত্ন লওঁতাৰ নাম, ইমেইল আৰু পাছৱৰ্ড সংযোগ কৰক। খেলৰ স্তৰ নিৰ্ধাৰণৰ বাবে মেডিকেল ৰিপ’ৰ্ট আপল’ড কৰিব পাৰিব।",
       
       'elder-dashboard': "এইখন আপোনাৰ দৈনন্দিন গৃহ। পুৱাৰ ঔষধ খাই 'ঔষধ খোৱা হ’ল'ত টিপক। ১০টা স্তৰৰ স্মৃতি খেল খেলিবলৈ 'স্মৃতি খেল আৰম্ভ কৰক' টিপক আৰু আপোনজন বা চিকিৎসকক ফোন কৰিবলৈ সেউজীয়া জৰুৰী বুটামত চুই দিয়ক।",
       
@@ -201,6 +228,9 @@ export const VOICE_GUIDANCE = {
     
     layoutTitles: {
       home: 'স্বাগতম ও লগইন',
+      'home-step1': 'স্বাগতম ও লগইন',
+      'home-step2': 'ওটিপি যাচাইকরণ',
+      'home-step3': 'প্রোফাইল ও সঙ্গীর বিবরণ',
       'elder-dashboard': 'দৈনন্দিন আশ্রম ও রুটিন',
       'caregiver-dashboard': 'কেয়ারগিভার মনিটরিং',
       'caregiver-overview': 'কেয়ারগিভার মনিটরিং',
@@ -214,7 +244,13 @@ export const VOICE_GUIDANCE = {
     },
 
     layouts: {
-      home: "সাহারাতে আপনাকে স্বাগতম। আপনার ১০ সংখ্যার মোবাইল নম্বর লিখে এসএমএস ওটিপি নিন, বা সরাসরি Google দিয়ে প্রবেশ করুন। উপরে ভাষা নির্বাচন করতে পারেন। প্রোফাইল সেটআপে রোগীর নাম, বয়স, শহর ও পরিবারের যত্নকারীর অ্যাকাউন্ট যুক্ত করুন।",
+      home: "সাহারাতে আপনাকে স্বাগতম। আপনার ১০ সংখ্যার মোবাইল নম্বর লিখে এসএমএস ওটিপি নিন, বা সরাসরি Google দিয়ে প্রবেশ করুন। উপরে ভাষা নির্বাচন করতে পারেন।",
+      
+      'home-step1': "সাহারাতে আপনাকে স্বাগতম। আপনার ১০ সংখ্যার মোবাইল নম্বর লিখে ওটিপি নিন, বা সরাসরি Google দিয়ে প্রবেশ করুন।",
+      
+      'home-step2': "এটি দ্বিতীয় ধাপ: যাচাইকরণ। আপনার মোবাইলে পাঠানো ৬ সংখ্যার কোডটি এখানে লিখুন।",
+      
+      'home-step3': "এটি তৃতীয় ধাপ: প্রোফাইল ও সঙ্গীর বিবরণ। এখানে বয়স্ক ব্যক্তির নাম, বয়স, রাজ্য ও শহর লিখুন। নিচে পরিবারের যত্নকারীর নাম, ইমেইল ও পাসওয়ার্ড যুক্ত করুন। খেলার লেভেল নির্ধারণের জন্য মেডিকেল রিপোর্ট আপলোড করতে পারেন।",
       
       'elder-dashboard': "এটি আপনার নিত্যদিনের আশ্রম। সকালের ওষুধ খেয়ে 'ওষুধ খেয়েছি' বোতামে স্পর্শ করুন। ১০টি স্তরের স্মৃতি খেলা খেলতে 'স্মৃতি খেলা শুরু করুন' চাপুন এবং পরিবার বা ডাক্তারকে সরাসরি ফোন করতে সবুজ জরুরি বোতামে চাপ দিন।",
       
@@ -263,6 +299,9 @@ export const VOICE_GUIDANCE = {
     
     layoutTitles: {
       home: 'তরাম্না ওকচবা অমসুং লগইন',
+      'home-step1': 'তরাম্না ওকচবা অমসুং লগইন',
+      'home-step2': 'OTP য়েংশিনবা',
+      'home-step3': 'প্রোফাইল অমসুং সংগীগী মরোল',
       'elder-dashboard': 'য়ুমফম অমসুং হিদাক মতম',
       'caregiver-dashboard': 'য়েংশিনবগী পোর্তেল',
       'caregiver-overview': 'য়েংশিনবগী পোর্তেল',
@@ -276,7 +315,13 @@ export const VOICE_GUIDANCE = {
     },
 
     layouts: {
-      home: "সাহারা দা তরাম্না ওকচরি। মোবাইল নম্বর থাদোক্তুনা OTP লৌবীয়ু নত্রগা Google না চংবীয়ু। মথক্তা লোন হোংদোকপা য়াগনি।",
+      home: "সাহারা দা তরাম্না ওকচরি। মোবাইল নম্বর থাদোক্তুনা OTP লৌবীয়ু নত্রগা Google না চংবীয়ু।",
+      
+      'home-step1': "সাহারা দা তরাম্না ওকচরি। মোবাইল নম্বর থাদোক্তুনা OTP লৌবীয়ু নত্রগা Google না চংবীয়ু।",
+      
+      'home-step2': "অনীশুবা খোঙথাং: OTP য়েংশিনবা। ফোনদা লাকপা দিজিত ৬ গী কোড থাজিল্লু।",
+      
+      'home-step3': "অহুমশুবা খোঙথাং: প্রোফাইল অমসুং য়েংশিনবগী মরোল। মমিং, চহি, রাজ্য অমসুং শহর ইবীয়ু। য়েংশিনবগী ইমেইল অমসুং পাসৱর্দ হাপচিল্লু।",
       
       'elder-dashboard': "মসি অদোমগী য়ুমফমনি। অয়ুক্কী হিদাক চাবা লোইরে নম্বীয়ু, শান্নবীয়ু অমসুং ইমুংদা কোল তৌবীয়ু।",
       

@@ -1,11 +1,10 @@
 // Sahara Natural Human-Cadence Multilingual Female Voice Synthesis Engine
 // Delivers crystal-clear, authentic female speech for English, Hindi, Assamese, Bengali, and Manipuri
-// Features phrase chunking with natural breathing gaps and realistic human pronunciation.
+// Features single-session lock to completely eliminate overlapping or doubled voices.
 
+let activeSessionId = 0;
 let currentAudio = null;
 let currentTimeoutId = null;
-let activeSpeechQueue = [];
-let isPlayingQueue = false;
 
 // Confirmed female voice names and keywords for Web Speech API fallback
 const FEMALE_VOICE_NAMES = [
@@ -103,10 +102,10 @@ export function splitIntoHumanPhrases(text) {
 }
 
 /**
- * Stop any currently running speech synthesis, audio stream, and clear queue
+ * Stop any currently running speech synthesis, audio stream, and clear session
  */
 export function stopSpeech() {
-  if (typeof window === 'undefined') return;
+  activeSessionId++; // Invalidate any pending phrase callbacks from prior runs
 
   if (currentTimeoutId) {
     clearTimeout(currentTimeoutId);
@@ -115,6 +114,8 @@ export function stopSpeech() {
 
   if (currentAudio) {
     try {
+      currentAudio.onended = null;
+      currentAudio.onerror = null;
       currentAudio.pause();
       currentAudio.currentTime = 0;
       currentAudio.src = '';
@@ -122,10 +123,7 @@ export function stopSpeech() {
     currentAudio = null;
   }
 
-  activeSpeechQueue = [];
-  isPlayingQueue = false;
-
-  if ('speechSynthesis' in window) {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
     } catch (e) {
@@ -134,17 +132,23 @@ export function stopSpeech() {
   }
 
   try {
-    window.dispatchEvent(new CustomEvent('sahara:speech-end'));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sahara:speech-end'));
+    }
   } catch (e) {}
 }
 
 /**
  * Speak text with natural human female cadence, breath stops, and multilingual support
- * Uses high fidelity audio stream as primary engine with automatic browser synthesis fallback.
+ * Strictly enforces single session to prevent any voice doubling.
  */
 export function speakHumanText(text, options = {}) {
   if (typeof window === 'undefined') return;
   if (!text || typeof text !== 'string') return;
+
+  // Immediately cancel everything and generate a new unique session ID
+  stopSpeech();
+  const mySessionId = activeSessionId;
 
   const {
     lang = 'en-IN',
@@ -155,9 +159,6 @@ export function speakHumanText(text, options = {}) {
     onChunk = null,
     onEnd = null,
   } = options;
-
-  // Cancel any active audio
-  stopSpeech();
 
   const phrases = splitIntoHumanPhrases(text);
   if (phrases.length === 0) return;
@@ -171,10 +172,10 @@ export function speakHumanText(text, options = {}) {
   if (onStart) onStart();
 
   let phraseIndex = 0;
-  isPlayingQueue = true;
 
-  // Fallback to Web Speech API if audio element fails
+  // Fallback to Web Speech API if audio stream is unavailable
   const playViaSpeechSynthesis = (phraseItem, onDone) => {
+    if (mySessionId !== activeSessionId) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       onDone();
       return;
@@ -183,7 +184,6 @@ export function speakHumanText(text, options = {}) {
     const voice = getBestFemaleVoice(lang);
     if (voice) {
       utterance.voice = voice;
-      // Match utterance lang with voice lang to prevent browser drop
       utterance.lang = voice.lang || 'en-IN';
     } else {
       utterance.lang = 'en-IN';
@@ -192,19 +192,24 @@ export function speakHumanText(text, options = {}) {
     utterance.pitch = pitch;
     utterance.volume = volume;
 
-    utterance.onend = () => onDone();
-    utterance.onerror = () => onDone();
+    utterance.onend = () => {
+      if (mySessionId === activeSessionId) onDone();
+    };
+    utterance.onerror = () => {
+      if (mySessionId === activeSessionId) onDone();
+    };
 
     try {
       window.speechSynthesis.speak(utterance);
     } catch (e) {
-      onDone();
+      if (mySessionId === activeSessionId) onDone();
     }
   };
 
   const playNextPhrase = () => {
-    if (!isPlayingQueue || phraseIndex >= phrases.length) {
-      isPlayingQueue = false;
+    if (mySessionId !== activeSessionId) return;
+
+    if (phraseIndex >= phrases.length) {
       try {
         window.dispatchEvent(new CustomEvent('sahara:speech-end'));
       } catch (e) {}
@@ -228,19 +233,22 @@ export function speakHumanText(text, options = {}) {
 
     if (onChunk) onChunk(currentItem.text, phraseIndex - 1, phrases.length);
 
-    // Primary: High quality audio stream via /api/tts
+    // Primary Engine: High quality audio stream via /api/tts
     const ttsUrl = `/api/tts?text=${encodeURIComponent(currentItem.text)}&lang=${encodeURIComponent(lang)}`;
     const audio = new Audio(ttsUrl);
     currentAudio = audio;
     audio.volume = volume;
 
     const advanceWithPause = () => {
+      if (mySessionId !== activeSessionId) return;
+
       if (phraseIndex < phrases.length) {
         currentTimeoutId = setTimeout(() => {
-          playNextPhrase();
+          if (mySessionId === activeSessionId) {
+            playNextPhrase();
+          }
         }, currentItem.pauseMs);
       } else {
-        isPlayingQueue = false;
         try {
           window.dispatchEvent(new CustomEvent('sahara:speech-end'));
         } catch (e) {}
@@ -249,18 +257,21 @@ export function speakHumanText(text, options = {}) {
     };
 
     audio.onended = () => {
+      if (mySessionId !== activeSessionId) return;
       advanceWithPause();
     };
 
     audio.onerror = (err) => {
+      if (mySessionId !== activeSessionId) return;
       console.warn('Audio stream fallback to SpeechSynthesis:', err);
-      // Seamlessly fallback to browser synthesis for this phrase
       playViaSpeechSynthesis(currentItem, () => {
         advanceWithPause();
       });
     };
 
     audio.play().catch((playErr) => {
+      if (mySessionId !== activeSessionId) return;
+      if (playErr?.name === 'AbortError') return; // Do not fallback if intentionally stopped/replaced!
       console.warn('Audio play notice, falling back:', playErr);
       playViaSpeechSynthesis(currentItem, () => {
         advanceWithPause();
