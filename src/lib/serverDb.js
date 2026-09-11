@@ -229,35 +229,69 @@ export async function saveElderToDb({ rawIdentifier, patientData, caregiverData 
   const elderId = isEmail ? elderEmail : (elderPhone || normalizedInput || `elder_${Date.now().toString(36)}`);
   const cleanCgEmail = caregiverData?.email ? caregiverData.email.trim().toLowerCase() : 'riya@sahara.care';
 
-  const startingLevel = Math.max(1, Math.min(10, parseInt(patientData?.startingLevel, 10) || 1));
-  const unlockedLevel = Math.max(startingLevel, Math.min(10, parseInt(patientData?.unlockedLevel, 10) || startingLevel));
-  const aiAnalysis = patientData?.aiAnalysis ? {
-    recommendedLevel: Number(patientData.aiAnalysis.recommendedLevel || patientData.aiAnalysis.recommendedStartingLevel || startingLevel),
-    cognitiveSummary: String(patientData.aiAnalysis.cognitiveSummary || ''),
-    identifiedCondition: String(patientData.aiAnalysis.identifiedCondition || ''),
-    uploadedAt: patientData.aiAnalysis.uploadedAt || new Date().toISOString(),
+  // Check for existing elder record in server store or fallback to prevent data loss on re-login
+  const existing = await findElderByIdentifier(rawIdentifier) ||
+                   await findElderByIdentifier(elderId) ||
+                   (elderPhone ? await findElderByIdentifier(elderPhone) : null) ||
+                   (elderEmail ? await findElderByIdentifier(elderEmail) : null);
+
+  const startingLevel = Math.max(1, Math.min(10, parseInt(patientData?.startingLevel, 10) || existing?.startingLevel || 1));
+  const unlockedLevel = patientData?.unlockedLevel
+    ? Math.max(startingLevel, Math.min(10, parseInt(patientData.unlockedLevel, 10) || startingLevel))
+    : (existing?.unlockedLevel || startingLevel);
+  const currentSublevel = patientData?.currentSublevel
+    ? parseInt(patientData.currentSublevel, 10)
+    : (existing?.currentSublevel || 1);
+  const todayGameScore = patientData?.todayGameScore !== undefined
+    ? Number(patientData.todayGameScore)
+    : (existing?.todayGameScore || 0);
+  const todayGameSessions = patientData?.todayGameSessions !== undefined
+    ? Number(patientData.todayGameSessions)
+    : (existing?.todayGameSessions || 0);
+
+  const medications = (patientData?.medications && Array.isArray(patientData.medications) && patientData.medications.length > 0)
+    ? patientData.medications
+    : (existing?.medications || []);
+  const routines = (patientData?.routines && Array.isArray(patientData.routines) && patientData.routines.length > 0)
+    ? patientData.routines
+    : (existing?.routines || []);
+  const contacts = (patientData?.contacts && Array.isArray(patientData.contacts) && patientData.contacts.length > 0)
+    ? patientData.contacts
+    : (existing?.contacts || []);
+
+  const aiAnalysis = (patientData?.aiAnalysis || existing?.aiAnalysis) ? {
+    recommendedLevel: Number(patientData?.aiAnalysis?.recommendedLevel || patientData?.aiAnalysis?.recommendedStartingLevel || existing?.aiAnalysis?.recommendedLevel || startingLevel),
+    cognitiveSummary: String(patientData?.aiAnalysis?.cognitiveSummary || existing?.aiAnalysis?.cognitiveSummary || ''),
+    identifiedCondition: String(patientData?.aiAnalysis?.identifiedCondition || existing?.aiAnalysis?.identifiedCondition || ''),
+    uploadedAt: patientData?.aiAnalysis?.uploadedAt || existing?.aiAnalysis?.uploadedAt || new Date().toISOString(),
   } : null;
 
   const elderRecord = {
     id: elderId,
     identifier: elderId,
-    phone: elderPhone,
-    email: elderEmail,
-    name: patientData?.name || (isEmail ? elderEmail.split('@')[0] : 'Sahara Member'),
-    honorific: patientData?.honorific || `${(patientData?.name || 'Member').split(' ')[0]} ji`,
-    age: parseInt(patientData?.age, 10) || 74,
-    city: patientData?.city || 'Guwahati',
-    state: patientData?.state || 'Assam',
-    wing: patientData?.wing || 'Garden Terrace Wing',
-    location: patientData?.location || `${patientData?.city || 'Guwahati'}, ${patientData?.state || 'Assam'}`,
-    status: patientData?.status || patientData?.problemStatement || 'Mild Cognitive Support Mode',
-    problemStatement: patientData?.problemStatement || patientData?.status || 'Mild Cognitive Support Mode',
-    tabletBattery: patientData?.tabletBattery || 94,
+    phone: elderPhone || existing?.phone || '',
+    email: elderEmail || existing?.email || '',
+    name: patientData?.name || existing?.name || (isEmail ? elderEmail.split('@')[0] : 'Sahara Member'),
+    honorific: patientData?.honorific || existing?.honorific || `${(patientData?.name || existing?.name || 'Member').split(' ')[0]} ji`,
+    age: parseInt(patientData?.age, 10) || existing?.age || 74,
+    city: patientData?.city || existing?.city || 'Guwahati',
+    state: patientData?.state || existing?.state || 'Assam',
+    wing: patientData?.wing || existing?.wing || 'Garden Terrace Wing',
+    location: patientData?.location || existing?.location || `${patientData?.city || existing?.city || 'Guwahati'}, ${patientData?.state || existing?.state || 'Assam'}`,
+    status: patientData?.status || patientData?.problemStatement || existing?.status || 'Mild Cognitive Support Mode',
+    problemStatement: patientData?.problemStatement || patientData?.status || existing?.problemStatement || 'Mild Cognitive Support Mode',
+    tabletBattery: patientData?.tabletBattery || existing?.tabletBattery || 94,
     startingLevel,
     unlockedLevel,
+    currentSublevel,
+    todayGameScore,
+    todayGameSessions,
+    medications,
+    routines,
+    contacts,
     aiAnalysis,
     lastActive: 'Just now',
-    avatar: patientData?.avatar || '/avatar.png',
+    avatar: patientData?.avatar || existing?.avatar || '/avatar.png',
     caregiverEmail: cleanCgEmail,
     updatedAt: new Date().toISOString(),
   };

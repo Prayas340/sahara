@@ -7,6 +7,7 @@ import { dataStore } from '../../services/dataStore.js';
 import { authService } from '../../services/authService.js';
 import { useTranslation } from '../../utils/i18n.js';
 import { db, normalizeElderId, getTodayDateString } from '../../lib/firebaseClient.js';
+import { initializeDailyLog } from '../../lib/gameProgression.js';
 import { doc, setDoc, onSnapshot, serverTimestamp, arrayUnion } from 'firebase/firestore';
 
 // Helper to reliably resolve elder identity and caregiver email across both login roles
@@ -152,6 +153,7 @@ export default function ElderDashboardPage() {
 
       // Real-time Firestore live listener for dailyLogs
       if (db && cleanElderId) {
+        initializeDailyLog(cleanElderId).catch(() => {});
         const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayStr);
         unsubFirestore = onSnapshot(dailyLogRef, (docSnap) => {
           if (docSnap.exists()) {

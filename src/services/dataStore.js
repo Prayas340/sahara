@@ -1,3 +1,6 @@
+import { db, normalizeElderId } from '../lib/firebaseClient.js';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+
 // Sahara Shared Data Store
 const STORAGE_KEY_DATA = 'sahara_app_state_v1';
 
@@ -510,6 +513,42 @@ class DataStore {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ elderId, caregiverEmail, medicines }),
       }).catch(err => console.warn('[dataStore] Failed to sync reminders to server:', err));
+    }
+
+    // Direct Firestore write for bidirectional real-time synchronization
+    if (db && elderId) {
+      try {
+        const cleanElderId = normalizeElderId(elderId);
+        const todayDate = new Date().toISOString().split('T')[0];
+        const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const formattedMeds = medicines.map(m => ({
+          id: m.id,
+          name: m.title || m.name,
+          title: m.title || m.name,
+          detail: m.detail || '',
+          scheduledTime: m.scheduledTime || m.time || '08:00 AM',
+          taken: Boolean(m.taken),
+          completedAt: m.taken ? (m.takenAt || timeNow) : null,
+          takenAt: m.taken ? (m.takenAt || timeNow) : null,
+          takenDate: m.taken ? (m.takenDate || todayDate) : null,
+        }));
+        const formattedRoutines = medicines.map(m => ({
+          id: m.id,
+          title: m.title || m.name,
+          completed: Boolean(m.taken),
+          completedAt: m.taken ? (m.takenAt || timeNow) : null,
+        }));
+        setDoc(doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate), {
+          medications: formattedMeds,
+          routines: formattedRoutines,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+        setDoc(doc(db, 'elders', cleanElderId), {
+          medications: formattedMeds,
+          routines: formattedRoutines,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+      } catch (err) {}
     }
 
     this.notifyChange();

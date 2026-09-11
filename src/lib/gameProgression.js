@@ -3,17 +3,55 @@
 // +10 Points per Sublevel, 5 Sublevels per Main Level
 // -------------------------------------------------------------
 
-import { doc, setDoc, increment, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, setDoc, increment, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db, normalizeElderId, getTodayDateString } from './firebaseClient.js';
 import { dataStore } from '../services/dataStore.js';
 
 /**
- * Record atomic completion of a sublevel across Firestore, Local Server DB, and client state.
- * Awards exactly +10 points per sublevel.
- * Completing Sublevel 5 unlocks the next Main Level (mainLevel + 1) and resets currentSublevel to 1.
+ * Initialize today's daily log document ONLY if it does not already exist.
+ * Uses existence check + { merge: true } to guarantee that logging in/out
+ * never overwrites existing scores, sessions, or routine progress.
  */
-export const recordSublevelCompletion = async (elderId, mainLevel, subLevel, scoreData = {}, caregiverEmail = null) => {
-  if (!elderId) return null;
+export const initializeDailyLog = async (elderId) => {
+  if (!elderId) return;
+  const cleanElderId = normalizeElderId(elderId);
+  const today = getTodayDateString();
+
+  if (!db || !cleanElderId) return;
+
+  try {
+    const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', today);
+    const snap = await getDoc(dailyLogRef);
+
+    if (!snap.exists()) {
+      // Create fresh document ONLY if today's log does not already exist
+      await setDoc(dailyLogRef, {
+        date: today,
+        todayScore: 0,
+        todaySessions: 0,
+        lastPlayedLevel: 1,
+        lastPlayedSublevel: 1,
+        medications: [],
+        routines: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.warn('[gameProgression] initializeDailyLog notice:', err?.message);
+  }
+};
+
+/**
+ * Universal scoring mutation for all 10 Levels & Sublevels.
+ * Atomically increments score (+10) in elders/{elderId}/dailyLogs/{YYYY-MM-DD}
+ * and updates progression in elders/{elderId}.
+ */
+export const recordSublevelScore = async (elderId, mainLevel, subLevel, scoreData = {}, caregiverEmail = null) => {
+  if (!elderId) {
+    console.error('Missing elderId in recordSublevelScore!');
+    return null;
+  }
 
   const cleanElderId = normalizeElderId(elderId);
   const lvl = Math.max(1, Math.min(10, Number(mainLevel) || 1));
@@ -21,7 +59,7 @@ export const recordSublevelCompletion = async (elderId, mainLevel, subLevel, sco
   const today = getTodayDateString();
   const timestamp = new Date().toISOString();
 
-  const isLastSublevel = sub === 5;
+  const isLastSublevel = sub >= 5;
   const nextSublevel = isLastSublevel ? 1 : sub + 1;
   const nextUnlockedLevel = isLastSublevel ? Math.min(10, lvl + 1) : lvl;
 
@@ -47,11 +85,10 @@ export const recordSublevelCompletion = async (elderId, mainLevel, subLevel, sco
       const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', today);
       const elderRef = doc(db, 'elders', cleanElderId);
 
-      // Add +10 points to today's cumulative score and append session history
+      // 1. Atomically increment score (+10) in today's log
       await setDoc(dailyLogRef, {
         todayScore: increment(10),
         totalScore: increment(10),
-        todaySessions: increment(1),
         lastPlayedLevel: lvl,
         lastPlayedSublevel: sub,
         lastPlayedAt: serverTimestamp(),
@@ -60,10 +97,25 @@ export const recordSublevelCompletion = async (elderId, mainLevel, subLevel, sco
         gamesHistory: arrayUnion(sessionEntry),
       }, { merge: true });
 
-      // Unlock progression in elder root doc
+      // 2. Unlock progress
       if (isLastSublevel) {
+        // When completing Sublevel 5, increment total sessions and unlock next level
+        await setDoc(dailyLogRef, {
+          todaySessions: increment(1),
+          completedSessions: increment(1),
+        }, { merge: true });
+
+        let targetUnlocked = Math.min(10, lvl + 1);
+        try {
+          const snap = await getDoc(elderRef);
+          if (snap.exists()) {
+            const existingUnlocked = snap.data()?.unlockedLevel || 1;
+            targetUnlocked = Math.max(existingUnlocked, Math.min(10, lvl + 1));
+          }
+        } catch (e) {}
+
         await setDoc(elderRef, {
-          unlockedLevel: nextUnlockedLevel,
+          unlockedLevel: targetUnlocked,
           currentSublevel: 1,
           lastPlayedLevel: lvl,
           lastPlayedSublevel: sub,
@@ -73,12 +125,12 @@ export const recordSublevelCompletion = async (elderId, mainLevel, subLevel, sco
           updatedAt: serverTimestamp(),
         }, { merge: true });
       } else {
+        // Progress to next sublevel
         await setDoc(elderRef, {
-          currentSublevel: nextSublevel,
+          currentSublevel: sub + 1,
           lastPlayedLevel: lvl,
           lastPlayedSublevel: sub,
           todayGameScore: increment(10),
-          todayGameSessions: increment(1),
           lastActive: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }, { merge: true });
@@ -137,7 +189,7 @@ export const recordSublevelCompletion = async (elderId, mainLevel, subLevel, sco
       }
 
       const patientProfile = JSON.parse(localStorage.getItem('sahara_patient_profile') || '{}');
-      if (patientProfile) {
+      if (patientProfile && typeof patientProfile === 'object') {
         if (isLastSublevel) {
           patientProfile.unlockedLevel = Math.max(Number(patientProfile.unlockedLevel) || 1, nextUnlockedLevel);
           patientProfile.currentSublevel = 1;
@@ -195,3 +247,6 @@ export const recordSublevelCompletion = async (elderId, mainLevel, subLevel, sco
     sessionEntry,
   };
 };
+
+// Backward-compatible alias
+export const recordSublevelCompletion = recordSublevelScore;

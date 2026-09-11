@@ -13,6 +13,7 @@ import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
 import { showToast } from '../../components/Toast.jsx';
 import { db, normalizeElderId } from '../../lib/firebaseClient.js';
+import { initializeDailyLog } from '../../lib/gameProgression.js';
 import { doc, onSnapshot, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { COGNITIVE_LEVELS } from '../../data/gamesData.js';
 
@@ -151,6 +152,7 @@ export default function CaregiverDashboardPage() {
         }
 
         // 1. Subscribe to today's daily log: elders/{elderId}/dailyLogs/{todayDate}
+        initializeDailyLog(cleanElderId).catch(() => {});
         const dailyLogRef = doc(db, 'elders', cleanElderId, 'dailyLogs', todayDate);
         unsubDailyLog = onSnapshot(dailyLogRef, async (docSnap) => {
           try {

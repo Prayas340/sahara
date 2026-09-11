@@ -17,7 +17,7 @@ import {
   getSublevelConfig,
   getRandomPuzzle,
 } from '../../data/gameQuestionBank.js';
-import { recordSublevelCompletion } from '../../lib/gameProgression.js';
+import { recordSublevelScore, recordSublevelCompletion, initializeDailyLog } from '../../lib/gameProgression.js';
 
 function resolveElderAndCaregiver() {
   let elderId = null;
@@ -196,6 +196,11 @@ export default function ProgressiveCognitiveSuitePage() {
     const { cleanElderId, elderId, caregiverEmail } = resolved;
     const todayDate = getTodayDateString();
 
+    // 0. Initialize Daily Log document ONLY if not existing (preserves existing progress)
+    if (cleanElderId) {
+      initializeDailyLog(cleanElderId).catch(() => {});
+    }
+
     // 1. Fetch initial state & scores from Server DB
     fetch(`/api/game-scores?elderId=${encodeURIComponent(elderId || '')}&caregiverEmail=${encodeURIComponent(caregiverEmail || '')}&date=${encodeURIComponent(todayDate)}`)
       .then(r => r.json())
@@ -301,8 +306,8 @@ export default function ProgressiveCognitiveSuitePage() {
     const finalRemaining = timeLeft;
     const { cleanElderId, caregiverEmail } = resolveElderAndCaregiver();
 
-    // Call Atomic Sublevel Persistence Engine (+10 points)
-    const result = await recordSublevelCompletion(cleanElderId, activeLevel, activeSublevel, {
+    // Call Universal Atomic Sublevel Persistence (+10 points)
+    const result = await recordSublevelScore(cleanElderId, activeLevel, activeSublevel, {
       accuracy: customAccuracy,
       moves: moves || 3,
       durationSeconds: timerMax - finalRemaining,
@@ -509,7 +514,8 @@ export default function ProgressiveCognitiveSuitePage() {
     setIsDraggingL2(false);
 
     const formed = selectedCellsL2.map(cell => activeWordSearchL2.grid[cell.r]?.[cell.c] || '').join('');
-    const targetWords = activeWordSearchL2.words || [];
+    const rawWords = activeWordSearchL2.words || [];
+    const targetWords = rawWords.map(w => typeof w === 'string' ? w : (w.word || ''));
     const matched = targetWords.find(w => w.toUpperCase() === formed.toUpperCase() && !foundWordsL2.includes(w.toUpperCase()));
 
     if (matched) {
@@ -534,8 +540,8 @@ export default function ProgressiveCognitiveSuitePage() {
     const nextAnswers = { ...crosswordAnswers, [clueId]: clean };
     setCrosswordAnswers(nextAnswers);
 
-    const clues = activeCrosswordL3.clues || [];
-    const allSolved = clues.every(c => (nextAnswers[c.id] || '').toUpperCase() === c.answer.toUpperCase());
+    const clueList = activeCrosswordL3.words || activeCrosswordL3.clues || [];
+    const allSolved = clueList.length > 0 && clueList.every(c => (nextAnswers[c.id] || '').toUpperCase() === (c.answer || '').toUpperCase());
     if (allSolved) {
       handleSublevelVictory(100);
     }
@@ -549,12 +555,13 @@ export default function ProgressiveCognitiveSuitePage() {
 
     const cur = activeAnagramsL4[currentAnagramIdx];
     if (!cur) return;
-    const formed = nextAssembled.map(a => a.letter).join('');
+    const targetWord = String(cur.target || cur.targetWord || '').toUpperCase();
+    const formed = nextAssembled.map(a => a.letter).join('').toUpperCase();
 
-    if (formed.length === cur.targetWord.length) {
-      if (formed.toUpperCase() === cur.targetWord.toUpperCase()) {
-        speakText(`Correct: ${cur.targetWord}!`);
-        showToast(`Unscrambled: ${cur.targetWord}!`, 'success', 2000);
+    if (formed.length === targetWord.length) {
+      if (formed === targetWord) {
+        speakText(`Correct: ${targetWord}!`);
+        showToast(`Unscrambled: ${targetWord}!`, 'success', 2000);
         const nextSolved = [...solvedAnagrams, cur.id];
         setSolvedAnagrams(nextSolved);
         setAssembledLetters([]);
@@ -579,13 +586,15 @@ export default function ProgressiveCognitiveSuitePage() {
 
   const handleWheelSubmit = () => {
     if (isTimedOut || roundCompleted || !activeWheelL5) return;
-    const testWord = currentWheelWord.toUpperCase();
+    const testWord = currentWheelWord.trim().toUpperCase();
     if (wheelWordsFound.includes(testWord)) {
       showToast('Word already found!', 'info', 2000);
       setCurrentWheelWord('');
       return;
     }
-    if (activeWheelL5.validWords.includes(testWord) && testWord.includes(activeWheelL5.centerLetter)) {
+    const centerL = String(activeWheelL5.centerLetter || '').toUpperCase();
+    const validList = (activeWheelL5.validWords || []).map(w => String(w).toUpperCase());
+    if (validList.includes(testWord) && testWord.includes(centerL)) {
       const next = [...wheelWordsFound, testWord];
       setWheelWordsFound(next);
       speakText(`Valid word: ${testWord}!`);
@@ -598,17 +607,17 @@ export default function ProgressiveCognitiveSuitePage() {
         handleSublevelVictory(100);
       }
     } else {
-      showToast(`Must contain '${activeWheelL5.centerLetter}' and form a valid word.`, 'error', 2500);
+      showToast(`Must contain '${centerL}' and form a valid word.`, 'error', 2500);
       setCurrentWheelWord('');
     }
   };
 
   // Level 6: Proverb Select
   const handleProverbSelect = (option, currentP) => {
-    if (isTimedOut || roundCompleted) return;
-    if (option === currentP.answer) {
+    if (isTimedOut || roundCompleted || !currentP) return;
+    if (String(option).trim().toLowerCase() === String(currentP.answer).trim().toLowerCase()) {
       speakText(`Correct: ${option}!`);
-      showToast(`Correct! ${currentP.explanation}`, 'success', 2500);
+      showToast(`Correct! ${currentP.explanation || ''}`, 'success', 2500);
       const nextSolved = [...solvedProverbs, currentP.id];
       setSolvedProverbs(nextSolved);
 
@@ -624,8 +633,8 @@ export default function ProgressiveCognitiveSuitePage() {
 
   // Level 7: Rhyme Select
   const handleRhymeSelect = (option, currentR) => {
-    if (isTimedOut || roundCompleted) return;
-    if (option === currentR.correct) {
+    if (isTimedOut || roundCompleted || !currentR) return;
+    if (String(option).trim().toLowerCase() === String(currentR.correct).trim().toLowerCase()) {
       speakText(`Wonderful! ${option} rhymes with ${currentR.targetWord}!`);
       showToast(`Correct! ${option} rhymes with ${currentR.targetWord}`, 'success', 2000);
       const nextSolved = [...solvedRhymes, currentR.id];
@@ -644,7 +653,7 @@ export default function ProgressiveCognitiveSuitePage() {
   // Level 8: Category Assign
   const handleCategoryAssign = (itemId, categoryKey, correctCategory) => {
     if (isTimedOut || roundCompleted) return;
-    if (categoryKey !== correctCategory) {
+    if (String(categoryKey).toLowerCase() !== String(correctCategory).toLowerCase()) {
       showToast('Gentle check: That belongs in the other category!', 'info', 2000);
       return;
     }
@@ -653,7 +662,8 @@ export default function ProgressiveCognitiveSuitePage() {
     speakText('Sorted correctly!');
     showToast('Sorted correctly!', 'success', 1500);
 
-    if (Object.keys(next).length >= (activeCategoryL8?.items?.length || 4)) {
+    const itemsCount = (activeCategoryL8?.items?.length || 4);
+    if (Object.keys(next).length >= itemsCount) {
       handleSublevelVictory(100);
     }
   };
@@ -661,12 +671,14 @@ export default function ProgressiveCognitiveSuitePage() {
   // Level 9: Hangman Guess
   const handleHangmanGuess = (letter) => {
     if (isTimedOut || roundCompleted || hangmanGuessed.includes(letter) || !activeHangmanL9) return;
-    const nextGuessed = [...hangmanGuessed, letter];
+    const cleanLetter = String(letter).toUpperCase();
+    const nextGuessed = [...hangmanGuessed, cleanLetter];
     setHangmanGuessed(nextGuessed);
 
-    if (activeHangmanL9.word.toUpperCase().includes(letter.toUpperCase())) {
-      speakText(`Letter ${letter} found!`);
-      const allFound = activeHangmanL9.word.toUpperCase().split('').every(l => nextGuessed.includes(l));
+    const target = String(activeHangmanL9.word || '').toUpperCase();
+    if (target.includes(cleanLetter)) {
+      speakText(`Letter ${cleanLetter} found!`);
+      const allFound = target.split('').every(l => nextGuessed.includes(l));
       if (allFound) {
         handleSublevelVictory(100);
       }
@@ -682,7 +694,7 @@ export default function ProgressiveCognitiveSuitePage() {
   // Level 10: Mixed Logic Challenge Answer
   const handleChallengeAnswer = (chosen, correct) => {
     if (isTimedOut || roundCompleted) return;
-    if (chosen === correct) {
+    if (String(chosen).trim().toLowerCase() === String(correct).trim().toLowerCase()) {
       speakText(`Mastered: ${chosen}!`);
       showToast('Correct logic deduction!', 'success', 2000);
       const nextStep = challengeStep + 1;
@@ -1045,18 +1057,21 @@ export default function ProgressiveCognitiveSuitePage() {
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-[#cdf2cb] space-y-5 text-center select-none">
                 <div className="flex items-center justify-center gap-2 flex-wrap">
                   <span className="text-xs font-bold text-[#40493d]">Find Words:</span>
-                  {activeWordSearchL2.words.map((w, i) => (
-                    <span
-                      key={i}
-                      className={`text-xs font-extrabold px-3 py-1 rounded-full border ${
-                        foundWordsL2.includes(w.toUpperCase())
-                          ? 'bg-[#006e1c] text-white border-[#006e1c] line-through'
-                          : 'bg-teal-50 text-teal-800 border-teal-200'
-                      }`}
-                    >
-                      {w}
-                    </span>
-                  ))}
+                  {(activeWordSearchL2.words || []).map((w, i) => {
+                    const wordStr = typeof w === 'string' ? w : (w.word || '');
+                    return (
+                      <span
+                        key={i}
+                        className={`text-xs font-extrabold px-3 py-1 rounded-full border ${
+                          foundWordsL2.includes(wordStr.toUpperCase())
+                            ? 'bg-[#006e1c] text-white border-[#006e1c] line-through'
+                            : 'bg-teal-50 text-teal-800 border-teal-200'
+                        }`}
+                      >
+                        {wordStr}
+                      </span>
+                    );
+                  })}
                 </div>
 
                 <div
@@ -1092,23 +1107,24 @@ export default function ProgressiveCognitiveSuitePage() {
             {/* LEVEL 3: Quick Crossword */}
             {activeLevel === 3 && activeCrosswordL3 && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-[#cdf2cb] space-y-4">
-                <h3 className="text-sm font-extrabold text-[#032109]">Theme: {activeCrosswordL3.theme}</h3>
+                <h3 className="text-sm font-extrabold text-[#032109]">Theme: {activeCrosswordL3.theme || 'Crossword'}</h3>
                 <div className="space-y-3">
-                  {activeCrosswordL3.clues.map((clue) => {
-                    const ans = crosswordAnswers[clue.id] || '';
-                    const isCorrect = ans.toUpperCase() === clue.answer.toUpperCase();
+                  {(activeCrosswordL3.words || activeCrosswordL3.clues || []).map((clue, cIdx) => {
+                    const clueId = clue.id || (cIdx + 1);
+                    const ans = crosswordAnswers[clueId] || '';
+                    const isCorrect = ans.toUpperCase() === (clue.answer || '').toUpperCase();
                     return (
-                      <div key={clue.id} className="p-3.5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div key={clueId} className="p-3.5 rounded-2xl bg-[#ebffe7] border border-[#cdf2cb] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                         <div className="flex-1">
-                          <span className="text-xs font-black text-[#006e1c] uppercase">{clue.id}. {clue.direction}</span>
-                          <p className="text-xs font-bold text-[#032109] mt-0.5">{clue.clue}</p>
+                          <span className="text-xs font-black text-[#006e1c] uppercase">{clue.id || (cIdx + 1)}. {clue.direction || 'Clue'}</span>
+                          <p className="text-xs font-bold text-[#032109] mt-0.5">{clue.clue || clue.hint}</p>
                         </div>
                         <input
                           type="text"
                           value={ans}
-                          maxLength={clue.answer.length}
-                          placeholder={`${clue.answer.length} letters`}
-                          onChange={(e) => handleCrosswordChange(clue.id, e.target.value)}
+                          maxLength={(clue.answer || '').length || 8}
+                          placeholder={`${(clue.answer || '').length} letters`}
+                          onChange={(e) => handleCrosswordChange(clueId, e.target.value)}
                           className={`w-full sm:w-44 px-3 py-2 rounded-xl font-black text-sm tracking-widest uppercase border-2 outline-none ${
                             isCorrect ? 'bg-emerald-100 border-emerald-600 text-emerald-950' : 'bg-white border-gray-300'
                           }`}
@@ -1128,7 +1144,7 @@ export default function ProgressiveCognitiveSuitePage() {
                 </span>
                 <div>
                   <h3 className="text-lg font-black text-[#032109]">
-                    Clue: {activeAnagramsL4[currentAnagramIdx].clue}
+                    Clue: {activeAnagramsL4[currentAnagramIdx].hint || activeAnagramsL4[currentAnagramIdx].clue || 'Unscramble the word'}
                   </h3>
                   <p className="text-xs text-[#40493d] mt-1">Tap the letters in the correct order:</p>
                 </div>
@@ -1144,22 +1160,26 @@ export default function ProgressiveCognitiveSuitePage() {
 
                 {/* Scrambled Letter Tiles */}
                 <div className="flex items-center justify-center gap-2.5 flex-wrap">
-                  {activeAnagramsL4[currentAnagramIdx].scrambled.split('').map((letter, idx) => {
-                    const isUsed = assembledLetters.some(a => a.tileIdx === idx);
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        disabled={isUsed}
-                        onClick={() => handleAnagramTileClick(letter, idx)}
-                        className={`w-12 h-12 rounded-2xl font-black text-lg shadow-sm border-2 transition-all cursor-pointer ${
-                          isUsed ? 'bg-gray-200 text-gray-400 border-gray-300 opacity-50 cursor-not-allowed' : 'bg-white text-[#032109] border-[#006e1c] hover:scale-105 active:scale-95'
-                        }`}
-                      >
-                        {letter}
-                      </button>
-                    );
-                  })}
+                  {(() => {
+                    const cur = activeAnagramsL4[currentAnagramIdx];
+                    const tiles = Array.isArray(cur.scrambled) ? cur.scrambled : String(cur.scrambled || '').split('');
+                    return tiles.map((letter, idx) => {
+                      const isUsed = assembledLetters.some(a => a.tileIdx === idx);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          disabled={isUsed}
+                          onClick={() => handleAnagramTileClick(letter, idx)}
+                          className={`w-12 h-12 rounded-2xl font-black text-lg shadow-sm border-2 transition-all cursor-pointer ${
+                            isUsed ? 'bg-gray-200 text-gray-400 border-gray-300 opacity-50 cursor-not-allowed' : 'bg-white text-[#032109] border-[#006e1c] hover:scale-105 active:scale-95'
+                          }`}
+                        >
+                          {letter}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             )}
@@ -1168,7 +1188,7 @@ export default function ProgressiveCognitiveSuitePage() {
             {activeLevel === 5 && activeWheelL5 && (
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-[#cdf2cb] space-y-5 text-center">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#40493d]">Words Found: {wheelWordsFound.length} / {activeSubConfig.targetCount || 3}</span>
+                  <span className="text-xs font-bold text-[#40493d]">Words Found: {wheelWordsFound.length} / {activeSubConfig.targetCount || activeWheelL5.targetCount || 3}</span>
                   <span className="text-xs font-black text-indigo-900 bg-indigo-100 px-3 py-1 rounded-full">Center: {activeWheelL5.centerLetter}</span>
                 </div>
 
@@ -1177,13 +1197,13 @@ export default function ProgressiveCognitiveSuitePage() {
                 </div>
 
                 <div className="flex items-center justify-center gap-2 flex-wrap">
-                  {[activeWheelL5.centerLetter, ...activeWheelL5.outerLetters].map((l, i) => (
+                  {[activeWheelL5.centerLetter, ...(activeWheelL5.outerLetters || [])].map((l, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => handleWheelLetterTap(l)}
                       className={`w-12 h-12 rounded-2xl font-black text-lg border-2 shadow-sm transition-all cursor-pointer ${
-                        l === activeWheelL5.centerLetter ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-indigo-950 border-indigo-300 hover:bg-indigo-50'
+                        l === activeWheelL5.centerLetter ? 'bg-indigo-600 text-white border-indigo-700 shadow-md scale-105' : 'bg-white text-indigo-950 border-indigo-300 hover:bg-indigo-50'
                       }`}
                     >
                       {l}
@@ -1217,10 +1237,10 @@ export default function ProgressiveCognitiveSuitePage() {
                   Proverb {currentProverbIdx + 1} of {activeProverbsL6.length}
                 </span>
                 <h3 className="text-lg font-black text-[#032109] max-w-lg mx-auto">
-                  &ldquo;{activeProverbsL6[currentProverbIdx].sentence}&rdquo;
+                  &ldquo;{activeProverbsL6[currentProverbIdx].phrase || activeProverbsL6[currentProverbIdx].sentence}&rdquo;
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-md mx-auto">
-                  {activeProverbsL6[currentProverbIdx].options.map((opt, i) => (
+                  {(activeProverbsL6[currentProverbIdx].options || []).map((opt, i) => (
                     <button
                       key={i}
                       type="button"
@@ -1244,7 +1264,7 @@ export default function ProgressiveCognitiveSuitePage() {
                   Which word rhymes with <span className="text-pink-700 underline">&ldquo;{activeRhymesL7[currentRhymeIdx].targetWord}&rdquo;</span>?
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-md mx-auto">
-                  {activeRhymesL7[currentRhymeIdx].options.map((opt, i) => (
+                  {(activeRhymesL7[currentRhymeIdx].options || []).map((opt, i) => (
                     <button
                       key={i}
                       type="button"
@@ -1263,46 +1283,53 @@ export default function ProgressiveCognitiveSuitePage() {
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-[#cdf2cb] space-y-5 text-center">
                 <h3 className="text-sm font-black text-[#032109]">Sort each item into its correct natural category:</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {activeCategoryL8.categories.map((cat) => (
-                    <div key={cat.key} className="p-4 rounded-2xl bg-[#ebffe7] border-2 border-[#006e1c]/40 space-y-3">
-                      <h4 className="text-sm font-black text-[#006e1c]">{cat.name}</h4>
-                      <div className="min-h-[90px] p-2 bg-white rounded-xl border border-[#cdf2cb] flex flex-wrap gap-2 items-center justify-center">
-                        {Object.entries(categorizedItems)
-                          .filter(([_, assignedCat]) => assignedCat === cat.key)
-                          .map(([itemId]) => {
-                            const itm = activeCategoryL8.items.find(i => i.id === itemId);
-                            return (
-                              <span key={itemId} className="px-2.5 py-1 rounded-lg bg-[#006e1c] text-white text-xs font-black">
-                                {itm?.name || itemId}
-                              </span>
-                            );
-                          })}
+                  {(() => {
+                    const catList = activeCategoryL8.categories || [activeCategoryL8.categoryA, activeCategoryL8.categoryB].filter(Boolean);
+                    return catList.map((cat) => (
+                      <div key={cat.key} className="p-4 rounded-2xl bg-[#ebffe7] border-2 border-[#006e1c]/40 space-y-3">
+                        <h4 className="text-sm font-black text-[#006e1c]">{cat.name}</h4>
+                        <div className="min-h-[90px] p-2 bg-white rounded-xl border border-[#cdf2cb] flex flex-wrap gap-2 items-center justify-center">
+                          {Object.entries(categorizedItems)
+                            .filter(([_, assignedCat]) => assignedCat === cat.key)
+                            .map(([itemId]) => {
+                              const itm = (activeCategoryL8.items || []).find(i => i.id === itemId);
+                              return (
+                                <span key={itemId} className="px-2.5 py-1 rounded-lg bg-[#006e1c] text-white text-xs font-black">
+                                  {itm?.label || itm?.name || itemId}
+                                </span>
+                              );
+                            })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
 
                 {/* Items Pool to Sort */}
                 <div className="flex items-center justify-center gap-3 flex-wrap pt-2">
-                  {activeCategoryL8.items
-                    .filter(itm => !categorizedItems[itm.id])
-                    .map((itm) => (
-                      <div key={itm.id} className="p-3 bg-amber-50 rounded-2xl border border-amber-300 flex items-center gap-2">
-                        <span className="text-xs font-black text-[#032109]">{itm.name}</span>
-                        <div className="flex gap-1">
-                          {activeCategoryL8.categories.map(cat => (
-                            <button
-                              key={cat.key}
-                              type="button"
-                              onClick={() => handleCategoryAssign(itm.id, cat.key, itm.correctCategory)}
-                              className="px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer"
-                            >
-                              {cat.name}
-                            </button>
-                          ))}
+                  {(() => {
+                    const catList = activeCategoryL8.categories || [activeCategoryL8.categoryA, activeCategoryL8.categoryB].filter(Boolean);
+                    const items = activeCategoryL8.items || [];
+                    return items
+                      .filter(itm => !categorizedItems[itm.id])
+                      .map((itm) => (
+                        <div key={itm.id} className="p-3 bg-amber-50 rounded-2xl border border-amber-300 flex items-center gap-2">
+                          <span className="text-xs font-black text-[#032109]">{itm.label || itm.name}</span>
+                          <div className="flex gap-1">
+                            {catList.map(cat => (
+                              <button
+                                key={cat.key}
+                                type="button"
+                                onClick={() => handleCategoryAssign(itm.id, cat.key, itm.category || itm.correctCategory)}
+                                className="px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer"
+                              >
+                                {cat.name}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ));
+                  })()}
                 </div>
               </div>
             )}
@@ -1312,11 +1339,11 @@ export default function ProgressiveCognitiveSuitePage() {
               <div className="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-[#cdf2cb] space-y-5 text-center">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#40493d]">Attempts Left: <strong>{hangmanAttemptsLeft}</strong></span>
-                  <span className="text-xs font-bold text-orange-800 bg-orange-100 px-3 py-1 rounded-full">Hint: {activeHangmanL9.hint}</span>
+                  <span className="text-xs font-bold text-orange-800 bg-orange-100 px-3 py-1 rounded-full">Hint: {activeHangmanL9.clue || activeHangmanL9.hint}</span>
                 </div>
 
                 <div className="flex items-center justify-center gap-2 py-4">
-                  {activeHangmanL9.word.toUpperCase().split('').map((l, i) => (
+                  {String(activeHangmanL9.word || '').toUpperCase().split('').map((l, i) => (
                     <span
                       key={i}
                       className="w-10 h-12 rounded-xl border-b-4 border-[#006e1c] bg-[#ebffe7] flex items-center justify-center text-xl font-black text-[#032109]"
@@ -1357,7 +1384,7 @@ export default function ProgressiveCognitiveSuitePage() {
                   {activeChallengesL10[challengeStep].question}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-md mx-auto">
-                  {activeChallengesL10[challengeStep].options.map((opt, i) => (
+                  {(activeChallengesL10[challengeStep].options || []).map((opt, i) => (
                     <button
                       key={i}
                       type="button"
