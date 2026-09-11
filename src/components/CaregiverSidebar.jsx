@@ -16,8 +16,8 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
   const getMobileTabClass = (tabName) => {
     const isActive = activeTab === tabName;
     return isActive
-      ? 'flex flex-col items-center py-1 px-2 rounded-xl bg-[#006e1c] text-white font-bold text-[10px] sm:text-xs shadow-xs cursor-pointer shrink-0 transition-transform active:scale-95'
-      : 'flex flex-col items-center py-1 px-2 rounded-xl text-[#40493d] hover:bg-[#cdf2cb] font-semibold text-[10px] sm:text-xs transition-colors cursor-pointer shrink-0';
+      ? 'flex flex-col items-center justify-center py-1 px-2.5 rounded-xl bg-[#006e1c] text-white font-extrabold text-[11px] shadow-xs cursor-pointer shrink-0 transition-transform active:scale-95'
+      : 'flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[#40493d] hover:bg-[#ebffe7] hover:text-[#006e1c] font-bold text-[11px] transition-colors cursor-pointer shrink-0';
   };
 
   const handleSelectTab = (tabName) => {
@@ -36,14 +36,14 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
   return (
     <>
       {/* Mobile Sub-Navigation Bar (always visible on smaller screens so navigation never vanishes) */}
-      <div className="lg:hidden fixed top-16 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#cdf2cb] px-1.5 py-1 shadow-xs">
-        <div className="flex items-center justify-around max-w-lg mx-auto gap-0.5">
+      <div className="lg:hidden fixed top-16 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#cdf2cb] px-2 py-1 shadow-xs overflow-x-auto no-scrollbar">
+        <div className="flex items-center justify-around max-w-lg mx-auto gap-1">
           <button
             type="button"
             className={getMobileTabClass('overview')}
             onClick={() => handleSelectTab('overview')}
           >
-            <span className="material-symbols-outlined text-lg sm:text-xl">space_dashboard</span>
+            <span className="material-symbols-outlined text-lg">space_dashboard</span>
             <span>{t.tabOverview || 'Overview'}</span>
           </button>
           <button
@@ -51,23 +51,23 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             className={getMobileTabClass('memories')}
             onClick={() => handleSelectTab('memories')}
           >
-            <span className="material-symbols-outlined text-lg sm:text-xl">leaderboard</span>
-            <span>{t.tabGameScores || 'Games'}</span>
+            <span className="material-symbols-outlined text-lg">leaderboard</span>
+            <span>{t.tabGameScores || 'Scores'}</span>
           </button>
           <button
             type="button"
             className={getMobileTabClass('routine')}
             onClick={() => handleSelectTab('routine')}
           >
-            <span className="material-symbols-outlined text-lg sm:text-xl">schedule</span>
-            <span>{t.tabRoutine || 'Routine'}</span>
+            <span className="material-symbols-outlined text-lg">schedule</span>
+            <span>{t.tabRoutine || 'Routines'}</span>
           </button>
           <button
             type="button"
             className={getMobileTabClass('contacts')}
             onClick={() => handleSelectTab('contacts')}
           >
-            <span className="material-symbols-outlined text-lg sm:text-xl">contact_phone</span>
+            <span className="material-symbols-outlined text-lg">contact_phone</span>
             <span>{t.tabContacts || 'Contacts'}</span>
           </button>
           <button
@@ -75,7 +75,7 @@ export default function CaregiverSidebar({ activeTab, onSelectTab, patient }) {
             className={getMobileTabClass('report')}
             onClick={() => handleSelectTab('report')}
           >
-            <span className="material-symbols-outlined text-lg sm:text-xl">summarize</span>
+            <span className="material-symbols-outlined text-lg">summarize</span>
             <span>{t.tabReport || 'Report'}</span>
           </button>
         </div>

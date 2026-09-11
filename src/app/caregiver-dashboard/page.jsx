@@ -1007,7 +1007,7 @@ export default function CaregiverDashboardPage() {
     <div className="min-h-screen bg-[#ebffe7] text-[#032109] flex flex-col">
       <Navbar activeView="caregiver" />
 
-      <div className="flex-1 flex pt-24 sm:pt-28 lg:pt-20">
+      <div className="flex-1 flex pt-28 sm:pt-32 lg:pt-20">
         {/* Persistent Left Sidebar */}
         <CaregiverSidebar
           activeTab={activeTab}

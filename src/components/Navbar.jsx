@@ -119,7 +119,7 @@ export default function Navbar({ activeView = 'elder' }) {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#ebffe7]/95 backdrop-blur-xl border-b border-[#cdf2cb] shadow-[0_2px_12px_rgba(23,53,27,0.06)]">
-        <div className="h-16 sm:h-20 max-w-[80rem] mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="h-16 sm:h-20 max-w-[80rem] mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-2">
           {/* Hidden File Input for Avatar Upload */}
           <input
             ref={fileInputRef}
@@ -134,7 +134,7 @@ export default function Navbar({ activeView = 'elder' }) {
             onClick={handleBrandClick}
             className="flex items-center gap-2 sm:gap-3 shrink-0 cursor-pointer select-none py-1"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white shadow-xs sm:shadow-md border border-[#cdf2cb] p-1 sm:p-1.5 flex items-center justify-center shrink-0 transition-transform hover:scale-105 overflow-hidden">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 lg:w-12 lg:h-12 rounded-xl sm:rounded-2xl bg-white shadow-xs sm:shadow-md border border-[#cdf2cb] p-1 sm:p-1.5 flex items-center justify-center shrink-0 transition-transform hover:scale-105 overflow-hidden">
               <img
                 alt="Sahara Brand Logo"
                 className="w-full h-full object-contain rounded-lg max-w-full max-h-full"
@@ -143,23 +143,23 @@ export default function Navbar({ activeView = 'elder' }) {
             </div>
             <div className="flex flex-col justify-center">
               <span className="font-black text-xl sm:text-2xl lg:text-3xl text-[#0d631b] leading-none tracking-tight">Sahara</span>
-              <span className="hidden sm:inline-block text-xs font-bold text-[#40493d] tracking-normal mt-1 leading-tight">
+              <span className="hidden lg:inline-block text-xs font-bold text-[#40493d] tracking-normal mt-1 leading-tight">
                 Everyday Cognitive & Caregiver Companion
               </span>
             </div>
           </div>
 
-          {/* Center View Indicator (Strictly Isolated) */}
+          {/* Center View Indicator (Shown only on extra-large viewports to prevent wrapping/overlap) */}
           {isCaregiver ? (
-            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse"></span>
-              <span className="material-symbols-outlined text-base">health_and_safety</span>
-              <span>{t.caregiverPortal || 'Caregiver Portal'} · {t.monitoring || 'Monitoring'} {patient?.name || 'Loved One'}</span>
+            <div className="hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs font-extrabold text-[#0d631b] whitespace-nowrap">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#006e1c] animate-pulse shrink-0"></span>
+              <span className="material-symbols-outlined text-base shrink-0">health_and_safety</span>
+              <span className="truncate max-w-xs">{t.caregiverPortal || 'Caregiver Portal'} · {t.monitoring || 'Monitoring'} {patient?.name || 'Loved One'}</span>
             </div>
           ) : (
-            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs sm:text-sm font-extrabold text-[#0d631b]">
-              <span className="material-symbols-outlined text-base text-[#0d631b]">spa</span>
-              <span>{elderDisplayName} · {t.sanctuary || 'Sanctuary'}</span>
+            <div className="hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#cdf2cb] shadow-xs text-xs font-extrabold text-[#0d631b] whitespace-nowrap">
+              <span className="material-symbols-outlined text-base text-[#0d631b] shrink-0">spa</span>
+              <span className="truncate max-w-xs">{elderDisplayName} · {t.sanctuary || 'Sanctuary'}</span>
             </div>
           )}
 
@@ -180,34 +180,34 @@ export default function Navbar({ activeView = 'elder' }) {
               }}
               type="button"
               title="Voice Guidance"
-              className="flex items-center gap-1 bg-white hover:bg-[#ebffe7] text-[#0d631b] px-2 sm:px-2.5 py-1 rounded-full shadow-xs sm:shadow-sm border border-[#cdf2cb] text-xs font-bold transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-1 bg-white hover:bg-[#ebffe7] text-[#0d631b] px-2 sm:px-2.5 py-1.5 rounded-full shadow-xs border border-[#cdf2cb] text-xs font-bold transition-all active:scale-95 cursor-pointer shrink-0"
             >
               <span className="material-symbols-outlined text-sm sm:text-base text-[#0d631b]">record_voice_over</span>
-              <span className="hidden md:inline text-[11px]">{t.listen || 'Listen'}</span>
+              <span className="hidden sm:inline text-[11px] font-bold">{t.listen || 'Listen'}</span>
             </button>
 
             {/* Language Selector */}
-            <div className="relative flex items-center bg-white px-2 py-1 rounded-full shadow-xs sm:shadow-sm border border-[#cdf2cb]">
+            <div className="relative flex items-center bg-white px-2 sm:px-2.5 py-1 rounded-full shadow-xs border border-[#cdf2cb] shrink-0">
               <span className="material-symbols-outlined text-[#0d631b] text-sm sm:text-base mr-1">translate</span>
               <select
                 value={currentLang}
                 onChange={handleLanguageChange}
-                className="bg-transparent text-[11px] sm:text-xs font-bold text-[#032109] focus:outline-none cursor-pointer pr-1"
+                className="bg-transparent text-[11px] sm:text-xs font-bold text-[#032109] focus:outline-none cursor-pointer pr-0.5"
               >
                 <option value="English">English</option>
-                <option value="हिंदी">हिंदी (Hindi)</option>
-                <option value="অসমীয়া">অসমীয়া (Assamese)</option>
-                <option value="বাংলা">বাংলা (Bengali)</option>
-                <option value="মৈতৈলোন্">ꯃꯤꯇꯩꯂꯣꯟ (Manipuri)</option>
+                <option value="हिंदी">हिंदी</option>
+                <option value="অসমীয়া">অসমীয়া</option>
+                <option value="বাংলা">বাংলা</option>
+                <option value="মৈতৈলোন্">ꯃꯤꯇꯩꯂꯣꯟ</option>
               </select>
             </div>
 
             {/* Avatar & User Dropdown */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 type="button"
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-[#d9fdd6] overflow-hidden flex items-center justify-center bg-white shadow-xs sm:shadow-sm hover:ring-[#2e7d32] transition-all cursor-pointer"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-[#cdf2cb] hover:ring-[#006e1c] overflow-hidden flex items-center justify-center bg-white shadow-xs transition-all cursor-pointer"
               >
                 <img
                   alt="Profile"
