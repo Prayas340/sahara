@@ -1453,173 +1453,37 @@ export default function CaregiverDashboardPage() {
                 </div>
               </div>
 
-              {/* 10-Level Cognitive Progression Track & AI Baseline Overview */}
-              <div className="card-tactile bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-[#cdf2cb] space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-2xl text-[#0d631b]">psychology</span>
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-extrabold text-[#032109]">
-                        10-Level Cognitive Progression Track
-                      </h2>
-                      <p className="text-xs text-[#40493d]">
-                        5 progressive sublevels per game mode (+10 pts per sublevel, 50 pts per full level). Sublevels scale dynamically and unlock sequentially.
-                      </p>
+              {/* AI Assessment Report Summary Card (if available) */}
+              {patient?.aiAnalysis && (
+                <div className="card-tactile bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white rounded-3xl p-5 sm:p-6 border-2 border-teal-300 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg text-teal-800">clinical_notes</span>
+                      <h4 className="text-xs sm:text-sm font-extrabold text-teal-950">
+                        Saha AI Clinical Baseline Assessment
+                      </h4>
                     </div>
+                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300">
+                      Mapped to Starting Level {patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {(() => {
-                      const activeUnlocked = Math.max(
-                        Number(patient?.unlockedLevel) || 1,
-                        Number(gameAnalytics?.unlockedLevel) || 1,
-                        gameAnalytics?.sessions?.length
-                          ? Math.min(10, Math.max(...gameAnalytics.sessions.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out').map(s => (Number(s.level) || 0) + 1)))
-                          : 1
-                      );
-                      const activeSub = Math.max(1, Math.min(5, Number(patient?.currentSublevel) || Number(gameAnalytics?.currentSublevel) || 1));
-                      return (
-                        <span className="text-xs font-black px-3 py-1 rounded-full bg-[#d9fdd6] text-[#006e1c] border border-[#cdf2cb] flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-[#006e1c] animate-pulse"></span>
-                          <span>Level {activeUnlocked} - Sublevel {activeSub}/5 Active</span>
-                        </span>
-                      );
-                    })()}
-                    {patient?.aiAnalysis && (
-                      <span className="text-xs font-bold px-3 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-200 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">clinical_notes</span>
-                        <span>AI Baseline: L{patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* 10-Level Stepped Grid with Sublevel Progress Dots */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 pt-2">
-                  {(() => {
-                    const activeUnlocked = Math.max(
-                      Number(patient?.unlockedLevel) || 1,
-                      Number(gameAnalytics?.unlockedLevel) || 1,
-                      gameAnalytics?.sessions?.length
-                        ? Math.min(10, Math.max(...gameAnalytics.sessions.filter(s => s.status !== 'timed_out' && s.status !== 'Timed Out').map(s => (Number(s.level) || 0) + 1)))
-                        : 1
-                    );
-                    const activeSub = Math.max(1, Math.min(5, Number(patient?.currentSublevel) || Number(gameAnalytics?.currentSublevel) || 1));
-
-                    return COGNITIVE_LEVELS.map((lvl) => {
-                      const isUnlocked = lvl.level <= activeUnlocked;
-                      const isCurrentActiveLevel = lvl.level === activeUnlocked;
-                      const isFullyCleared = lvl.level < activeUnlocked;
-                      const isAiStarting = patient?.aiAnalysis && lvl.level === (patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1);
-
-                    return (
-                      <div
-                        key={lvl.level}
-                        className={`p-2.5 rounded-2xl border text-center transition-all flex flex-col justify-between min-h-[110px] ${
-                          isUnlocked
-                            ? isCurrentActiveLevel
-                              ? 'bg-[#d9fdd6]/80 border-2 border-[#006e1c] text-[#032109] shadow-sm ring-2 ring-[#006e1c]/20'
-                              : 'bg-[#ebffe7] border-[#006e1c] text-[#032109] shadow-xs'
-                            : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${
-                            isUnlocked ? 'bg-[#006e1c] text-white' : 'bg-gray-200 text-gray-500'
-                          }`}>
-                            L{lvl.level}
-                          </span>
-                          <span className="material-symbols-outlined text-sm">
-                            {isFullyCleared ? 'verified' : isCurrentActiveLevel ? 'play_circle' : isUnlocked ? 'check_circle' : 'lock'}
-                          </span>
-                        </div>
-
-                        <div className="my-1">
-                          <p className="text-[11px] font-bold leading-tight line-clamp-1">
-                            {lvl.title}
-                          </p>
-                          <p className="text-[9px] opacity-75 line-clamp-1">
-                            {lvl.category}
-                          </p>
-                        </div>
-
-                        {/* 5 Sublevel Indicator Dots */}
-                        <div className="flex items-center justify-center gap-1 my-1">
-                          {[1, 2, 3, 4, 5].map(subIdx => {
-                            const isSubDone = isFullyCleared || (isCurrentActiveLevel && subIdx < activeSub);
-                            const isSubActive = isCurrentActiveLevel && subIdx === activeSub;
-                            return (
-                              <span
-                                key={subIdx}
-                                title={`Sublevel ${subIdx}`}
-                                className={`w-1.5 h-1.5 rounded-full transition-all ${
-                                  isSubDone
-                                    ? 'bg-[#006e1c]'
-                                    : isSubActive
-                                    ? 'bg-amber-500 ring-2 ring-amber-300 animate-pulse scale-125'
-                                    : 'bg-gray-300'
-                                }`}
-                              />
-                            );
-                          })}
-                        </div>
-
-                        {isAiStarting ? (
-                          <span className="text-[8px] font-extrabold uppercase bg-teal-600 text-white rounded py-0.5">
-                            AI Start
-                          </span>
-                        ) : isCurrentActiveLevel ? (
-                          <span className="text-[9px] font-extrabold text-[#006e1c] bg-white/80 rounded py-0.5">
-                            Sub {activeSub}/5
-                          </span>
-                        ) : isFullyCleared ? (
-                          <span className="text-[9px] font-semibold text-[#006e1c]">
-                            5/5 Done
-                          </span>
-                        ) : (
-                          <span className={`text-[9px] font-semibold ${isUnlocked ? 'text-[#006e1c]' : 'text-gray-400'}`}>
-                            {isUnlocked ? 'Available' : 'Locked'}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  });
-                  })()}
-                </div>
-
-                {/* AI Assessment Report Summary Card */}
-                {patient?.aiAnalysis && (
-                  <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white border-2 border-teal-300 shadow-xs space-y-2">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-lg text-teal-800">clinical_notes</span>
-                        <h4 className="text-xs sm:text-sm font-extrabold text-teal-950">
-                          Saha AI Clinical Baseline Assessment
-                        </h4>
-                      </div>
-                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300">
-                        Mapped to Starting Level {patient.aiAnalysis.recommendedLevel || patient.startingLevel || 1}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <div className="bg-white/80 p-2 rounded-xl border border-teal-200">
+                      <span className="text-[10px] text-gray-500 font-bold block">Identified Condition:</span>
+                      <span className="font-extrabold text-[#032109]">
+                        {patient.aiAnalysis.identifiedCondition || 'Cognitive Evaluation Complete'}
                       </span>
                     </div>
-
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      <div className="bg-white/80 p-2 rounded-xl border border-teal-200">
-                        <span className="text-[10px] text-gray-500 font-bold block">Identified Condition:</span>
-                        <span className="font-extrabold text-[#032109]">
-                          {patient.aiAnalysis.identifiedCondition || 'Cognitive Evaluation Complete'}
-                        </span>
-                      </div>
-                      <div className="sm:col-span-2 bg-white/80 p-2 rounded-xl border border-teal-200">
-                        <span className="text-[10px] text-gray-500 font-bold block">Clinical Cognitive Summary:</span>
-                        <span className="text-[#40493d] font-medium leading-relaxed">
-                          {patient.aiAnalysis.cognitiveSummary || 'Patient cognitive baseline evaluated and synchronized.'}
-                        </span>
-                      </div>
+                    <div className="sm:col-span-2 bg-white/80 p-2 rounded-xl border border-teal-200">
+                      <span className="text-[10px] text-gray-500 font-bold block">Clinical Cognitive Summary:</span>
+                      <span className="text-[#40493d] font-medium leading-relaxed">
+                        {patient.aiAnalysis.cognitiveSummary || 'Patient cognitive baseline evaluated and synchronized.'}
+                      </span>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* 4 Analytics Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
