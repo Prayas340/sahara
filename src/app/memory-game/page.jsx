@@ -7,6 +7,7 @@ import { authService } from '../../services/authService.js';
 import { dataStore } from '../../services/dataStore.js';
 import { useTranslation } from '../../utils/i18n.js';
 import { speakText } from '../../utils/speech.js';
+import { getVoiceGuidance } from '../../utils/voiceGuidance.js';
 import { showToast } from '../../components/Toast.jsx';
 import { db, normalizeElderId, getTodayDateString } from '../../lib/firebaseClient.js';
 import { doc, onSnapshot, setDoc, increment, arrayUnion, serverTimestamp } from 'firebase/firestore';
@@ -537,8 +538,14 @@ export default function ProgressiveCognitiveSuitePage() {
     }
 
     setViewMode('game');
-    const levelInfo = COGNITIVE_LEVELS.find(l => l.level === lvlNum);
-    speakText(`Starting Level ${lvlNum}: ${levelInfo?.title || 'Cognitive Challenge'}. You have 60 seconds.`);
+    try {
+      window.dispatchEvent(new CustomEvent('sahara:game-level-active', { detail: { level: lvlNum } }));
+    } catch (e) {}
+
+    const curLang = dataStore.getLanguage ? dataStore.getLanguage() : 'English';
+    const vg = getVoiceGuidance(curLang);
+    const gameAudio = vg?.games?.[lvlNum] || `Starting Level ${lvlNum}. You have 60 seconds.`;
+    speakText(gameAudio, vg?.langCode || 'en-IN');
   };
 
   // -------------------------------------------------------------

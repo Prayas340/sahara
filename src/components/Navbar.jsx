@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { authService } from '../services/authService.js';
 import { dataStore } from '../services/dataStore.js';
 import { useTranslation } from '../utils/i18n.js';
+import { speakHumanText } from '../utils/speech.js';
+import { getVoiceGuidance } from '../utils/voiceGuidance.js';
 import { showToast } from './Toast.jsx';
 
 export default function Navbar({ activeView = 'elder' }) {
@@ -162,7 +164,28 @@ export default function Navbar({ activeView = 'elder' }) {
           )}
 
           {/* Right Controls */}
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Quick Voice Guidance Button */}
+            <button
+              onClick={() => {
+                const curLang = dataStore.getLanguage ? dataStore.getLanguage() : 'English';
+                const vg = getVoiceGuidance(curLang);
+                const layoutKey = activeView === 'caregiver' ? 'caregiver-dashboard' : 'elder-dashboard';
+                const text = vg?.layouts?.[layoutKey] || vg?.layouts?.['elder-dashboard'];
+                speakHumanText(text, {
+                  lang: vg?.langCode || 'en-IN',
+                  rate: 0.89,
+                  pitch: 1.10,
+                });
+              }}
+              type="button"
+              title="Voice Guidance"
+              className="flex items-center gap-1 bg-white hover:bg-[#ebffe7] text-[#0d631b] px-2 sm:px-2.5 py-1 rounded-full shadow-xs sm:shadow-sm border border-[#cdf2cb] text-xs font-bold transition-all active:scale-95 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-sm sm:text-base text-[#0d631b]">record_voice_over</span>
+              <span className="hidden md:inline text-[11px]">{t.listen || 'Listen'}</span>
+            </button>
+
             {/* Language Selector */}
             <div className="relative flex items-center bg-white px-2 py-1 rounded-full shadow-xs sm:shadow-sm border border-[#cdf2cb]">
               <span className="material-symbols-outlined text-[#0d631b] text-sm sm:text-base mr-1">translate</span>

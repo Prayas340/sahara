@@ -1,6 +1,7 @@
 import './globals.css';
 import ToastContainer from '../components/Toast.jsx';
 import DevBadgeRemover from '../components/DevBadgeRemover.jsx';
+import VoiceAssistant from '../components/VoiceAssistant.jsx';
 
 export const viewport = {
   width: 'device-width',
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
       <body className="bg-[#ebffe7] text-[#032109] antialiased min-h-screen">
         <DevBadgeRemover />
         {children}
+        <VoiceAssistant />
         <ToastContainer />
       </body>
     </html>
