@@ -298,18 +298,6 @@ export function renderElderDashboard(onNavigate) {
 
         </div>
       </main>
-
-      <!-- Persistent Floating Emergency SOS Button -->
-      <div class="fixed bottom-6 right-6 z-50">
-        <button
-          id="elder-floating-sos-btn"
-          type="button"
-          class="btn-tactile flex items-center gap-2.5 px-5 py-3.5 rounded-full bg-red-600 hover:bg-red-700 text-white font-black text-sm shadow-2xl border-2 border-white cursor-pointer hover:scale-105 active:scale-95 transition-all"
-        >
-          <span class="material-symbols-outlined text-2xl animate-pulse">emergency</span>
-          <span>Emergency SOS</span>
-        </button>
-      </div>
     </div>
   `;
 
@@ -388,7 +376,6 @@ Sent via Sahara Cognitive & Caregiver Companion
     };
 
     document.getElementById('elder-hero-sos-btn')?.addEventListener('click', triggerSosDispatch);
-    document.getElementById('elder-floating-sos-btn')?.addEventListener('click', triggerSosDispatch);
 
     // Listen to Medicine Instructions
     document.getElementById('elder-listen-med-btn')?.addEventListener('click', () => {

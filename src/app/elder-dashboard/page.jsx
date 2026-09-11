@@ -1054,31 +1054,6 @@ Sent via Sahara Cognitive & Caregiver Companion
           </div>
         </div>
       )}
-
-      {/* Persistent Floating Emergency SOS Button */}
-      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] max-w-[calc(100vw-2rem)]">
-        <button
-          onClick={handleTriggerSos}
-          id="floating-emergency-sos-button"
-          type="button"
-          disabled={sosStatus === 'sending'}
-          className={`btn-tactile flex items-center gap-2 px-4 py-3 sm:px-6 sm:py-4 rounded-full font-black text-xs sm:text-base shadow-[0_8px_24px_rgba(220,38,38,0.45)] transition-all cursor-pointer border-2 border-white hover:scale-105 active:scale-95 ${
-            sosStatus === 'sending'
-              ? 'bg-amber-500 text-white animate-pulse'
-              : sosStatus === 'sent'
-              ? 'bg-emerald-600 text-white'
-              : 'bg-red-600 hover:bg-red-700 text-white'
-          }`}
-          aria-label="Floating Emergency SOS"
-        >
-          <span className="material-symbols-outlined text-xl sm:text-2xl lg:text-3xl animate-pulse">
-            {sosStatus === 'sending' ? 'hourglass_top' : sosStatus === 'sent' ? 'check_circle' : 'emergency'}
-          </span>
-          <span className="tracking-wide">
-            {sosStatus === 'sending' ? 'Sending SOS...' : sosStatus === 'sent' ? 'SOS Sent to Caregiver' : 'Emergency SOS'}
-          </span>
-        </button>
-      </div>
     </div>
   );
 }
