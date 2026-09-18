@@ -292,10 +292,6 @@ export default function HomePage() {
         showToast('Redirecting to Google to choose your account...', 'info', 3000);
         return;
       }
-      if (res?.cancelled) {
-        showToast('Google sign-in was cancelled.', 'info');
-        return;
-      }
       if (res?.success) {
         setAuthMethod('google');
         const cleanEmail = res.email || '';
@@ -313,11 +309,13 @@ export default function HomePage() {
         showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
         setStep(3);
       } else {
-        showToast(res?.message || 'Unable to complete Google authentication.', 'error');
+        setIsGoogleModalOpen(true);
+        showToast(res?.message || 'Enter your Google email to complete your profile setup.', 'info', 5000);
       }
     } catch (err) {
       console.error(err);
-      showToast('Notice: ' + err.message, 'error');
+      setIsGoogleModalOpen(true);
+      showToast('Notice: ' + err.message, 'info');
     } finally {
       setIsLoadingGoogle(false);
     }

@@ -7,6 +7,27 @@ const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || '';
 function formatPrivateKey(key) {
   if (!key || typeof key !== 'string') return '';
   let clean = key.trim();
+  
+  // Handle JSON format if full service account was passed
+  if (clean.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(clean);
+      if (parsed.private_key) return parsed.private_key.replace(/\\n/g, '\n');
+    } catch (e) {}
+  }
+
+  // Handle Base64 encoded key
+  if (!clean.includes('BEGIN PRIVATE KEY') && (clean.startsWith('ey') || clean.startsWith('LS0t'))) {
+    try {
+      const decoded = Buffer.from(clean, 'base64').toString('utf-8');
+      if (decoded.includes('BEGIN PRIVATE KEY')) {
+        return decoded.replace(/\\n/g, '\n');
+      }
+      const parsed = JSON.parse(decoded);
+      if (parsed.private_key) return parsed.private_key.replace(/\\n/g, '\n');
+    } catch (e) {}
+  }
+
   if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
     clean = clean.slice(1, -1);
   }
@@ -14,31 +35,29 @@ function formatPrivateKey(key) {
   return clean;
 }
 
-const PRIVATE_KEY = formatPrivateKey(process.env.FIREBASE_PRIVATE_KEY);
-
-export const serviceAccount = {
-  type: 'service_account',
-  project_id: PROJECT_ID,
-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || '',
-  private_key: PRIVATE_KEY,
-  client_email: CLIENT_EMAIL,
-};
-
-// Base64Url helper
-function b64url(str) {
-  return Buffer.from(str).toString('base64url');
-}
-
-// Token cache
-let cachedToken = null;
-let tokenExpiresAt = 0;
-
 export function getAdminProjectId() {
-  return process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'sahara-63072';
+  if (process.env.FIREBASE_PROJECT_ID) return process.env.FIREBASE_PROJECT_ID.trim();
+  if (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) return process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID.trim();
+  const rawKey = process.env.FIREBASE_PRIVATE_KEY || '';
+  if (rawKey.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(rawKey);
+      if (parsed.project_id) return parsed.project_id;
+    } catch (e) {}
+  }
+  return 'sahara-63072';
 }
 
 export function getAdminClientEmail() {
-  return process.env.FIREBASE_CLIENT_EMAIL || '';
+  if (process.env.FIREBASE_CLIENT_EMAIL) return process.env.FIREBASE_CLIENT_EMAIL.trim();
+  const rawKey = process.env.FIREBASE_PRIVATE_KEY || '';
+  if (rawKey.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(rawKey);
+      if (parsed.client_email) return parsed.client_email;
+    } catch (e) {}
+  }
+  return 'firebase-adminsdk-fbsvc@sahara-63072.iam.gserviceaccount.com';
 }
 
 export function getAdminPrivateKey() {
