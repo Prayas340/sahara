@@ -181,22 +181,21 @@ export default function HomePage() {
               mode,
             });
             if (res?.success) {
-              if (res.isNewUser || mode === 'signup') {
-                setAuthMethod('google');
-                const cleanEmail = res.email || result.user.email;
-                setGoogleEmail(cleanEmail);
-                const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
-                setFullName(cleanName);
-                setAge('');
-                setCgName('');
-                setCgEmail('');
-                setCgPassword('');
-                showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
-                setStep(3);
-              } else {
-                showToast(res.message || `Welcome back, ${res.user?.name || 'Member'}! Loading your Sanctuary...`, 'success', 4000);
-                router.push('/elder-dashboard');
+              setAuthMethod('google');
+              const cleanEmail = res.email || result.user.email;
+              setGoogleEmail(cleanEmail);
+              const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
+              setFullName(cleanName);
+              if (res.elderProfile) {
+                if (res.elderProfile.name) setFullName(res.elderProfile.name);
+                if (res.elderProfile.age) setAge(String(res.elderProfile.age));
+                if (res.elderProfile.state) setSelectedState(res.elderProfile.state);
+                if (res.elderProfile.city) setSelectedCity(res.elderProfile.city);
+                if (res.elderProfile.caregiverName) setCgName(res.elderProfile.caregiverName);
+                if (res.elderProfile.caregiverEmail) setCgEmail(res.elderProfile.caregiverEmail);
               }
+              showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
+              setStep(3);
             }
           }
         }).catch((err) => console.warn('[getRedirectResult error]:', err));
@@ -298,24 +297,21 @@ export default function HomePage() {
         return;
       }
       if (res?.success) {
-        if (res.isNewUser || mode === 'signup') {
-          // SIGNUP / NEW USER: Prompt to fill up Step 3 details!
-          setAuthMethod('google');
-          const cleanEmail = res.email || '';
-          setGoogleEmail(cleanEmail);
-          const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
-          setFullName(cleanName);
-          setAge('');
-          setCgName('');
-          setCgEmail('');
-          setCgPassword('');
-          showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
-          setStep(3);
-        } else {
-          // SIGNIN (RETURNING USER): Jump straight to Sanctuary!
-          showToast(res.message || `Welcome back, ${res.user?.name || 'Member'}! Loading your Sanctuary...`, 'success', 4000);
-          router.push('/elder-dashboard');
+        setAuthMethod('google');
+        const cleanEmail = res.email || '';
+        setGoogleEmail(cleanEmail);
+        const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
+        setFullName(cleanName);
+        if (res.elderProfile) {
+          if (res.elderProfile.name) setFullName(res.elderProfile.name);
+          if (res.elderProfile.age) setAge(String(res.elderProfile.age));
+          if (res.elderProfile.state) setSelectedState(res.elderProfile.state);
+          if (res.elderProfile.city) setSelectedCity(res.elderProfile.city);
+          if (res.elderProfile.caregiverName) setCgName(res.elderProfile.caregiverName);
+          if (res.elderProfile.caregiverEmail) setCgEmail(res.elderProfile.caregiverEmail);
         }
+        showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
+        setStep(3);
       } else {
         showToast(res?.message || 'Unable to complete Google authentication.', 'error');
       }
@@ -340,26 +336,26 @@ export default function HomePage() {
         email: targetEmail,
         displayName: modalGoogleName.trim(),
         role: 'elder',
+        mode: 'signup',
       });
       setIsSubmittingGoogleModal(false);
       setIsGoogleModalOpen(false);
 
       if (res?.success) {
-        if (res.isNewUser) {
-          setAuthMethod('google');
-          setGoogleEmail(res.email);
-          const cleanName = (res.user?.name || res.email.split('@')[0]).replace(/\s*\(.*?\)\s*/g, '');
-          setFullName(cleanName);
-          setAge('');
-          setCgName('');
-          setCgEmail('');
-          setCgPassword('');
-          showToast(`Welcome ${cleanName}! Please complete your companion & caregiver details.`, 'info', 5000);
-          setStep(3);
-        } else {
-          showToast(res.message || `Welcome back, ${res.user?.name}! Loading Sanctuary...`, 'success', 4000);
-          router.push('/elder-dashboard');
+        setAuthMethod('google');
+        setGoogleEmail(res.email);
+        const cleanName = (res.user?.name || res.email.split('@')[0]).replace(/\s*\(.*?\)\s*/g, '');
+        setFullName(cleanName);
+        if (res.elderProfile) {
+          if (res.elderProfile.name) setFullName(res.elderProfile.name);
+          if (res.elderProfile.age) setAge(String(res.elderProfile.age));
+          if (res.elderProfile.state) setSelectedState(res.elderProfile.state);
+          if (res.elderProfile.city) setSelectedCity(res.elderProfile.city);
+          if (res.elderProfile.caregiverName) setCgName(res.elderProfile.caregiverName);
+          if (res.elderProfile.caregiverEmail) setCgEmail(res.elderProfile.caregiverEmail);
         }
+        showToast(`Welcome ${cleanName}! Please complete your companion & caregiver details.`, 'info', 5000);
+        setStep(3);
       } else {
         showToast(res?.message || 'Unable to verify Google account.', 'error');
       }
@@ -413,21 +409,23 @@ export default function HomePage() {
       setIsVerifying(false);
 
       if (res?.success) {
-        if (res.isNewUser) {
-          // 1ST TIME SIGNUP: Ask to complete Step 3 details!
-          setAuthMethod('phone');
+        setAuthMethod('phone');
+        if (res.elderProfile) {
+          if (res.elderProfile.name) setFullName(res.elderProfile.name);
+          if (res.elderProfile.age) setAge(String(res.elderProfile.age));
+          if (res.elderProfile.state) setSelectedState(res.elderProfile.state);
+          if (res.elderProfile.city) setSelectedCity(res.elderProfile.city);
+          if (res.elderProfile.caregiverName) setCgName(res.elderProfile.caregiverName);
+          if (res.elderProfile.caregiverEmail) setCgEmail(res.elderProfile.caregiverEmail);
+        } else {
           setFullName('');
           setAge('');
           setCgName('');
           setCgEmail('');
           setCgPassword('');
-          showToast('Phone verified! Please complete your companion & caregiver details.', 'info', 4500);
-          setStep(3);
-        } else {
-          // 2ND TIME RETURNING USER: Skips Step 3 and opens Sanctuary directly!
-          showToast(res.message || `Welcome back, ${res.user?.name || 'Member'}! Loading your Sanctuary...`, 'success', 4000);
-          window.location.href = '/elder-dashboard';
         }
+        showToast('Phone verified! Please complete your companion & caregiver details.', 'info', 4500);
+        setStep(3);
       } else {
         showToast(res?.message || 'Invalid verification code. Please check your SMS messages.', 'error', 6000);
       }
