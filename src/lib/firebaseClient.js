@@ -17,17 +17,63 @@ let auth = null;
 let googleProvider = null;
 let db = null;
 
+export function getFirebaseApp() {
+  if (!app && (firebaseConfig.apiKey || process.env.NEXT_PUBLIC_FIREBASE_API_KEY)) {
+    try {
+      app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    } catch (e) {
+      console.warn('[firebaseClient] App init error:', e.message);
+    }
+  }
+  return app;
+}
+
+export function getFirebaseAuth() {
+  const currentApp = getFirebaseApp();
+  if (!auth && currentApp) {
+    try {
+      auth = getAuth(currentApp);
+    } catch (e) {
+      console.warn('[firebaseClient] Auth init error:', e.message);
+    }
+  }
+  return auth;
+}
+
+export function getGoogleProvider() {
+  if (!googleProvider) {
+    try {
+      googleProvider = new GoogleAuthProvider();
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+    } catch (e) {
+      console.warn('[firebaseClient] Google provider init error:', e.message);
+    }
+  }
+  return googleProvider;
+}
+
+export function getFirebaseDb() {
+  const currentApp = getFirebaseApp();
+  if (!db && currentApp) {
+    try {
+      db = getFirestore(currentApp);
+    } catch (e) {
+      console.warn('[firebaseClient] Firestore init error:', e.message);
+    }
+  }
+  return db;
+}
+
+// Initial instant bootstrap
 try {
-  if (firebaseConfig.apiKey) {
+  if (firebaseConfig.apiKey || process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    auth = getAuth(app);
     if (typeof window !== 'undefined') {
-      auth = getAuth(app);
       googleProvider = new GoogleAuthProvider();
       googleProvider.setCustomParameters({ prompt: 'select_account' });
     }
     db = getFirestore(app);
-  } else {
-    console.warn('[firebaseClient] Firebase API Key is not configured. Set NEXT_PUBLIC_FIREBASE_API_KEY in .env.local');
   }
 } catch (err) {
   console.warn('[firebaseClient] Initialization notice:', err.message);

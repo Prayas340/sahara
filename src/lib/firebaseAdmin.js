@@ -33,10 +33,29 @@ function b64url(str) {
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
+export function getAdminProjectId() {
+  return process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'sahara-63072';
+}
+
+export function getAdminClientEmail() {
+  return process.env.FIREBASE_CLIENT_EMAIL || '';
+}
+
+export function getAdminPrivateKey() {
+  return formatPrivateKey(process.env.FIREBASE_PRIVATE_KEY || '');
+}
+
 /**
  * Mint Google OAuth2 access token for Google Identity Toolkit & Firebase Auth
  */
 export async function getGoogleAccessToken() {
+  const clientEmail = getAdminClientEmail();
+  const privateKey = getAdminPrivateKey();
+
+  if (!clientEmail || !privateKey) {
+    throw new Error('Firebase Service Account credentials (FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY) are missing in environment variables.');
+  }
+
   const now = Math.floor(Date.now() / 1000);
   if (cachedToken && tokenExpiresAt > now + 60) {
     return cachedToken;
@@ -44,7 +63,7 @@ export async function getGoogleAccessToken() {
 
   const header = { alg: 'RS256', typ: 'JWT' };
   const claims = {
-    iss: CLIENT_EMAIL,
+    iss: clientEmail,
     scope: 'https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/firebase https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/cloud-platform',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
@@ -54,7 +73,7 @@ export async function getGoogleAccessToken() {
   const unsigned = b64url(JSON.stringify(header)) + '.' + b64url(JSON.stringify(claims));
   const signer = crypto.createSign('RSA-SHA256');
   signer.update(unsigned);
-  const signature = signer.sign(PRIVATE_KEY, 'base64url');
+  const signature = signer.sign(privateKey, 'base64url');
   const jwt = `${unsigned}.${signature}`;
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -81,7 +100,8 @@ export async function getGoogleAccessToken() {
  */
 async function identityToolkitRequest(endpoint, body = {}) {
   const token = await getGoogleAccessToken();
-  const url = `https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}${endpoint}`;
+  const projectId = getAdminProjectId();
+  const url = `https://identitytoolkit.googleapis.com/v1/projects/${projectId}${endpoint}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -409,8 +429,9 @@ export function firestoreDecodeValue(v) {
 export async function firestoreGetDocument(docPath) {
   try {
     const token = await getGoogleAccessToken();
+    const projectId = getAdminProjectId();
     const cleanPath = docPath.startsWith('/') ? docPath.slice(1) : docPath;
-    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${cleanPath}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${cleanPath}`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -432,6 +453,7 @@ export async function firestoreGetDocument(docPath) {
 export async function firestorePatchDocument(docPath, data, maskKeys = null) {
   try {
     const token = await getGoogleAccessToken();
+    const projectId = getAdminProjectId();
     const cleanPath = docPath.startsWith('/') ? docPath.slice(1) : docPath;
     const fields = {};
     const mask = maskKeys || Object.keys(data);
@@ -444,7 +466,7 @@ export async function firestorePatchDocument(docPath, data, maskKeys = null) {
     for (const m of mask) {
       queryParams.append('updateMask.fieldPaths', m);
     }
-    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${cleanPath}?${queryParams.toString()}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${cleanPath}?${queryParams.toString()}`;
     const res = await fetch(url, {
       method: 'PATCH',
       headers: {

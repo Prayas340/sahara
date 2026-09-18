@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase.js';
 import { dataStore } from './dataStore.js';
-import { auth as firebaseClientAuth, googleProvider, db, normalizeElderId } from '../lib/firebaseClient.js';
+import { auth as firebaseClientAuth, getFirebaseAuth, googleProvider, getGoogleProvider, db, getFirebaseDb, normalizeElderId } from '../lib/firebaseClient.js';
 import { signInWithPopup } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 
@@ -137,7 +137,8 @@ export const authService = {
       };
     }
 
-    if (!firebaseClientAuth) {
+    const authInstance = firebaseClientAuth || getFirebaseAuth();
+    if (!authInstance) {
       return {
         success: false,
         message: 'Firebase client authentication is not initialized. Please try again.',
@@ -156,7 +157,7 @@ export const authService = {
 
       // Initialize or reuse invisible reCAPTCHA verifier
       if (!window.saharaRecaptchaVerifier) {
-        window.saharaRecaptchaVerifier = new RecaptchaVerifier(firebaseClientAuth, 'recaptcha-container', {
+        window.saharaRecaptchaVerifier = new RecaptchaVerifier(authInstance, 'recaptcha-container', {
           size: 'invisible',
           callback: () => {},
           'expired-callback': () => {
@@ -170,7 +171,7 @@ export const authService = {
       }
 
       const confirmationResult = await signInWithPhoneNumber(
-        firebaseClientAuth,
+        authInstance,
         formattedPhone,
         window.saharaRecaptchaVerifier
       );
@@ -474,14 +475,15 @@ export const authService = {
       sessionStorage.setItem('sahara_google_auth_mode', mode);
       sessionStorage.removeItem('sahara_signed_out');
     }
-    if (firebaseClientAuth) {
+    const authInstance = firebaseClientAuth || getFirebaseAuth();
+    if (authInstance) {
       try {
         const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = await import('firebase/auth');
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
 
         try {
-          const result = await signInWithPopup(firebaseClientAuth, provider);
+          const result = await signInWithPopup(authInstance, provider);
           if (result?.user && result.user.email) {
             return await this.processGoogleUser({
               email: result.user.email,
@@ -499,7 +501,7 @@ export const authService = {
             popupErr.code === 'auth/operation-not-supported-in-this-environment'
           ) {
             // Popup blocked: fallback to full page redirection
-            await signInWithRedirect(firebaseClientAuth, provider);
+            await signInWithRedirect(authInstance, provider);
             return { redirecting: true };
           }
           if (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/user-cancelled') {
@@ -525,10 +527,11 @@ export const authService = {
 
   // Check for Google Auth Redirect Result when user returns from accounts.google.com
   async checkGoogleRedirectResult() {
-    if (typeof window === 'undefined' || !firebaseClientAuth) return null;
+    const authInstance = firebaseClientAuth || getFirebaseAuth();
+    if (typeof window === 'undefined' || !authInstance) return null;
     try {
       const { getRedirectResult } = await import('firebase/auth');
-      const result = await getRedirectResult(firebaseClientAuth);
+      const result = await getRedirectResult(authInstance);
       if (result?.user && result.user.email) {
         let role = 'elder';
         let mode = 'signin';
@@ -854,10 +857,11 @@ export const authService = {
     }
 
     // 2. Direct Firebase Client Authentication (if API endpoint network failed)
-    if (firebaseClientAuth) {
+    const authInstance = firebaseClientAuth || getFirebaseAuth();
+    if (authInstance) {
       try {
         const { signInWithEmailAndPassword } = await import('firebase/auth');
-        const userCred = await signInWithEmailAndPassword(firebaseClientAuth, cleanEmail, cleanPassword);
+        const userCred = await signInWithEmailAndPassword(authInstance, cleanEmail, cleanPassword);
         const fbUser = userCred.user;
         const tokenResult = await fbUser.getIdTokenResult(true);
         const claims = tokenResult?.claims || {};
@@ -1001,10 +1005,11 @@ export const authService = {
 
   // Sign out
   async signOut() {
-    if (firebaseClientAuth) {
+    const authInstance = firebaseClientAuth || getFirebaseAuth();
+    if (authInstance) {
       try {
         const { signOut: fbSignOut } = await import('firebase/auth');
-        await fbSignOut(firebaseClientAuth);
+        await fbSignOut(authInstance);
       } catch (e) {
         console.warn('[authService] Firebase signOut notice:', e);
       }

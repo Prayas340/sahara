@@ -8,7 +8,7 @@ import { getTranslation } from '../utils/i18n.js';
 import { speakText, toggleAccessibilityTextSize } from '../utils/speech.js';
 import { INDIAN_STATES, getCitiesForState } from '../utils/geoData.js';
 import { showToast } from '../components/Toast.jsx';
-import { auth as firebaseClientAuth } from '../lib/firebaseClient.js';
+import { auth as firebaseClientAuth, getFirebaseAuth } from '../lib/firebaseClient.js';
 
 export default function HomePage() {
   const router = useRouter();
@@ -166,9 +166,10 @@ export default function HomePage() {
     }
 
     // Listen to Firebase Auth state on mount (catches explicit OAuth redirects only)
-    if (firebaseClientAuth) {
+    const authInstance = firebaseClientAuth || getFirebaseAuth();
+    if (authInstance) {
       import('firebase/auth').then(({ getRedirectResult }) => {
-        getRedirectResult(firebaseClientAuth).then(async (result) => {
+        getRedirectResult(authInstance).then(async (result) => {
           if (result?.user && result.user.email) {
             const role = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_role') || 'elder') : 'elder';
             const mode = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_mode') || 'signin') : 'signin';
