@@ -521,14 +521,24 @@ export const authService = {
             return { redirecting: true };
           }
           if (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/user-cancelled') {
-            return { success: false, cancelled: true, message: 'Google Sign-In was cancelled.' };
+            return {
+              success: false,
+              cancelled: true,
+              openModal: true,
+              message: 'Google popup closed. You can also sign in directly with your email.',
+            };
           }
-          throw popupErr;
+          return {
+            success: false,
+            openModal: true,
+            message: `Google popup notice (${popupErr.code || 'dev'}). Enter your Google email to proceed.`,
+          };
         }
       } catch (err) {
         console.warn('[signInWithGoogle notice]:', err);
         return {
           success: false,
+          openModal: true,
           error: err,
           code: err.code,
           message: err.message,
@@ -537,7 +547,8 @@ export const authService = {
     }
     return {
       success: false,
-      message: 'Firebase client authentication is not initialized.',
+      openModal: true,
+      message: 'Enter your Google email to proceed to profile setup.',
     };
   },
 
