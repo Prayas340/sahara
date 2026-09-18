@@ -80,18 +80,18 @@ sahara/
 Create a `.env` (or `.env.local`) file in the root directory:
 ```env
 # Firebase Client Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAh1QO_gsGLOmMFFHROIck4BF8Krv8kJAk
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=sahara-63072.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=sahara-63072
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=sahara-63072.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=887187131198
-NEXT_PUBLIC_FIREBASE_APP_ID=1:887187131198:web:3f46345f06153ea1cbba6f
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
-# Firebase Admin Service Account
-FIREBASE_PROJECT_ID=sahara-63072
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@sahara-63072.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY_ID=c05188fc7b424829ff83fb48462c8a955c480402
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
+# Firebase Admin Service Account (Server-Side)
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_CLIENT_EMAIL=your_service_account_email@your_project_id.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY_ID=your_private_key_id
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour_private_key_here\n-----END PRIVATE KEY-----"
 ```
 
 ### 3. Installation & Running Locally
