@@ -60,6 +60,10 @@ export function getAdminClientEmail() {
   return 'firebase-adminsdk-fbsvc@sahara-63072.iam.gserviceaccount.com';
 }
 
+const b64url = (str) => Buffer.from(str).toString('base64url');
+let cachedToken = null;
+let tokenExpiresAt = 0;
+
 export function getAdminPrivateKey() {
   return formatPrivateKey(process.env.FIREBASE_PRIVATE_KEY || '');
 }

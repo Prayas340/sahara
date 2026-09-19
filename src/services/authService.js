@@ -490,11 +490,21 @@ export const authService = {
 
   // Google Sign In via Real Google OAuth (Popup + Redirect fallback)
   async signInWithGoogle(role = 'elder', mode = 'signin') {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      sessionStorage.setItem('sahara_google_auth_role', role);
-      sessionStorage.setItem('sahara_google_auth_mode', mode);
-      sessionStorage.removeItem('sahara_signed_out');
+    if (typeof window !== 'undefined') {
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.setItem('sahara_google_auth_role', role);
+          sessionStorage.setItem('sahara_google_auth_mode', mode);
+          sessionStorage.removeItem('sahara_signed_out');
+        }
+        if (window.localStorage) {
+          localStorage.setItem('sahara_google_auth_role', role);
+          localStorage.setItem('sahara_google_auth_mode', mode);
+          localStorage.removeItem('sahara_signed_out');
+        }
+      } catch (e) {}
     }
+
     const authInstance = firebaseClientAuth || getFirebaseAuth();
     if (authInstance) {
       try {
@@ -504,18 +514,20 @@ export const authService = {
         try {
           const result = await signInWithPopup(authInstance, provider);
           if (result?.user && result.user.email) {
-            return await this.processGoogleUser({
+            const processed = await this.processGoogleUser({
               email: result.user.email,
               displayName: result.user.displayName,
               photoURL: result.user.photoURL,
               role,
               mode,
             });
+            return { ...processed, mode };
           }
         } catch (popupErr) {
           console.warn('[signInWithPopup notice]:', popupErr.code, popupErr.message);
 
-          if (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/user-cancelled') {
+          // If user explicitly cancelled popup after it opened and stayed open
+          if (popupErr.code === 'auth/user-cancelled') {
             return {
               success: false,
               cancelled: true,
@@ -523,17 +535,19 @@ export const authService = {
             };
           }
 
-          // If popup blocked or operation not supported, seamlessly fallback to page redirect
-          if (
-            popupErr.code === 'auth/popup-blocked' ||
-            popupErr.code === 'auth/cancelled-popup-request' ||
-            popupErr.code === 'auth/operation-not-supported-in-this-environment'
-          ) {
-            try {
-              await signInWithRedirect(authInstance, provider);
-              return { redirecting: true };
-            } catch (redirErr) {
-              console.warn('[signInWithRedirect notice]:', redirErr);
+          // For popup-blocked, popup-closed, unauthorized domain, COOP, or third-party cookie restrictions:
+          // Seamlessly redirect to Google OAuth to ensure desktop PC login works 100% reliably
+          try {
+            await signInWithRedirect(authInstance, provider);
+            return { redirecting: true };
+          } catch (redirErr) {
+            console.warn('[signInWithRedirect notice]:', redirErr);
+            if (popupErr.code === 'auth/popup-closed-by-user') {
+              return {
+                success: false,
+                cancelled: true,
+                message: 'Google sign-in was closed.',
+              };
             }
           }
 
@@ -569,20 +583,28 @@ export const authService = {
       const result = await getRedirectResult(authInstance);
       if (result?.user && result.user.email) {
         let role = 'elder';
-        let mode = 'signin';
-        if (window.sessionStorage) {
-          role = sessionStorage.getItem('sahara_google_auth_role') || 'elder';
-          mode = sessionStorage.getItem('sahara_google_auth_mode') || 'signin';
-          sessionStorage.removeItem('sahara_google_auth_role');
-          sessionStorage.removeItem('sahara_google_auth_mode');
+        let mode = 'signup'; // Default to signup on redirect return so new users are never rejected
+        if (typeof window !== 'undefined') {
+          try {
+            const ssRole = window.sessionStorage?.getItem('sahara_google_auth_role');
+            const lsRole = window.localStorage?.getItem('sahara_google_auth_role');
+            role = ssRole || lsRole || 'elder';
+
+            const ssMode = window.sessionStorage?.getItem('sahara_google_auth_mode');
+            const lsMode = window.localStorage?.getItem('sahara_google_auth_mode');
+            if (ssMode || lsMode) {
+              mode = ssMode || lsMode;
+            }
+          } catch (e) {}
         }
-        return await this.processGoogleUser({
+        const processed = await this.processGoogleUser({
           email: result.user.email,
           displayName: result.user.displayName,
           photoURL: result.user.photoURL,
           role,
           mode,
         });
+        return { ...processed, mode };
       }
     } catch (err) {
       console.warn('[checkGoogleRedirectResult notice]:', err.code, err.message);

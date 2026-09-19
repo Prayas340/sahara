@@ -165,11 +165,38 @@ export default function HomePage() {
       setAvailableCities(getCitiesForState('Assam'));
     }
 
+    // Restore Step 3 if user previously completed Google signup
+    if (typeof window !== 'undefined') {
+      try {
+        const savedStep = window.sessionStorage?.getItem('sahara_onboarding_step') || window.localStorage?.getItem('sahara_onboarding_step');
+        if (savedStep === '3') {
+          const active = authService.getCurrentUser ? authService.getCurrentUser() : null;
+          if (active) {
+            setAuthMethod(active.authProvider === 'google' ? 'google' : 'phone');
+            if (active.email) setGoogleEmail(active.email);
+            if (active.name) setFullName(active.name);
+            setStep(3);
+          }
+        }
+      } catch (e) {}
+    }
+
     // Listen to Firebase Auth state on mount (catches explicit OAuth redirects only)
     authService.checkGoogleRedirectResult().then(async (res) => {
       if (res?.success) {
-        const mode = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_mode') || 'signin') : 'signin';
-        if (mode === 'signup' || res.isNewUser) {
+        const intendedMode = res.mode || 
+          (typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_mode') || localStorage.getItem('sahara_google_auth_mode')) : '') || 
+          (res.isNewUser ? 'signup' : 'signin');
+
+        if (intendedMode === 'signup' || res.isNewUser) {
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.removeItem('sahara_google_auth_mode');
+              localStorage.removeItem('sahara_google_auth_mode');
+              sessionStorage.setItem('sahara_onboarding_step', '3');
+              localStorage.setItem('sahara_onboarding_step', '3');
+            } catch (e) {}
+          }
           setAuthMethod('google');
           const cleanEmail = res.email || '';
           setGoogleEmail(cleanEmail);
@@ -274,9 +301,12 @@ export default function HomePage() {
 
   const handleGoogleSignIn = async (mode = 'signin') => {
     setIsLoadingGoogle(true);
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      sessionStorage.removeItem('sahara_signed_out');
-      sessionStorage.setItem('sahara_google_auth_mode', mode);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('sahara_signed_out');
+        sessionStorage.setItem('sahara_google_auth_mode', mode);
+        localStorage.setItem('sahara_google_auth_mode', mode);
+      } catch (e) {}
     }
     try {
       const res = await authService.signInWithGoogle('elder', mode);
@@ -289,8 +319,16 @@ export default function HomePage() {
         return;
       }
       if (res?.success) {
-        if (mode === 'signup' || res.isNewUser) {
+        if (mode === 'signup' || res.mode === 'signup' || res.isNewUser) {
           // SIGNUP: Create new account -> redirect to Step 3
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('sahara_onboarding_step', '3');
+              localStorage.setItem('sahara_onboarding_step', '3');
+              sessionStorage.removeItem('sahara_google_auth_mode');
+              localStorage.removeItem('sahara_google_auth_mode');
+            } catch (e) {}
+          }
           setAuthMethod('google');
           const cleanEmail = res.email || '';
           setGoogleEmail(cleanEmail);
@@ -349,6 +387,14 @@ export default function HomePage() {
       setIsGoogleModalOpen(false);
 
       if (res?.success) {
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('sahara_onboarding_step', '3');
+            localStorage.setItem('sahara_onboarding_step', '3');
+            sessionStorage.removeItem('sahara_google_auth_mode');
+            localStorage.removeItem('sahara_google_auth_mode');
+          } catch (e) {}
+        }
         setAuthMethod('google');
         setGoogleEmail(res.email);
         const cleanName = (res.user?.name || res.email.split('@')[0]).replace(/\s*\(.*?\)\s*/g, '');
@@ -531,6 +577,10 @@ export default function HomePage() {
     try {
       await authService.saveElderProfile(patientData, caregiverData, targetIdentifier);
       setIsSavingSetup(false);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('sahara_onboarding_step');
+        localStorage.removeItem('sahara_onboarding_step');
+      }
       showToast(`Welcome ${cleanElderName}! Your profile and caregiver login are saved to the database.`, 'success', 5000);
       window.location.href = '/elder-dashboard';
     } catch (err) {
@@ -891,7 +941,13 @@ export default function HomePage() {
             <div className="flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setStep(authMethod === 'google' ? 1 : 2)}
+                onClick={() => {
+                  try {
+                    sessionStorage.removeItem('sahara_onboarding_step');
+                    localStorage.removeItem('sahara_onboarding_step');
+                  } catch (e) {}
+                  setStep(authMethod === 'google' ? 1 : 2);
+                }}
                 className="inline-flex items-center gap-1 text-xs font-bold text-[#0d631b] hover:underline cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">arrow_back</span>

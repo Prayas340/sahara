@@ -401,6 +401,12 @@ export function renderWelcomePhoneLogin(onNavigate) {
       `;
 
       if (res?.success) {
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('sahara_onboarding_step', '3');
+            localStorage.setItem('sahara_onboarding_step', '3');
+          } catch (e) {}
+        }
         showToast(res.message || 'Google account connected! Please fill in your companion & caregiver details.', 'info');
         onNavigate('profile-setup', { user: res.user, email: res.email });
       } else if (!res?.cancelled) {
