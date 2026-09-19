@@ -166,41 +166,33 @@ export default function HomePage() {
     }
 
     // Listen to Firebase Auth state on mount (catches explicit OAuth redirects only)
-    const authInstance = firebaseClientAuth || getFirebaseAuth();
-    if (authInstance) {
-      import('firebase/auth').then(({ getRedirectResult }) => {
-        getRedirectResult(authInstance).then(async (result) => {
-          if (result?.user && result.user.email) {
-            const role = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_role') || 'elder') : 'elder';
-            const mode = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_mode') || 'signin') : 'signin';
-            const res = await authService.processGoogleUser({
-              email: result.user.email,
-              displayName: result.user.displayName,
-              photoURL: result.user.photoURL,
-              role,
-              mode,
-            });
-            if (res?.success) {
-              setAuthMethod('google');
-              const cleanEmail = res.email || result.user.email;
-              setGoogleEmail(cleanEmail);
-              const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
-              setFullName(cleanName);
-              if (res.elderProfile) {
-                if (res.elderProfile.name) setFullName(res.elderProfile.name);
-                if (res.elderProfile.age) setAge(String(res.elderProfile.age));
-                if (res.elderProfile.state) setSelectedState(res.elderProfile.state);
-                if (res.elderProfile.city) setSelectedCity(res.elderProfile.city);
-                if (res.elderProfile.caregiverName) setCgName(res.elderProfile.caregiverName);
-                if (res.elderProfile.caregiverEmail) setCgEmail(res.elderProfile.caregiverEmail);
-              }
-              showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
-              setStep(3);
-            }
+    authService.checkGoogleRedirectResult().then(async (res) => {
+      if (res?.success) {
+        const mode = typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_mode') || 'signin') : 'signin';
+        if (mode === 'signup' || res.isNewUser) {
+          setAuthMethod('google');
+          const cleanEmail = res.email || '';
+          setGoogleEmail(cleanEmail);
+          const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
+          setFullName(cleanName);
+          setAge('');
+          setCgName('');
+          setCgEmail('');
+          setCgPassword('');
+          showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
+          setStep(3);
+        } else {
+          if (res.elderProfile && res.elderProfile.name) {
+            showToast(res.message || `Welcome back, ${res.elderProfile.name}! Loading your Sanctuary...`, 'success', 4000);
+            router.push('/elder-dashboard');
+          } else {
+            showToast('No existing Sahara profile found for this Google email. Please click "Sign up with Google" to create a new companion profile.', 'error', 6000);
           }
-        }).catch((err) => console.warn('[getRedirectResult error]:', err));
-      }).catch(() => {});
-    }
+        }
+      } else if (res?.accountNotFound) {
+        showToast(res.message, 'error', 6000);
+      }
+    }).catch((err) => console.warn('[checkGoogleRedirectResult error]:', err));
   }, []);
 
   const t = getTranslation(activeLanguage);
@@ -292,25 +284,42 @@ export default function HomePage() {
         showToast('Redirecting to Google to choose your account...', 'info', 3000);
         return;
       }
+      if (res?.cancelled) {
+        showToast('Google sign-in was cancelled.', 'info');
+        return;
+      }
       if (res?.success) {
-        setAuthMethod('google');
-        const cleanEmail = res.email || '';
-        setGoogleEmail(cleanEmail);
-        const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
-        setFullName(cleanName);
-        if (res.elderProfile) {
-          if (res.elderProfile.name) setFullName(res.elderProfile.name);
-          if (res.elderProfile.age) setAge(String(res.elderProfile.age));
-          if (res.elderProfile.state) setSelectedState(res.elderProfile.state);
-          if (res.elderProfile.city) setSelectedCity(res.elderProfile.city);
-          if (res.elderProfile.caregiverName) setCgName(res.elderProfile.caregiverName);
-          if (res.elderProfile.caregiverEmail) setCgEmail(res.elderProfile.caregiverEmail);
+        if (mode === 'signup' || res.isNewUser) {
+          // SIGNUP: Create new account -> redirect to Step 3
+          setAuthMethod('google');
+          const cleanEmail = res.email || '';
+          setGoogleEmail(cleanEmail);
+          const cleanName = (res.user?.name || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
+          setFullName(cleanName);
+          setAge('');
+          setCgName('');
+          setCgEmail('');
+          setCgPassword('');
+          showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
+          setStep(3);
+        } else {
+          // SIGNIN: Only fetch account details if account already exists
+          if (res.elderProfile && res.elderProfile.name) {
+            showToast(res.message || `Welcome back, ${res.elderProfile.name}! Loading your Sanctuary...`, 'success', 4000);
+            router.push('/elder-dashboard');
+          } else {
+            showToast('No existing Sahara account found for this Google email. Please click "Sign up with Google" to create a new companion profile.', 'error', 6000);
+          }
         }
-        showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
-        setStep(3);
       } else {
-        setIsGoogleModalOpen(true);
-        showToast(res?.message || 'Enter your Google email to complete your profile setup.', 'info', 5000);
+        if (res?.accountNotFound) {
+          showToast(res.message || 'No existing Sahara account found. Please click "Sign up with Google" to create a new companion profile.', 'error', 6000);
+        } else if (res?.openModal) {
+          setIsGoogleModalOpen(true);
+          showToast(res?.message || 'Enter your Google email to complete your profile setup.', 'info', 5000);
+        } else {
+          showToast(res?.message || 'Unable to complete Google authentication.', 'error');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -344,14 +353,10 @@ export default function HomePage() {
         setGoogleEmail(res.email);
         const cleanName = (res.user?.name || res.email.split('@')[0]).replace(/\s*\(.*?\)\s*/g, '');
         setFullName(cleanName);
-        if (res.elderProfile) {
-          if (res.elderProfile.name) setFullName(res.elderProfile.name);
-          if (res.elderProfile.age) setAge(String(res.elderProfile.age));
-          if (res.elderProfile.state) setSelectedState(res.elderProfile.state);
-          if (res.elderProfile.city) setSelectedCity(res.elderProfile.city);
-          if (res.elderProfile.caregiverName) setCgName(res.elderProfile.caregiverName);
-          if (res.elderProfile.caregiverEmail) setCgEmail(res.elderProfile.caregiverEmail);
-        }
+        setAge('');
+        setCgName('');
+        setCgEmail('');
+        setCgPassword('');
         showToast(`Welcome ${cleanName}! Please complete your companion & caregiver details.`, 'info', 5000);
         setStep(3);
       } else {
@@ -407,23 +412,21 @@ export default function HomePage() {
       setIsVerifying(false);
 
       if (res?.success) {
-        setAuthMethod('phone');
-        if (res.elderProfile) {
-          if (res.elderProfile.name) setFullName(res.elderProfile.name);
-          if (res.elderProfile.age) setAge(String(res.elderProfile.age));
-          if (res.elderProfile.state) setSelectedState(res.elderProfile.state);
-          if (res.elderProfile.city) setSelectedCity(res.elderProfile.city);
-          if (res.elderProfile.caregiverName) setCgName(res.elderProfile.caregiverName);
-          if (res.elderProfile.caregiverEmail) setCgEmail(res.elderProfile.caregiverEmail);
-        } else {
+        if (res.isNewUser) {
+          // 1ST TIME SIGNUP: Ask to complete Step 3 details!
+          setAuthMethod('phone');
           setFullName('');
           setAge('');
           setCgName('');
           setCgEmail('');
           setCgPassword('');
+          showToast('Phone verified! Please complete your companion & caregiver details.', 'info', 4500);
+          setStep(3);
+        } else {
+          // 2ND TIME RETURNING USER: Skips Step 3 and opens Sanctuary directly!
+          showToast(res.message || `Welcome back, ${res.user?.name || 'Member'}! Loading your Sanctuary...`, 'success', 4000);
+          router.push('/elder-dashboard');
         }
-        showToast('Phone verified! Please complete your companion & caregiver details.', 'info', 4500);
-        setStep(3);
       } else {
         showToast(res?.message || 'Invalid verification code. Please check your SMS messages.', 'error', 6000);
       }

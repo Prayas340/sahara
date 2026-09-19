@@ -1,7 +1,7 @@
 import { getSupabase } from './supabase.js';
 import { dataStore } from './dataStore.js';
 import { auth as firebaseClientAuth, getFirebaseAuth, googleProvider, getGoogleProvider, db, getFirebaseDb, normalizeElderId } from '../lib/firebaseClient.js';
-import { signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 const SESSION_STORAGE_USER = 'sahara_active_user';
@@ -410,8 +410,9 @@ export const authService = {
         user: pendingGoogleUser,
         role: 'elder',
         isNewUser: true,
+        mode: 'signup',
         email: googleUser.email,
-        message: 'Google account connected! Please fill in your elder & caregiver profile details.',
+        message: 'Google account connected! Please fill in your companion & caregiver details.',
       };
     }
 
@@ -448,6 +449,7 @@ export const authService = {
         user: returningGoogleElder,
         role: 'elder',
         isNewUser: false,
+        mode: 'signin',
         elderProfile: resolvedElder,
         message: `Welcome back, ${resolvedElder.name}! Entering your Sanctuary...`,
       };
@@ -475,12 +477,14 @@ export const authService = {
     this.setCurrentUser(pendingGoogleUser);
 
     return {
-      success: true,
+      success: false,
       user: pendingGoogleUser,
       role: 'elder',
       isNewUser: true,
+      mode: 'signin',
       email: googleUser.email,
-      message: 'No existing profile found. Please complete your elder & caregiver profile details.',
+      accountNotFound: true,
+      message: `No existing account found for ${googleUser.email}. Please use "Sign up with Google" to create a new companion profile.`,
     };
   },
 
@@ -494,7 +498,6 @@ export const authService = {
     const authInstance = firebaseClientAuth || getFirebaseAuth();
     if (authInstance) {
       try {
-        const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = await import('firebase/auth');
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
 
@@ -511,23 +514,29 @@ export const authService = {
           }
         } catch (popupErr) {
           console.warn('[signInWithPopup notice]:', popupErr.code, popupErr.message);
+
+          if (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/user-cancelled') {
+            return {
+              success: false,
+              cancelled: true,
+              message: 'Google sign-in was cancelled.',
+            };
+          }
+
+          // If popup blocked or operation not supported, seamlessly fallback to page redirect
           if (
             popupErr.code === 'auth/popup-blocked' ||
             popupErr.code === 'auth/cancelled-popup-request' ||
             popupErr.code === 'auth/operation-not-supported-in-this-environment'
           ) {
-            // Popup blocked: fallback to full page redirection
-            await signInWithRedirect(authInstance, provider);
-            return { redirecting: true };
+            try {
+              await signInWithRedirect(authInstance, provider);
+              return { redirecting: true };
+            } catch (redirErr) {
+              console.warn('[signInWithRedirect notice]:', redirErr);
+            }
           }
-          if (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/user-cancelled') {
-            return {
-              success: false,
-              cancelled: true,
-              openModal: true,
-              message: 'Google popup closed. You can also sign in directly with your email.',
-            };
-          }
+
           return {
             success: false,
             openModal: true,
@@ -557,7 +566,6 @@ export const authService = {
     const authInstance = firebaseClientAuth || getFirebaseAuth();
     if (typeof window === 'undefined' || !authInstance) return null;
     try {
-      const { getRedirectResult } = await import('firebase/auth');
       const result = await getRedirectResult(authInstance);
       if (result?.user && result.user.email) {
         let role = 'elder';
