@@ -502,6 +502,13 @@ export const authService = {
           localStorage.setItem('sahara_google_auth_mode', mode);
           localStorage.removeItem('sahara_signed_out');
         }
+        document.cookie = `sahara_google_auth_role=${role}; path=/; max-age=3600; SameSite=Lax`;
+        document.cookie = `sahara_google_auth_mode=${mode}; path=/; max-age=3600; SameSite=Lax`;
+        if (mode === 'signup') {
+          sessionStorage.setItem('sahara_onboarding_step', '3');
+          localStorage.setItem('sahara_onboarding_step', '3');
+          document.cookie = 'sahara_onboarding_step=3; path=/; max-age=3600; SameSite=Lax';
+        }
       } catch (e) {}
     }
 
@@ -601,12 +608,20 @@ export const authService = {
           try {
             const ssRole = window.sessionStorage?.getItem('sahara_google_auth_role');
             const lsRole = window.localStorage?.getItem('sahara_google_auth_role');
-            role = ssRole || lsRole || 'elder';
+            const cookieRole = document.cookie
+              .split('; ')
+              .find((r) => r.startsWith('sahara_google_auth_role='))
+              ?.split('=')[1];
+            role = ssRole || lsRole || cookieRole || 'elder';
 
             const ssMode = window.sessionStorage?.getItem('sahara_google_auth_mode');
             const lsMode = window.localStorage?.getItem('sahara_google_auth_mode');
-            if (ssMode || lsMode) {
-              mode = ssMode || lsMode;
+            const cookieMode = document.cookie
+              .split('; ')
+              .find((r) => r.startsWith('sahara_google_auth_mode='))
+              ?.split('=')[1];
+            if (ssMode || lsMode || cookieMode) {
+              mode = ssMode || lsMode || cookieMode;
             }
           } catch (e) {}
         }

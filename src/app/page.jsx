@@ -142,6 +142,39 @@ export default function HomePage() {
   };
 
 
+  const getStorageOrCookie = (key) => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const valSession = window.sessionStorage?.getItem(key);
+      if (valSession) return valSession;
+      const valLocal = window.localStorage?.getItem(key);
+      if (valLocal) return valLocal;
+      const match = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(`${key}=`));
+      if (match) return decodeURIComponent(match.split('=')[1] || '');
+    } catch (e) {}
+    return null;
+  };
+
+  const setStorageAndCookie = (key, val) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.sessionStorage?.setItem(key, val);
+      window.localStorage?.setItem(key, val);
+      document.cookie = `${key}=${encodeURIComponent(val)}; path=/; max-age=3600; SameSite=Lax`;
+    } catch (e) {}
+  };
+
+  const clearStorageAndCookie = (key) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.sessionStorage?.removeItem(key);
+      window.localStorage?.removeItem(key);
+      document.cookie = `${key}=; path=/; max-age=0; SameSite=Lax`;
+    } catch (e) {}
+  };
+
   useEffect(() => {
     const lang = dataStore.getLanguage ? dataStore.getLanguage() : 'English';
     setActiveLanguage(lang);
@@ -166,38 +199,31 @@ export default function HomePage() {
       setAvailableCities(getCitiesForState('Assam'));
     }
 
-    // Restore Step 3 if user previously completed Google signup
+    // 1. Restore Step 3 immediately if user previously initiated or completed signup
     if (typeof window !== 'undefined') {
       try {
-        const savedStep = window.sessionStorage?.getItem('sahara_onboarding_step') || window.localStorage?.getItem('sahara_onboarding_step');
+        const savedStep = getStorageOrCookie('sahara_onboarding_step');
         if (savedStep === '3') {
           const active = authService.getCurrentUser ? authService.getCurrentUser() : null;
           if (active) {
             setAuthMethod(active.authProvider === 'google' ? 'google' : 'phone');
             if (active.email) setGoogleEmail(active.email);
             if (active.name) setFullName(active.name);
-            setStep(3);
           }
+          setStep(3);
         }
       } catch (e) {}
     }
 
-    // Listen to Firebase Auth state on mount (catches explicit OAuth redirects only)
+    // 2. Listen to Firebase Auth redirect result (accounts.google.com -> sahara)
     authService.checkGoogleRedirectResult().then(async (res) => {
       if (res?.success) {
-        const intendedMode = res.mode || 
-          (typeof window !== 'undefined' ? (sessionStorage.getItem('sahara_google_auth_mode') || localStorage.getItem('sahara_google_auth_mode')) : '') || 
-          (res.isNewUser ? 'signup' : 'signin');
+        const intendedMode = res.mode || getStorageOrCookie('sahara_google_auth_mode') || (res.isNewUser ? 'signup' : 'signin');
 
-        if (intendedMode === 'signup' || res.isNewUser) {
-          if (typeof window !== 'undefined') {
-            try {
-              sessionStorage.removeItem('sahara_google_auth_mode');
-              localStorage.removeItem('sahara_google_auth_mode');
-              sessionStorage.setItem('sahara_onboarding_step', '3');
-              localStorage.setItem('sahara_onboarding_step', '3');
-            } catch (e) {}
-          }
+        if (intendedMode === 'signup' || res.isNewUser || !res.elderProfile?.name) {
+          setStorageAndCookie('sahara_onboarding_step', '3');
+          clearStorageAndCookie('sahara_google_auth_mode');
+
           setAuthMethod('google');
           const cleanEmail = res.email || '';
           setGoogleEmail(cleanEmail);
@@ -211,14 +237,22 @@ export default function HomePage() {
           setStep(3);
         } else {
           if (res.elderProfile && res.elderProfile.name) {
+            clearStorageAndCookie('sahara_onboarding_step');
+            clearStorageAndCookie('sahara_google_auth_mode');
             showToast(res.message || `Welcome back, ${res.elderProfile.name}! Loading your Sanctuary...`, 'success', 4000);
             router.push('/elder-dashboard');
           } else {
             showToast('No existing Sahara profile found for this Google email. Please click "Sign up with Google" to create a new companion profile.', 'error', 6000);
+            const authInstance = firebaseClientAuth || getFirebaseAuth();
+            if (authInstance?.signOut) authInstance.signOut().catch(() => {});
+            clearStorageAndCookie('sahara_google_auth_mode');
+            clearStorageAndCookie('sahara_onboarding_step');
           }
         }
       } else if (res?.accountNotFound) {
         showToast(res.message, 'error', 6000);
+        clearStorageAndCookie('sahara_google_auth_mode');
+        clearStorageAndCookie('sahara_onboarding_step');
       }
     }).catch((err) => console.warn('[checkGoogleRedirectResult error]:', err));
 
@@ -231,31 +265,42 @@ export default function HomePage() {
           if (typeof window !== 'undefined' && sessionStorage.getItem('sahara_signed_out')) {
             return;
           }
-          const authMode = typeof window !== 'undefined'
-            ? (sessionStorage.getItem('sahara_google_auth_mode') || localStorage.getItem('sahara_google_auth_mode'))
-            : null;
-          const currentStep = typeof window !== 'undefined'
-            ? (sessionStorage.getItem('sahara_onboarding_step') || localStorage.getItem('sahara_onboarding_step'))
-            : null;
+          const authMode = getStorageOrCookie('sahara_google_auth_mode');
+          const currentStep = getStorageOrCookie('sahara_onboarding_step');
 
-          // If signup flow is active or user was redirected after clicking signup
-          if (authMode === 'signup' || currentStep === '3') {
-            const cleanEmail = fbUser.email.toLowerCase();
-            const cleanName = (fbUser.displayName || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
-            setAuthMethod('google');
-            setGoogleEmail(cleanEmail);
-            setFullName(cleanName);
-            if (typeof window !== 'undefined') {
-              try {
-                sessionStorage.setItem('sahara_onboarding_step', '3');
-                localStorage.setItem('sahara_onboarding_step', '3');
-                sessionStorage.removeItem('sahara_google_auth_mode');
-                localStorage.removeItem('sahara_google_auth_mode');
-              } catch (e) {}
+          // Check if elder user profile already exists in database
+          const checkRes = await authService.checkElderUser(fbUser.email);
+          const hasExistingProfile = Boolean(checkRes?.exists && checkRes?.elder?.name);
+
+          // CASE 1: User explicitly chose "Sign in with Google"
+          if (authMode === 'signin') {
+            if (hasExistingProfile) {
+              clearStorageAndCookie('sahara_google_auth_mode');
+              clearStorageAndCookie('sahara_onboarding_step');
+              showToast(`Welcome back, ${checkRes.elder.name}! Loading your Sanctuary...`, 'success', 4000);
+              router.push('/elder-dashboard');
+            } else {
+              showToast('No existing Sahara account found for this Google email. Please click "Sign up with Google" to create a new companion profile.', 'error', 6000);
+              clearStorageAndCookie('sahara_google_auth_mode');
+              clearStorageAndCookie('sahara_onboarding_step');
+              if (authInstance?.signOut) authInstance.signOut().catch(() => {});
             }
-            showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
-            setStep(3);
+            return;
           }
+
+          // CASE 2: User clicked "Sign up with Google", OR Step 3 was initiated, OR user has no profile yet
+          // IMMEDIATELY TRANSITION TO STEP 3!
+          const cleanEmail = fbUser.email.toLowerCase();
+          const cleanName = (fbUser.displayName || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
+          setAuthMethod('google');
+          setGoogleEmail(cleanEmail);
+          setFullName(cleanName);
+
+          setStorageAndCookie('sahara_onboarding_step', '3');
+          clearStorageAndCookie('sahara_google_auth_mode');
+
+          showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details below.`, 'info', 5000);
+          setStep(3);
         }
       });
     }
@@ -344,34 +389,35 @@ export default function HomePage() {
 
   const handleGoogleSignIn = async (mode = 'signin') => {
     setIsLoadingGoogle(true);
+    setStorageAndCookie('sahara_google_auth_mode', mode);
+    if (mode === 'signup') {
+      setStorageAndCookie('sahara_onboarding_step', '3');
+    } else {
+      clearStorageAndCookie('sahara_onboarding_step');
+    }
     if (typeof window !== 'undefined') {
       try {
         sessionStorage.removeItem('sahara_signed_out');
-        sessionStorage.setItem('sahara_google_auth_mode', mode);
-        localStorage.setItem('sahara_google_auth_mode', mode);
       } catch (e) {}
     }
     try {
       const res = await authService.signInWithGoogle('elder', mode);
       if (res?.redirecting) {
-        showToast('Redirecting to Google to choose your account...', 'info', 3000);
+        showToast('Connecting with Google to complete setup...', 'info', 3000);
         return;
       }
       if (res?.cancelled) {
         showToast('Google sign-in was cancelled.', 'info');
+        clearStorageAndCookie('sahara_google_auth_mode');
+        clearStorageAndCookie('sahara_onboarding_step');
         return;
       }
       if (res?.success) {
         if (mode === 'signup' || res.mode === 'signup' || res.isNewUser) {
           // SIGNUP: Create new account -> redirect to Step 3
-          if (typeof window !== 'undefined') {
-            try {
-              sessionStorage.setItem('sahara_onboarding_step', '3');
-              localStorage.setItem('sahara_onboarding_step', '3');
-              sessionStorage.removeItem('sahara_google_auth_mode');
-              localStorage.removeItem('sahara_google_auth_mode');
-            } catch (e) {}
-          }
+          setStorageAndCookie('sahara_onboarding_step', '3');
+          clearStorageAndCookie('sahara_google_auth_mode');
+
           setAuthMethod('google');
           const cleanEmail = res.email || '';
           setGoogleEmail(cleanEmail);
@@ -386,15 +432,25 @@ export default function HomePage() {
         } else {
           // SIGNIN: Only fetch account details if account already exists
           if (res.elderProfile && res.elderProfile.name) {
+            clearStorageAndCookie('sahara_onboarding_step');
+            clearStorageAndCookie('sahara_google_auth_mode');
             showToast(res.message || `Welcome back, ${res.elderProfile.name}! Loading your Sanctuary...`, 'success', 4000);
             router.push('/elder-dashboard');
           } else {
             showToast('No existing Sahara account found for this Google email. Please click "Sign up with Google" to create a new companion profile.', 'error', 6000);
+            clearStorageAndCookie('sahara_google_auth_mode');
+            clearStorageAndCookie('sahara_onboarding_step');
+            const authInstance = firebaseClientAuth || getFirebaseAuth();
+            if (authInstance?.signOut) authInstance.signOut().catch(() => {});
           }
         }
       } else {
         if (res?.accountNotFound) {
           showToast(res.message || 'No existing Sahara account found. Please click "Sign up with Google" to create a new companion profile.', 'error', 6000);
+          clearStorageAndCookie('sahara_google_auth_mode');
+          clearStorageAndCookie('sahara_onboarding_step');
+          const authInstance = firebaseClientAuth || getFirebaseAuth();
+          if (authInstance?.signOut) authInstance.signOut().catch(() => {});
         } else if (res?.openModal) {
           setIsGoogleModalOpen(true);
           showToast(res?.message || 'Enter your Google email to complete your profile setup.', 'info', 5000);
@@ -430,14 +486,9 @@ export default function HomePage() {
       setIsGoogleModalOpen(false);
 
       if (res?.success) {
-        if (typeof window !== 'undefined') {
-          try {
-            sessionStorage.setItem('sahara_onboarding_step', '3');
-            localStorage.setItem('sahara_onboarding_step', '3');
-            sessionStorage.removeItem('sahara_google_auth_mode');
-            localStorage.removeItem('sahara_google_auth_mode');
-          } catch (e) {}
-        }
+        setStorageAndCookie('sahara_onboarding_step', '3');
+        clearStorageAndCookie('sahara_google_auth_mode');
+
         setAuthMethod('google');
         setGoogleEmail(res.email);
         const cleanName = (res.user?.name || res.email.split('@')[0]).replace(/\s*\(.*?\)\s*/g, '');
@@ -503,6 +554,7 @@ export default function HomePage() {
       if (res?.success) {
         if (res.isNewUser) {
           // 1ST TIME SIGNUP: Ask to complete Step 3 details!
+          setStorageAndCookie('sahara_onboarding_step', '3');
           setAuthMethod('phone');
           setFullName('');
           setAge('');
@@ -513,6 +565,7 @@ export default function HomePage() {
           setStep(3);
         } else {
           // 2ND TIME RETURNING USER: Skips Step 3 and opens Sanctuary directly!
+          clearStorageAndCookie('sahara_onboarding_step');
           showToast(res.message || `Welcome back, ${res.user?.name || 'Member'}! Loading your Sanctuary...`, 'success', 4000);
           router.push('/elder-dashboard');
         }
@@ -620,10 +673,8 @@ export default function HomePage() {
     try {
       await authService.saveElderProfile(patientData, caregiverData, targetIdentifier);
       setIsSavingSetup(false);
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('sahara_onboarding_step');
-        localStorage.removeItem('sahara_onboarding_step');
-      }
+      clearStorageAndCookie('sahara_onboarding_step');
+      clearStorageAndCookie('sahara_google_auth_mode');
       showToast(`Welcome ${cleanElderName}! Your profile and caregiver login are saved to the database.`, 'success', 5000);
       window.location.href = '/elder-dashboard';
     } catch (err) {
@@ -985,10 +1036,8 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => {
-                  try {
-                    sessionStorage.removeItem('sahara_onboarding_step');
-                    localStorage.removeItem('sahara_onboarding_step');
-                  } catch (e) {}
+                  clearStorageAndCookie('sahara_onboarding_step');
+                  clearStorageAndCookie('sahara_google_auth_mode');
                   setStep(authMethod === 'google' ? 1 : 2);
                 }}
                 className="inline-flex items-center gap-1 text-xs font-bold text-[#0d631b] hover:underline cursor-pointer"
