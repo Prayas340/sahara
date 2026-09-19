@@ -507,6 +507,19 @@ export const authService = {
 
     const authInstance = firebaseClientAuth || getFirebaseAuth();
     if (authInstance) {
+      // Fast path: If user already has an active Google session in Firebase and requests signup, reuse it immediately
+      if (authInstance.currentUser?.email && mode === 'signup') {
+        const u = authInstance.currentUser;
+        const processed = await this.processGoogleUser({
+          email: u.email,
+          displayName: u.displayName,
+          photoURL: u.photoURL,
+          role,
+          mode: 'signup',
+        });
+        return { ...processed, mode: 'signup' };
+      }
+
       try {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });

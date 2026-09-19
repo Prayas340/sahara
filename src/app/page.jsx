@@ -9,6 +9,7 @@ import { speakText, toggleAccessibilityTextSize } from '../utils/speech.js';
 import { INDIAN_STATES, getCitiesForState } from '../utils/geoData.js';
 import { showToast } from '../components/Toast.jsx';
 import { auth as firebaseClientAuth, getFirebaseAuth } from '../lib/firebaseClient.js';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function HomePage() {
   const router = useRouter();
@@ -220,6 +221,48 @@ export default function HomePage() {
         showToast(res.message, 'error', 6000);
       }
     }).catch((err) => console.warn('[checkGoogleRedirectResult error]:', err));
+
+    // 3. Realtime Auth State Listener: When Google signs in or session is restored in IndexedDB
+    const authInstance = firebaseClientAuth || getFirebaseAuth();
+    let unsubscribe = null;
+    if (authInstance) {
+      unsubscribe = onAuthStateChanged(authInstance, async (fbUser) => {
+        if (fbUser && fbUser.email) {
+          if (typeof window !== 'undefined' && sessionStorage.getItem('sahara_signed_out')) {
+            return;
+          }
+          const authMode = typeof window !== 'undefined'
+            ? (sessionStorage.getItem('sahara_google_auth_mode') || localStorage.getItem('sahara_google_auth_mode'))
+            : null;
+          const currentStep = typeof window !== 'undefined'
+            ? (sessionStorage.getItem('sahara_onboarding_step') || localStorage.getItem('sahara_onboarding_step'))
+            : null;
+
+          // If signup flow is active or user was redirected after clicking signup
+          if (authMode === 'signup' || currentStep === '3') {
+            const cleanEmail = fbUser.email.toLowerCase();
+            const cleanName = (fbUser.displayName || cleanEmail.split('@')[0] || '').replace(/\s*\(.*?\)\s*/g, '');
+            setAuthMethod('google');
+            setGoogleEmail(cleanEmail);
+            setFullName(cleanName);
+            if (typeof window !== 'undefined') {
+              try {
+                sessionStorage.setItem('sahara_onboarding_step', '3');
+                localStorage.setItem('sahara_onboarding_step', '3');
+                sessionStorage.removeItem('sahara_google_auth_mode');
+                localStorage.removeItem('sahara_google_auth_mode');
+              } catch (e) {}
+            }
+            showToast(`Google account verified as ${cleanEmail}! Please complete your companion & caregiver details.`, 'info', 5000);
+            setStep(3);
+          }
+        }
+      });
+    }
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, []);
 
   const t = getTranslation(activeLanguage);
